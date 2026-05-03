@@ -1,17 +1,11 @@
 package com.robertochavez.timetracker.feature.home
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -20,25 +14,36 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.robertochavez.timetracker.core.designsystem.TimeTrackerCard
+import com.robertochavez.timetracker.core.designsystem.TimeTrackerMutedText
+import com.robertochavez.timetracker.core.designsystem.TimeTrackerPrimaryButton
+import com.robertochavez.timetracker.core.designsystem.TimeTrackerScreen
+import com.robertochavez.timetracker.core.designsystem.TimeTrackerScreenTitle
+import com.robertochavez.timetracker.core.designsystem.TimeTrackerStatusText
 
 @Composable
 fun HomeRoute(modifier: Modifier = Modifier, viewModel: HomeViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
-    Scaffold(modifier = modifier) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            Text("Locations", style = MaterialTheme.typography.headlineMedium)
+    TimeTrackerScreen(modifier = modifier) {
+        item {
+            TimeTrackerScreenTitle(
+                title = "Locations",
+                subtitle = "Set home and job-site geofences with adjustable radius.",
+            )
+        }
+        item {
             HomeCurrentCard(state.homeSummary, viewModel::useCurrentHomeLocation)
+        }
+        item {
             HomePinCard(state, viewModel::updateHomeField, viewModel::saveHomePin)
+        }
+        item {
             WorkLocationCard(state, viewModel::useCurrentWorkLocation, viewModel::updateWorkField, viewModel::saveWorkPin)
-            if (state.statusMessage.isNotBlank()) {
-                Text(state.statusMessage, color = MaterialTheme.colorScheme.primary)
+        }
+        if (state.statusMessage.isNotBlank()) {
+            item {
+                TimeTrackerStatusText(state.statusMessage)
             }
         }
     }
@@ -46,44 +51,30 @@ fun HomeRoute(modifier: Modifier = Modifier, viewModel: HomeViewModel = hiltView
 
 @Composable
 private fun HomeCurrentCard(summary: String, onUseCurrentLocation: () -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Text("Current Home", style = MaterialTheme.typography.titleMedium)
-            Text(summary)
-            Button(onClick = onUseCurrentLocation) {
-                Text("Use Current Home Location")
-            }
-        }
+    TimeTrackerCard {
+        Text("Current Home", style = MaterialTheme.typography.titleMedium)
+        TimeTrackerMutedText(summary)
+        TimeTrackerPrimaryButton(text = "Use Current Home Location", onClick = onUseCurrentLocation)
     }
 }
 
 @Composable
 private fun HomePinCard(state: HomeUiState, onFieldChange: (LocationField, String) -> Unit, onSave: () -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Text("Home Pin", style = MaterialTheme.typography.titleMedium)
-            CoordinateRow(
-                latitude = state.homeLatitude,
-                longitude = state.homeLongitude,
-                onLatitudeChange = { onFieldChange(LocationField.LATITUDE, it) },
-                onLongitudeChange = { onFieldChange(LocationField.LONGITUDE, it) },
-            )
-            PinNumberField(
-                label = "Radius meters",
-                value = state.homeRadiusMeters,
-                onValueChange = { onFieldChange(LocationField.RADIUS_METERS, it) },
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Button(onClick = onSave) {
-                Text("Save Home Pin")
-            }
-        }
+    TimeTrackerCard {
+        Text("Home Pin", style = MaterialTheme.typography.titleMedium)
+        CoordinateRow(
+            latitude = state.homeLatitude,
+            longitude = state.homeLongitude,
+            onLatitudeChange = { onFieldChange(LocationField.LATITUDE, it) },
+            onLongitudeChange = { onFieldChange(LocationField.LONGITUDE, it) },
+        )
+        PinNumberField(
+            label = "Radius meters",
+            value = state.homeRadiusMeters,
+            onValueChange = { onFieldChange(LocationField.RADIUS_METERS, it) },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        TimeTrackerPrimaryButton(text = "Save Home Pin", onClick = onSave)
     }
 }
 
@@ -94,32 +85,23 @@ private fun WorkLocationCard(
     onFieldChange: (LocationField, String) -> Unit,
     onSave: () -> Unit,
 ) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Text("Work / Job Site", style = MaterialTheme.typography.titleMedium)
-            Text(state.workSummary)
-            Button(onClick = onUseCurrentLocation) {
-                Text("Use Current Work Location")
-            }
-            CoordinateRow(
-                latitude = state.workLatitude,
-                longitude = state.workLongitude,
-                onLatitudeChange = { onFieldChange(LocationField.LATITUDE, it) },
-                onLongitudeChange = { onFieldChange(LocationField.LONGITUDE, it) },
-            )
-            PinNumberField(
-                label = "Radius meters",
-                value = state.workRadiusMeters,
-                onValueChange = { onFieldChange(LocationField.RADIUS_METERS, it) },
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Button(onClick = onSave) {
-                Text("Save Work Pin")
-            }
-        }
+    TimeTrackerCard {
+        Text("Work / Job Site", style = MaterialTheme.typography.titleMedium)
+        TimeTrackerMutedText(state.workSummary)
+        TimeTrackerPrimaryButton(text = "Use Current Work Location", onClick = onUseCurrentLocation)
+        CoordinateRow(
+            latitude = state.workLatitude,
+            longitude = state.workLongitude,
+            onLatitudeChange = { onFieldChange(LocationField.LATITUDE, it) },
+            onLongitudeChange = { onFieldChange(LocationField.LONGITUDE, it) },
+        )
+        PinNumberField(
+            label = "Radius meters",
+            value = state.workRadiusMeters,
+            onValueChange = { onFieldChange(LocationField.RADIUS_METERS, it) },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        TimeTrackerPrimaryButton(text = "Save Work Pin", onClick = onSave)
     }
 }
 

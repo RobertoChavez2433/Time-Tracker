@@ -256,3 +256,19 @@
 - Wrapped long Kotlin declarations and queries exposed by the new 140-character Detekt limit.
 - `./scripts/quality/check-limp-policies.ps1` passed.
 - `./gradlew.bat spotlessCheck detekt --console=plain` passed.
+
+### Direction - Dark Design System
+- User rejected the default light Material look and requested a dark UI closer to Field Guide.
+- Field Guide design intent adapted, not copied wholesale: dark-first background, elevated charcoal cards, cyan primary actions, restrained radii, dense operational screens, and theme/shared-component ownership instead of per-screen hand styling.
+- Added `:core:designsystem` as the UI boundary for the app theme, color tokens, shared screen scaffold, cards, muted/status text, metric rows, and primary buttons.
+- Updated feature screens to consume shared design-system primitives.
+- Replaced bottom-navigation text initials with Material icons and cyan selected-state styling.
+- Fixed the Home screen clipping found during S21 verification by moving screen content to a shared scrollable list pattern.
+
+### Verification - Dark Design System
+- `./scripts/quality/check-limp-policies.ps1` passed.
+- `./gradlew.bat spotlessCheck detekt testDebugUnitTest lintDebug assembleDebug --console=plain --no-daemon --no-configuration-cache` passed.
+- CodeMunch incremental re-index completed after the design-system split; dependency cycles remained at 0 and custom layer violations remained at 0.
+- Installed the debug build on S21 `RFCNC0Y975L`.
+- Captured S21 screenshots for Home, Tracking, Reports, and Settings after the dark design-system refactor.
+- Verified the Home work/job-site geofence controls remain reachable after scrolling on S21.

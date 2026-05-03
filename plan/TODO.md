@@ -58,6 +58,7 @@ Initial module layout:
 :core:common
 :core:database
 :core:datastore
+:core:designsystem
 :core:logging
 :core:location
 :core:notifications
@@ -73,6 +74,7 @@ Module rules:
 - `:core:common` owns plain Kotlin primitives, time helpers, result types, and shared domain abstractions that are not feature-specific.
 - `:core:database` owns Room entities, DAOs, migrations, and local persistence implementations.
 - `:core:datastore` owns preference schemas and settings persistence.
+- `:core:designsystem` owns the Field Guide-inspired dark theme, color tokens, shared Compose screen scaffolds, cards, buttons, and report rows.
 - `:core:logging` owns structured app logging, sanitization, local log retention, Logcat bridging, and debug log-drain transport.
 - `:core:location` owns geofence and activity-recognition adapters behind interfaces.
 - `:core:notifications` owns notification channels, permission-aware notification helpers, and future live timer notification support.
@@ -231,6 +233,10 @@ Work/job-site geofence requirement:
 - [x] Add reports screen.
 - [x] Add settings screen.
 - [x] Add permission education and request flow for precise/background location and activity recognition.
+- [x] Add a Field Guide-inspired dark theme as the default app theme.
+- [x] Move shared UI primitives into `:core:designsystem` so feature screens do not hand-style cards, buttons, titles, and report rows.
+- [x] Replace text-letter bottom navigation icons with Material icons.
+- [x] Verify the dark UI on S21 hardware.
 
 ## Reports
 
@@ -350,6 +356,7 @@ Checklist:
 - [x] Verify `GET /testing/state` on a headless Android emulator through ADB port forwarding.
 - [x] Run CodeMunch audit after work-location/geofence implementation and confirm no cycles or layer violations.
 - [x] Re-run LIMP, Spotless, Detekt, unit tests, Android lint, and debug assemble.
+- [x] Verify the Field Guide-style dark UI on S21 hardware after the design-system refactor.
 
 ## Remaining Implementation + Verification
 

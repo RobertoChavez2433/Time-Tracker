@@ -37,6 +37,7 @@ dependencies {
     implementation(project(":core:common"))
     implementation(project(":core:database"))
     implementation(project(":core:datastore"))
+    implementation(project(":core:designsystem"))
     implementation(project(":core:logging"))
     implementation(project(":core:location"))
     implementation(project(":core:notifications"))
@@ -47,6 +48,7 @@ dependencies {
 
     implementation(platform(libs.compose.bom))
     implementation(libs.activity.compose)
+    implementation(libs.compose.material.icons.extended)
     implementation(libs.compose.material3)
     implementation(libs.compose.ui)
     implementation(libs.compose.ui.tooling.preview)
