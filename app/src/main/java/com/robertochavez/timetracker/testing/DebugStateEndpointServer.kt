@@ -2,6 +2,7 @@ package com.robertochavez.timetracker.testing
 
 import android.content.Context
 import android.content.pm.ApplicationInfo
+import com.robertochavez.timetracker.BuildConfig
 import com.robertochavez.timetracker.core.logging.AppLogger
 import com.robertochavez.timetracker.core.logging.JsonEncoding
 import com.robertochavez.timetracker.core.logging.LogCategory
@@ -27,7 +28,8 @@ class DebugStateEndpointServer @Inject constructor(
     private val snapshotProvider: AppStateSnapshotProvider,
     private val logger: AppLogger,
 ) {
-    private val enabled = context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
+    private val debuggable = context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
+    private val enabled = debuggable && BuildConfig.E2E_DEBUG_ENABLED
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var serverSocket: ServerSocket? = null
 
@@ -89,6 +91,10 @@ class DebugStateEndpointServer @Inject constructor(
         logger.info(LogCategory.TESTING, "Testing state requested", mapOf("posture" to state.posture))
         return mapOf(
             "transportReady" to true,
+            "debugHarness" to mapOf(
+                "debuggable" to debuggable,
+                "e2eDebugEnabled" to BuildConfig.E2E_DEBUG_ENABLED,
+            ),
             "snapshot" to snapshot.toMap(),
             "stateMachine" to state.toMap(),
             "recentLogs" to logs,

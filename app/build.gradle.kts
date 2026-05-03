@@ -6,6 +6,12 @@ plugins {
     alias(libs.plugins.hilt)
 }
 
+val e2eDebugEnabled =
+    providers
+        .gradleProperty("timeTracker.e2eDebug")
+        .map(String::toBoolean)
+        .orElse(false)
+
 android {
     namespace = "com.robertochavez.timetracker"
     compileSdk = 36
@@ -20,7 +26,18 @@ android {
     }
 
     buildFeatures {
+        buildConfig = true
         compose = true
+    }
+
+    buildTypes {
+        debug {
+            applicationIdSuffix = ".debug"
+            buildConfigField("boolean", "E2E_DEBUG_ENABLED", e2eDebugEnabled.get().toString())
+        }
+        release {
+            buildConfigField("boolean", "E2E_DEBUG_ENABLED", "false")
+        }
     }
 
     compileOptions {

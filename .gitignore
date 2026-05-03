@@ -20,6 +20,7 @@ captures/
 
 # Logs
 *.log
+tools/testing/test-results/
 
 # OS metadata
 .DS_Store

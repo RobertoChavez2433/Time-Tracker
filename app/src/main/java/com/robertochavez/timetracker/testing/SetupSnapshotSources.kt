@@ -2,6 +2,7 @@ package com.robertochavez.timetracker.testing
 
 import com.robertochavez.timetracker.core.common.repository.AppSettingsRepository
 import com.robertochavez.timetracker.core.common.repository.HomeLocationRepository
+import com.robertochavez.timetracker.core.common.repository.PayPeriodSettingsRepository
 import com.robertochavez.timetracker.core.common.repository.WorkLocationRepository
 import com.robertochavez.timetracker.core.common.repository.WorkPresenceRepository
 import com.robertochavez.timetracker.core.common.repository.WorkScheduleRepository
@@ -12,5 +13,6 @@ class SetupSnapshotSources @Inject constructor(
     val workLocationRepository: WorkLocationRepository,
     val workPresenceRepository: WorkPresenceRepository,
     val workScheduleRepository: WorkScheduleRepository,
+    val payPeriodSettingsRepository: PayPeriodSettingsRepository,
     val appSettingsRepository: AppSettingsRepository,
 )
