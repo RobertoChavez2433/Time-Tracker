@@ -140,3 +140,9 @@
 - Added `scripts/quality/check-module-boundaries.ps1` and wired it into pre-commit so feature modules cannot regress back to persistence implementation imports.
 - Current remaining implementation risk is not the Kotlin structure. It is release/device behavior: Android 11+ background-location UX, approximate-location implications for geofencing, and real-device geofence/activity verification.
 - `./gradlew.bat spotlessCheck detekt testDebugUnitTest lintDebug assembleDebug --console=plain` passed after the DI boundary refactor.
+
+### Architecture Test Support
+- Added reusable fake repository implementations and a main-dispatcher JUnit rule in `:core:testing`.
+- Added feature ViewModel unit tests for Home, Tracking, Reports, and Settings so feature logic can be verified through repository/location contracts instead of Room, DataStore, or Play services implementations.
+- `./gradlew.bat spotlessApply --console=plain` passed.
+- `./gradlew.bat testDebugUnitTest --console=plain` passed.

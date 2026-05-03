@@ -267,8 +267,8 @@ Review result: aligned in the broad shape, with one boundary tightened during re
 - [x] Add a module-boundary quality script to block feature imports of persistence implementation modules.
 - [x] Wire the module-boundary quality script into the pre-commit Kotlin/Android gate.
 - [x] Replace deprecated `hiltViewModel` imports with the current package.
-- [ ] Add feature ViewModel unit tests using fake repository contracts.
-- [ ] Add reusable fake repository implementations in `:core:testing`.
+- [x] Add feature ViewModel unit tests using fake repository contracts.
+- [x] Add reusable fake repository implementations in `:core:testing`.
 - [ ] Add CI wiring for module-boundary checks when CI exists.
 - [ ] Consider splitting `:core:location` into API and Play-services implementation modules if location code grows beyond the current small adapter surface.
 
