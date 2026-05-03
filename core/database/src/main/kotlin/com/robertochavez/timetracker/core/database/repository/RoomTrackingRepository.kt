@@ -6,6 +6,7 @@ import com.robertochavez.timetracker.core.common.model.ActivityBucket
 import com.robertochavez.timetracker.core.common.model.ActivityInterval
 import com.robertochavez.timetracker.core.common.model.AwaySession
 import com.robertochavez.timetracker.core.common.model.TrackingSessionController
+import com.robertochavez.timetracker.core.common.repository.TrackingRepository
 import com.robertochavez.timetracker.core.database.TimeTrackerDatabase
 import com.robertochavez.timetracker.core.database.dao.ActivityIntervalDao
 import com.robertochavez.timetracker.core.database.dao.AwaySessionDao
@@ -22,20 +23,21 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class TrackingRepository @Inject constructor(
+class RoomTrackingRepository @Inject constructor(
     private val database: TimeTrackerDatabase,
     private val awaySessionDao: AwaySessionDao,
     private val activityIntervalDao: ActivityIntervalDao,
     private val workScheduleDao: WorkScheduleDao,
     private val clock: Clock,
-) : TrackingSessionController {
-    fun observeSessions(): Flow<List<AwaySession>> = awaySessionDao.observeSessions()
+) : TrackingRepository,
+    TrackingSessionController {
+    override fun observeSessions(): Flow<List<AwaySession>> = awaySessionDao.observeSessions()
         .map { sessions -> sessions.map(AwaySessionEntity::toModel) }
 
-    fun observeActivityIntervals(): Flow<List<ActivityInterval>> = activityIntervalDao.observeIntervals()
+    override fun observeActivityIntervals(): Flow<List<ActivityInterval>> = activityIntervalDao.observeIntervals()
         .map { intervals -> intervals.mapNotNull(ActivityIntervalEntity::toModelOrNull) }
 
-    suspend fun startManualSession(at: Instant = Instant.now(clock)): AwaySession = createSession(at)
+    override suspend fun startManualSession(at: Instant?): AwaySession = createSession(at ?: Instant.now(clock))
 
     override suspend fun startAwaySessionIfTrackable(at: Instant): AwaySession? {
         val schedule = WorkScheduleEntity.toSchedule(workScheduleDao.getWorkScheduleDays())
@@ -72,7 +74,7 @@ class TrackingRepository @Inject constructor(
         }
     }
 
-    suspend fun updateSessionWindow(
+    override suspend fun updateSessionWindow(
         sessionId: String,
         start: Instant,
         end: Instant?,
@@ -83,7 +85,7 @@ class TrackingRepository @Inject constructor(
         return updated
     }
 
-    suspend fun setCountsTowardTotals(
+    override suspend fun setCountsTowardTotals(
         sessionId: String,
         countsTowardTotals: Boolean,
     ): AwaySession? {
@@ -93,7 +95,7 @@ class TrackingRepository @Inject constructor(
         return updated
     }
 
-    suspend fun setDrivenMiles(
+    override suspend fun setDrivenMiles(
         sessionId: String,
         drivenMiles: Double,
     ): AwaySession? {
@@ -103,7 +105,7 @@ class TrackingRepository @Inject constructor(
         return updated
     }
 
-    suspend fun replaceActivityIntervals(
+    override suspend fun replaceActivityIntervals(
         sessionId: String,
         intervals: List<ActivityInterval>,
     ): AwaySession? = database.withTransaction {

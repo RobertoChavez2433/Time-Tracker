@@ -89,6 +89,17 @@ Write-Host "Staged Kotlin files: $($stagedKotlin.Count)"
 Write-Host "Staged Android XML files: $($stagedAndroidXml.Count)"
 Write-Host "Staged Gradle/catalog files: $($stagedGradle.Count)"
 
+Write-Section "Running module boundary check"
+$boundaryCheck = Join-Path -Path $repoRoot -ChildPath "scripts/quality/check-module-boundaries.ps1"
+if (-not (Test-Path -LiteralPath $boundaryCheck)) {
+    Fail "Module boundary check not found: $boundaryCheck"
+}
+
+& pwsh -ExecutionPolicy Bypass -File $boundaryCheck
+if ($LASTEXITCODE -ne 0) {
+    Fail "FAILED: module boundary check failed."
+}
+
 $gradleCandidates = @(
     (Join-Path -Path (Get-Location) -ChildPath "gradlew.bat")
     (Join-Path -Path (Get-Location) -ChildPath "gradlew")

@@ -7,6 +7,8 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.preferencesDataStore
+import com.robertochavez.timetracker.core.common.model.AppSettings
+import com.robertochavez.timetracker.core.common.repository.AppSettingsRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -22,8 +24,8 @@ private val Context.timeTrackerSettingsDataStore: DataStore<Preferences> by pref
 @Singleton
 class SettingsDataStore @Inject constructor(
     @ApplicationContext private val context: Context,
-) {
-    val settings: Flow<AppSettings> = context.timeTrackerSettingsDataStore.data
+) : AppSettingsRepository {
+    override val settings: Flow<AppSettings> = context.timeTrackerSettingsDataStore.data
         .catch { error ->
             if (error is IOException) {
                 emit(emptyPreferences())
@@ -39,15 +41,15 @@ class SettingsDataStore @Inject constructor(
             )
         }
 
-    suspend fun setMinimalActiveNotificationEnabled(enabled: Boolean) {
+    override suspend fun setMinimalActiveNotificationEnabled(enabled: Boolean) {
         context.timeTrackerSettingsDataStore.edit { it[MINIMAL_ACTIVE_NOTIFICATION] = enabled }
     }
 
-    suspend fun setLiveTimerNotificationEnabled(enabled: Boolean) {
+    override suspend fun setLiveTimerNotificationEnabled(enabled: Boolean) {
         context.timeTrackerSettingsDataStore.edit { it[LIVE_TIMER_NOTIFICATION] = enabled }
     }
 
-    suspend fun setPrivacyDisclosureAccepted(accepted: Boolean) {
+    override suspend fun setPrivacyDisclosureAccepted(accepted: Boolean) {
         context.timeTrackerSettingsDataStore.edit { it[PRIVACY_DISCLOSURE_ACCEPTED] = accepted }
     }
 

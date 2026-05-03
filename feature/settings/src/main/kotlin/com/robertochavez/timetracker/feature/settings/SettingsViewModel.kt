@@ -4,9 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.robertochavez.timetracker.core.common.model.PayPeriodSettings
 import com.robertochavez.timetracker.core.common.model.WorkSchedule
-import com.robertochavez.timetracker.core.database.repository.PayPeriodSettingsRepository
-import com.robertochavez.timetracker.core.database.repository.WorkScheduleRepository
-import com.robertochavez.timetracker.core.datastore.SettingsDataStore
+import com.robertochavez.timetracker.core.common.repository.AppSettingsRepository
+import com.robertochavez.timetracker.core.common.repository.PayPeriodSettingsRepository
+import com.robertochavez.timetracker.core.common.repository.WorkScheduleRepository
 import com.robertochavez.timetracker.core.location.activity.ActivityTransitionRegistrar
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,7 +23,7 @@ import javax.inject.Inject
 class SettingsViewModel @Inject constructor(
     private val workScheduleRepository: WorkScheduleRepository,
     private val payPeriodSettingsRepository: PayPeriodSettingsRepository,
-    private val settingsDataStore: SettingsDataStore,
+    private val appSettingsRepository: AppSettingsRepository,
     private val activityTransitionRegistrar: ActivityTransitionRegistrar,
 ) : ViewModel() {
     private val editedAnchorDate = MutableStateFlow<String?>(null)
@@ -32,7 +32,7 @@ class SettingsViewModel @Inject constructor(
     val uiState: StateFlow<SettingsUiState> = combine(
         workScheduleRepository.observeWorkSchedule(),
         payPeriodSettingsRepository.observeSettings(),
-        settingsDataStore.settings,
+        appSettingsRepository.settings,
         editedAnchorDate,
         statusMessage,
     ) { schedule, payPeriod, appSettings, editedAnchor, status ->
@@ -81,19 +81,19 @@ class SettingsViewModel @Inject constructor(
 
     fun setMinimalActiveNotificationEnabled(enabled: Boolean) {
         viewModelScope.launch {
-            settingsDataStore.setMinimalActiveNotificationEnabled(enabled)
+            appSettingsRepository.setMinimalActiveNotificationEnabled(enabled)
         }
     }
 
     fun setLiveTimerNotificationEnabled(enabled: Boolean) {
         viewModelScope.launch {
-            settingsDataStore.setLiveTimerNotificationEnabled(enabled)
+            appSettingsRepository.setLiveTimerNotificationEnabled(enabled)
         }
     }
 
     fun setPrivacyDisclosureAccepted(accepted: Boolean) {
         viewModelScope.launch {
-            settingsDataStore.setPrivacyDisclosureAccepted(accepted)
+            appSettingsRepository.setPrivacyDisclosureAccepted(accepted)
         }
     }
 

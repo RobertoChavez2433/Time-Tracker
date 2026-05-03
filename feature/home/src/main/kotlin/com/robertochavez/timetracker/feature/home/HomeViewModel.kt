@@ -3,7 +3,7 @@ package com.robertochavez.timetracker.feature.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.robertochavez.timetracker.core.common.model.HomeLocation
-import com.robertochavez.timetracker.core.database.repository.HomeLocationRepository
+import com.robertochavez.timetracker.core.common.repository.HomeLocationRepository
 import com.robertochavez.timetracker.core.location.CurrentHomeLocationProvider
 import com.robertochavez.timetracker.core.location.geofence.HomeGeofenceRegistrar
 import dagger.hilt.android.lifecycle.HiltViewModel

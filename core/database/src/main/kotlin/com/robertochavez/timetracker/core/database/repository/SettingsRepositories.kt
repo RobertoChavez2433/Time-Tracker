@@ -2,6 +2,8 @@ package com.robertochavez.timetracker.core.database.repository
 
 import com.robertochavez.timetracker.core.common.model.PayPeriodSettings
 import com.robertochavez.timetracker.core.common.model.WorkSchedule
+import com.robertochavez.timetracker.core.common.repository.PayPeriodSettingsRepository
+import com.robertochavez.timetracker.core.common.repository.WorkScheduleRepository
 import com.robertochavez.timetracker.core.database.dao.PayPeriodSettingsDao
 import com.robertochavez.timetracker.core.database.dao.WorkScheduleDao
 import com.robertochavez.timetracker.core.database.entity.PayPeriodSettingsEntity
@@ -13,29 +15,29 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class WorkScheduleRepository @Inject constructor(
+class RoomWorkScheduleRepository @Inject constructor(
     private val workScheduleDao: WorkScheduleDao,
-) {
-    fun observeWorkSchedule(): Flow<WorkSchedule> = workScheduleDao.observeWorkScheduleDays()
+) : WorkScheduleRepository {
+    override fun observeWorkSchedule(): Flow<WorkSchedule> = workScheduleDao.observeWorkScheduleDays()
         .map(WorkScheduleEntity::toSchedule)
 
-    suspend fun getWorkSchedule(): WorkSchedule = WorkScheduleEntity.toSchedule(workScheduleDao.getWorkScheduleDays())
+    override suspend fun getWorkSchedule(): WorkSchedule = WorkScheduleEntity.toSchedule(workScheduleDao.getWorkScheduleDays())
 
-    suspend fun setWorkSchedule(schedule: WorkSchedule) {
+    override suspend fun setWorkSchedule(schedule: WorkSchedule) {
         workScheduleDao.upsertAll(WorkScheduleEntity.fromSchedule(schedule))
     }
 }
 
 @Singleton
-class PayPeriodSettingsRepository @Inject constructor(
+class RoomPayPeriodSettingsRepository @Inject constructor(
     private val payPeriodSettingsDao: PayPeriodSettingsDao,
-) {
-    fun observeSettings(): Flow<PayPeriodSettings> = payPeriodSettingsDao.observeSettings()
+) : PayPeriodSettingsRepository {
+    override fun observeSettings(): Flow<PayPeriodSettings> = payPeriodSettingsDao.observeSettings()
         .map { it?.toModel() ?: defaultSettings() }
 
-    suspend fun getSettings(): PayPeriodSettings = payPeriodSettingsDao.getSettings()?.toModel() ?: defaultSettings()
+    override suspend fun getSettings(): PayPeriodSettings = payPeriodSettingsDao.getSettings()?.toModel() ?: defaultSettings()
 
-    suspend fun setSettings(settings: PayPeriodSettings) {
+    override suspend fun setSettings(settings: PayPeriodSettings) {
         payPeriodSettingsDao.upsert(PayPeriodSettingsEntity.fromModel(settings))
     }
 

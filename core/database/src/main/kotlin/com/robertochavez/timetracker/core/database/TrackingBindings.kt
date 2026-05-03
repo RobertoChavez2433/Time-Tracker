@@ -1,7 +1,14 @@
 package com.robertochavez.timetracker.core.database
 
 import com.robertochavez.timetracker.core.common.model.TrackingSessionController
-import com.robertochavez.timetracker.core.database.repository.TrackingRepository
+import com.robertochavez.timetracker.core.common.repository.HomeLocationRepository
+import com.robertochavez.timetracker.core.common.repository.PayPeriodSettingsRepository
+import com.robertochavez.timetracker.core.common.repository.TrackingRepository
+import com.robertochavez.timetracker.core.common.repository.WorkScheduleRepository
+import com.robertochavez.timetracker.core.database.repository.RoomHomeLocationRepository
+import com.robertochavez.timetracker.core.database.repository.RoomPayPeriodSettingsRepository
+import com.robertochavez.timetracker.core.database.repository.RoomTrackingRepository
+import com.robertochavez.timetracker.core.database.repository.RoomWorkScheduleRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -13,5 +20,21 @@ import javax.inject.Singleton
 abstract class TrackingBindings {
     @Binds
     @Singleton
-    abstract fun bindTrackingSessionController(repository: TrackingRepository): TrackingSessionController
+    abstract fun bindHomeLocationRepository(repository: RoomHomeLocationRepository): HomeLocationRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindWorkScheduleRepository(repository: RoomWorkScheduleRepository): WorkScheduleRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindPayPeriodSettingsRepository(repository: RoomPayPeriodSettingsRepository): PayPeriodSettingsRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindTrackingRepository(repository: RoomTrackingRepository): TrackingRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindTrackingSessionController(repository: RoomTrackingRepository): TrackingSessionController
 }

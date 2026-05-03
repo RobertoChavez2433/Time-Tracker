@@ -5,7 +5,7 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.robertochavez.timetracker.core.common.model.WorkSchedule
 import com.robertochavez.timetracker.core.database.entity.WorkScheduleEntity
-import com.robertochavez.timetracker.core.database.repository.TrackingRepository
+import com.robertochavez.timetracker.core.database.repository.RoomTrackingRepository
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -23,7 +23,7 @@ import java.time.ZoneId
 @RunWith(RobolectricTestRunner::class)
 class TrackingRepositoryTest {
     private lateinit var database: TimeTrackerDatabase
-    private lateinit var repository: TrackingRepository
+    private lateinit var repository: RoomTrackingRepository
 
     @Before
     fun setUp() {
@@ -31,7 +31,7 @@ class TrackingRepositoryTest {
         database = Room.inMemoryDatabaseBuilder(context, TimeTrackerDatabase::class.java)
             .allowMainThreadQueries()
             .build()
-        repository = TrackingRepository(
+        repository = RoomTrackingRepository(
             database = database,
             awaySessionDao = database.awaySessionDao(),
             activityIntervalDao = database.activityIntervalDao(),

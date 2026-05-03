@@ -250,3 +250,37 @@ ui
 - [x] Add user-facing disclosure for activity recognition before release builds.
 - [x] Verify Play policy requirements before a Play Store release track.
 - [x] Keep local-only data handling as the default unless the product direction changes.
+
+## Architecture Review Follow-Ups
+
+Review result: aligned in the broad shape, with one boundary tightened during review.
+
+- [x] Verify current Android architecture guidance for layering, single source of truth, and unidirectional data flow.
+- [x] Verify Android modularization guidance for low coupling, clear APIs, and strict visibility.
+- [x] Verify Hilt multi-module guidance: the app module must have Hilt modules and injected classes in transitive dependencies.
+- [x] Remove feature-module dependencies on `:core:database`.
+- [x] Remove feature-module dependencies on `:core:datastore`.
+- [x] Add repository contracts in `:core:common` so feature ViewModels depend on interfaces.
+- [x] Bind Room-backed repository implementations behind Hilt in `:core:database`.
+- [x] Bind DataStore-backed settings implementation behind Hilt in `:core:datastore`.
+- [x] Keep Android framework and Play services calls isolated behind injectable interfaces.
+- [x] Add a module-boundary quality script to block feature imports of persistence implementation modules.
+- [x] Wire the module-boundary quality script into the pre-commit Kotlin/Android gate.
+- [x] Replace deprecated `hiltViewModel` imports with the current package.
+- [ ] Add feature ViewModel unit tests using fake repository contracts.
+- [ ] Add reusable fake repository implementations in `:core:testing`.
+- [ ] Add CI wiring for module-boundary checks when CI exists.
+- [ ] Consider splitting `:core:location` into API and Play-services implementation modules if location code grows beyond the current small adapter surface.
+
+## Remaining Implementation + Verification
+
+- [ ] Implement staged Android 11+ background-location permission UX: foreground first, educational UI, then app-settings handoff for "Allow all the time".
+- [ ] Add runtime checks that explain approximate-location limitations before registering a precise home geofence.
+- [ ] Run and record the manual device checklist for geofence exit, enter, dwell, delayed delivery, reboot/app restart, and activity transitions.
+- [ ] Decide whether the map-pin adjustment must become an actual map UI instead of coordinate/radius fields.
+- [ ] If map UI is required, add map dependency/API-key handling and keep home location storage to a single point plus radius.
+- [ ] Decide whether CSV export is post-MVP or near-term.
+- [ ] Add migration test harness before the first schema upgrade beyond version 1.
+- [ ] Add accessibility pass for Compose screens before release.
+- [ ] Add release build/signing configuration when a release track is planned.
+- [ ] If automatic mileage is requested later, design it explicitly for privacy and battery before implementation; do not infer miles from stored routes or continuous GPS by default.

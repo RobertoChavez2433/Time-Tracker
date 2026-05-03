@@ -30,7 +30,6 @@ android {
 
 dependencies {
     implementation(project(":core:common"))
-    implementation(project(":core:database"))
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.foundation)
     implementation(libs.compose.material3)

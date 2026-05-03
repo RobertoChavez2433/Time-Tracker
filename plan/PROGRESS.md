@@ -131,3 +131,12 @@
 
 ### Remaining Product Caveat
 - Physical geofence and activity-recognition behavior still needs the manual device checklist because emulator/unit verification cannot prove real-world background delivery timing.
+
+### Architecture Review
+- Committed the initial working tree in logical slices: docs, Gradle/tooling, hook fixes, domain, persistence, location, and UI.
+- Confirmed the broad module shape matches current Android guidance: UI/domain/data layering, local database as source of truth, unidirectional UI state, and Hilt modules available through app transitive dependencies.
+- Tightened the main weak boundary: feature ViewModels no longer depend on concrete `:core:database` or `:core:datastore` classes.
+- Added repository contracts in `:core:common`; Room/DataStore implementations are bound behind Hilt in their implementation modules.
+- Added `scripts/quality/check-module-boundaries.ps1` and wired it into pre-commit so feature modules cannot regress back to persistence implementation imports.
+- Current remaining implementation risk is not the Kotlin structure. It is release/device behavior: Android 11+ background-location UX, approximate-location implications for geofencing, and real-device geofence/activity verification.
+- `./gradlew.bat spotlessCheck detekt testDebugUnitTest lintDebug assembleDebug --console=plain` passed after the DI boundary refactor.

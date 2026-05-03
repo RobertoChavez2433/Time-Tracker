@@ -1,6 +1,7 @@
 package com.robertochavez.timetracker.core.database.repository
 
 import com.robertochavez.timetracker.core.common.model.HomeLocation
+import com.robertochavez.timetracker.core.common.repository.HomeLocationRepository
 import com.robertochavez.timetracker.core.database.dao.HomeLocationDao
 import com.robertochavez.timetracker.core.database.entity.HomeLocationEntity
 import kotlinx.coroutines.flow.Flow
@@ -9,14 +10,14 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class HomeLocationRepository @Inject constructor(
+class RoomHomeLocationRepository @Inject constructor(
     private val homeLocationDao: HomeLocationDao,
-) {
-    fun observeHomeLocation(): Flow<HomeLocation?> = homeLocationDao.observeHomeLocation().map { it?.toModel() }
+) : HomeLocationRepository {
+    override fun observeHomeLocation(): Flow<HomeLocation?> = homeLocationDao.observeHomeLocation().map { it?.toModel() }
 
-    suspend fun getHomeLocation(): HomeLocation? = homeLocationDao.getHomeLocation()?.toModel()
+    override suspend fun getHomeLocation(): HomeLocation? = homeLocationDao.getHomeLocation()?.toModel()
 
-    suspend fun setHomeLocation(homeLocation: HomeLocation) {
+    override suspend fun setHomeLocation(homeLocation: HomeLocation) {
         homeLocationDao.upsert(HomeLocationEntity.fromModel(homeLocation))
     }
 }

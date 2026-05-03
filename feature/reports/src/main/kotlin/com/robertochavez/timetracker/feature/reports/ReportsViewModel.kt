@@ -6,9 +6,9 @@ import com.robertochavez.timetracker.core.common.domain.ReportCalculator
 import com.robertochavez.timetracker.core.common.model.ActivityBucket
 import com.robertochavez.timetracker.core.common.model.DailyReport
 import com.robertochavez.timetracker.core.common.model.PeriodReport
-import com.robertochavez.timetracker.core.database.repository.PayPeriodSettingsRepository
-import com.robertochavez.timetracker.core.database.repository.TrackingRepository
-import com.robertochavez.timetracker.core.database.repository.WorkScheduleRepository
+import com.robertochavez.timetracker.core.common.repository.PayPeriodSettingsRepository
+import com.robertochavez.timetracker.core.common.repository.TrackingRepository
+import com.robertochavez.timetracker.core.common.repository.WorkScheduleRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow

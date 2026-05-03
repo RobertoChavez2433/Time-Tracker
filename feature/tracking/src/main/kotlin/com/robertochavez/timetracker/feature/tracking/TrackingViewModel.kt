@@ -3,7 +3,7 @@ package com.robertochavez.timetracker.feature.tracking
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.robertochavez.timetracker.core.common.model.AwaySession
-import com.robertochavez.timetracker.core.database.repository.TrackingRepository
+import com.robertochavez.timetracker.core.common.repository.TrackingRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
