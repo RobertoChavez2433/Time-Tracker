@@ -184,6 +184,7 @@ Work/job-site geofence requirement:
 - Home and work/job-site geofence radii must be separately configurable.
 - Work/job-site radius should support up to 5 miles where Android geofencing behavior remains reliable enough for the user.
 - Job-site driving is not tracked as commute/away drive time.
+- Miles driven while inside the work/job-site geofence still count toward reported mileage.
 - Activity Recognition `IN_VEHICLE` events inside the work/job-site geofence should be suppressed or reported separately from tracked drive time.
 
 - [x] Let user set home by current precise location.
@@ -201,6 +202,8 @@ Work/job-site geofence requirement:
 - [x] On work/job-site geofence exit, mark the session as away from work.
 - [x] Use Activity Recognition Transition API for `IN_VEHICLE` and `STILL`.
 - [x] Do not count `IN_VEHICLE` time as tracked drive time while inside the work/job-site geofence.
+- [x] Count miles driven inside the work/job-site geofence while keeping that vehicle time out of drive-time totals.
+- [x] Log measured current-location/geofence accuracy meters when Play Services provides them.
 - [x] Keep job-site driving separate from commute/away driving in reports if it is shown at all.
 - [x] Do not use GPS speed for drive classification.
 - [x] Do not calculate mileage from GPS speed.

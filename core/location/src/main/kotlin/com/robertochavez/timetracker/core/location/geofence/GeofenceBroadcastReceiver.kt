@@ -50,6 +50,7 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
 
         val now = Instant.now(clock)
         val requestIds = event.triggeringGeofences?.map { it.requestId }?.toSet().orEmpty()
+        logger.info(LogCategory.LOCATION, "Geofence transition received", event.debugData(requestIds))
 
         if (requestIds.isEmpty() || TimeTrackerGeofenceIds.HOME in requestIds) {
             handleHomeTransition(event.geofenceTransition, now)
@@ -88,4 +89,22 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
             }
         }
     }
+}
+
+private fun GeofencingEvent.debugData(requestIds: Set<String>): Map<String, Any?> {
+    val location = triggeringLocation
+    return mapOf(
+        "requestIds" to requestIds.sorted(),
+        "transition" to geofenceTransition.name(),
+        "triggeringLocationAvailable" to (location != null),
+        "triggeringLocationHasAccuracy" to (location?.hasAccuracy() == true),
+        "triggeringLocationAccuracyMeters" to location?.takeIf { it.hasAccuracy() }?.accuracy,
+    )
+}
+
+private fun Int.name(): String = when (this) {
+    Geofence.GEOFENCE_TRANSITION_ENTER -> "ENTER"
+    Geofence.GEOFENCE_TRANSITION_EXIT -> "EXIT"
+    Geofence.GEOFENCE_TRANSITION_DWELL -> "DWELL"
+    else -> "UNKNOWN_$this"
 }

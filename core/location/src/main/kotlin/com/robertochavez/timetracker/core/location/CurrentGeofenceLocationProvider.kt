@@ -71,7 +71,15 @@ class PlayServicesCurrentGeofenceLocationProvider @Inject constructor(
             null
         }
 
-        logger.info(LogCategory.LOCATION, "Current location result", mapOf("available" to (location != null)))
+        logger.info(
+            LogCategory.LOCATION,
+            "Current location result",
+            mapOf(
+                "available" to (location != null),
+                "hasAccuracy" to (location?.hasAccuracy() == true),
+                "accuracyMeters" to location?.takeIf { it.hasAccuracy() }?.accuracy,
+            ),
+        )
         return location
     }
 

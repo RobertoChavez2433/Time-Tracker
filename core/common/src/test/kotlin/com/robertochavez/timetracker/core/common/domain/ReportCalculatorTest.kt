@@ -145,6 +145,34 @@ class ReportCalculatorTest {
     }
 
     @Test
+    fun `jobsite driving miles count while drive time stays excluded`() {
+        val session = AwaySession(
+            id = "jobsite",
+            start = Instant.parse("2026-05-01T13:00:00Z"),
+            end = Instant.parse("2026-05-01T14:00:00Z"),
+            drivenMiles = 6.75,
+        )
+        val jobsiteDrivingInterval = ActivityInterval(
+            id = "jobsite-driving",
+            sessionId = session.id,
+            bucket = ActivityBucket.UNCLASSIFIED,
+            start = Instant.parse("2026-05-01T13:15:00Z"),
+            end = Instant.parse("2026-05-01T13:45:00Z"),
+        )
+
+        val report = calculator.daily(
+            date = LocalDate.of(2026, 5, 1),
+            sessions = listOf(session),
+            intervals = listOf(jobsiteDrivingInterval),
+            now = Instant.parse("2026-05-01T15:00:00Z"),
+        )
+
+        assertEquals(6.75, report.drivenMiles, 0.001)
+        assertEquals(Duration.ZERO, report.drive)
+        assertEquals(Duration.ofMinutes(30), report.unclassified)
+    }
+
+    @Test
     fun `splits driven miles across midnight proportionally`() {
         val session = AwaySession(
             id = "miles",

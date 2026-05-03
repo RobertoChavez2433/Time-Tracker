@@ -27,13 +27,15 @@
 - Added canonical artifacts under `tools/testing/test-results/<date>/<run-id>/`: `summary.json`, `report.md`, `button-state-matrix.json`, state snapshots, screenshots, UI dumps, persistence baseline/relaunch snapshots, and a persistence comparison.
 - Added relaunch persistence checks for configured locations/radii, privacy and notification settings, pay-period/workday state, session count, latest correction mileage, total miles, and report totals.
 - Updated the debug build application id to `com.robertochavez.timetracker.debug` for device E2E runs.
+- Added a jobsite geofence mileage policy E2E subflow: miles driven inside the jobsite geofence count toward mileage, while the at-work `IN_VEHICLE` interval stays out of drive minutes.
+- Added debug log telemetry for measured current-location and geofence transition accuracy meters when Play Services provides them.
 
 ### Verification - Premium Dark Olive UI And E2E
 - `./gradlew.bat "-PtimeTracker.e2eDebug=true" spotlessCheck detekt testDebugUnitTest lintDebug assembleDebug --console=plain` passed.
 - `./scripts/quality/check-limp-policies.ps1` passed.
-- `./tools/testing/Invoke-E2EVerification.ps1 -DeviceId RFCNC0Y975L -PackageName com.robertochavez.timetracker.debug -SkipInstall` passed on S21 hardware.
-- Latest E2E artifacts: `tools/testing/test-results/2026-05-03/time-tracker-e2e-20260503-185337/summary.json`, `report.md`, `button-state-matrix.json`, and `persistence-comparison.json`.
-- The E2E report verified all 10 named subflows and 45/45 controls, including persistence relaunch, report totals, debug-log audit, and destructive reset confirmation.
+- `./tools/testing/Invoke-E2EVerification.ps1 -DeviceId RFCNC0Y975L -PackageName com.robertochavez.timetracker.debug` passed on S21 hardware.
+- Latest E2E artifacts: `tools/testing/test-results/2026-05-03/time-tracker-e2e-20260503-191920/summary.json`, `report.md`, `button-state-matrix.json`, `persistence-comparison.json`, and `jobsite-drive-seed.json`.
+- The E2E report verified all 11 named subflows and 46/46 controls, including jobsite mileage policy, persistence relaunch, report totals, debug-log audit, and destructive reset confirmation.
 
 ### Implementation - Work Location Persistence
 - Added `WorkLocation` as a plain Kotlin domain model with a 100 m minimum radius and 8046.72 m maximum radius.

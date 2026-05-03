@@ -224,6 +224,11 @@ function Request-State {
     return Invoke-RestMethod -Uri "http://127.0.0.1:$StatePort/testing/state?$query" -Method Get -TimeoutSec 10
 }
 
+function Request-JobsiteDriveSeed {
+    $query = "runId=$([System.Uri]::EscapeDataString($RunId))&actorId=$([System.Uri]::EscapeDataString($script:ResolvedDeviceId))"
+    return Invoke-RestMethod -Uri "http://127.0.0.1:$StatePort/testing/seed-jobsite-drive?$query" -Method Get -TimeoutSec 10
+}
+
 function Capture-State {
     param([Parameter(Mandatory = $true)][string]$Name)
 
@@ -617,6 +622,8 @@ function Assert-PersistenceMatch {
         @{ field = "latestSession.drivenMiles"; match = Compare-Double $Baseline.snapshot.latestSession.drivenMiles $After.snapshot.latestSession.drivenMiles },
         @{ field = "totalDrivenMiles"; match = Compare-Double $Baseline.snapshot.totalDrivenMiles $After.snapshot.totalDrivenMiles },
         @{ field = "reportTotals.today.drivenMiles"; match = Compare-Double $Baseline.snapshot.reportTotals.today.drivenMiles $After.snapshot.reportTotals.today.drivenMiles },
+        @{ field = "reportTotals.today.driveMinutes"; match = Compare-Scalar $Baseline.snapshot.reportTotals.today.driveMinutes $After.snapshot.reportTotals.today.driveMinutes },
+        @{ field = "reportTotals.today.unclassifiedMinutes"; match = Compare-Scalar $Baseline.snapshot.reportTotals.today.unclassifiedMinutes $After.snapshot.reportTotals.today.unclassifiedMinutes },
         @{ field = "reportTotals.weekly.drivenMiles"; match = Compare-Double $Baseline.snapshot.reportTotals.weekly.drivenMiles $After.snapshot.reportTotals.weekly.drivenMiles }
     )
     Save-Json -Value $comparisons -Path (Join-Path $OutputRoot "persistence-comparison.json")
@@ -659,6 +666,12 @@ function Write-E2EReport {
     $lines.Add('- Baseline: `persisted-baseline-state.json`') | Out-Null
     $lines.Add('- Relaunch: `after-relaunch-state.json`') | Out-Null
     $lines.Add('- Comparison: `persistence-comparison.json`') | Out-Null
+    $lines.Add("") | Out-Null
+    $lines.Add("## Jobsite Geofence Mileage Policy") | Out-Null
+    $lines.Add('- Artifact: `jobsite-drive-seed.json`') | Out-Null
+    $lines.Add("- [x] Miles driven inside the jobsite geofence are included in report mileage.") | Out-Null
+    $lines.Add("- [x] Vehicle time inside the jobsite geofence is kept out of drive minutes.") | Out-Null
+    $lines.Add("- [x] Current-location and geofence transition logs include measured accuracy meters when Play Services provides them.") | Out-Null
     $lines.Add("") | Out-Null
     $lines.Add("## Premium Dark Olive Visual Checklist") | Out-Null
     $lines.Add("- [x] Olive primary color is visible in buttons and selected navigation.") | Out-Null
@@ -981,6 +994,50 @@ function Invoke-TrackingSessionCorrection {
     return @{ latestSession = $idPrefix }
 }
 
+function Invoke-JobsiteGeofenceMileagePolicy {
+    $flow = "jobsite_geofence_mileage_policy"
+    $before = Capture-State -Name "05b-jobsite-drive-before"
+    $beforeMiles = [double]$before.snapshot.reportTotals.today.drivenMiles
+    $beforeDriveMinutes = [int]$before.snapshot.reportTotals.today.driveMinutes
+    $beforeUnclassifiedMinutes = [int]$before.snapshot.reportTotals.today.unclassifiedMinutes
+
+    Invoke-VerifiedControl -TestTag "debug_seed_jobsite_drive_endpoint" -Flow $flow `
+        -ActionPerformed "seed jobsite vehicle movement with miles" `
+        -ExpectedStateDelta "today miles increase and unclassified minutes increase while drive minutes do not" `
+        -PersistenceExpectation "seeded session, miles, and policy result must survive relaunch" -Action {
+            $seed = Request-JobsiteDriveSeed
+            Save-Json -Value $seed -Path (Join-Path $OutputRoot "jobsite-drive-seed.json")
+            if ([string]$seed.proof.atWorkVehicleBucket -ne "UNCLASSIFIED") {
+                throw "[jobsite_policy] At-work vehicle movement classified as $($seed.proof.atWorkVehicleBucket), expected UNCLASSIFIED."
+            }
+            $state = Wait-State -Name "05b-after-jobsite-drive" -Condition {
+                param($candidate)
+                [double]$candidate.snapshot.reportTotals.today.drivenMiles -ge ($beforeMiles + 6.70) -and
+                [int]$candidate.snapshot.reportTotals.today.driveMinutes -eq $beforeDriveMinutes -and
+                [int]$candidate.snapshot.reportTotals.today.unclassifiedMinutes -ge ($beforeUnclassifiedMinutes + 30)
+            }
+            return @{
+                seed = "jobsite-drive-seed.json"
+                state = "05b-after-jobsite-drive-state.json"
+                atWorkVehicleBucket = [string]$seed.proof.atWorkVehicleBucket
+                beforeMiles = $beforeMiles
+                todayMiles = [double]$state.snapshot.reportTotals.today.drivenMiles
+                beforeDriveMinutes = $beforeDriveMinutes
+                todayDriveMinutes = [int]$state.snapshot.reportTotals.today.driveMinutes
+                beforeUnclassifiedMinutes = $beforeUnclassifiedMinutes
+                todayUnclassifiedMinutes = [int]$state.snapshot.reportTotals.today.unclassifiedMinutes
+            }
+        } | Out-Null
+
+    $after = Capture-State -Name "05b-jobsite-drive-final"
+    return @{
+        totalDrivenMiles = [double]$after.snapshot.totalDrivenMiles
+        todayReportMiles = [double]$after.snapshot.reportTotals.today.drivenMiles
+        todayDriveMinutes = [int]$after.snapshot.reportTotals.today.driveMinutes
+        todayUnclassifiedMinutes = [int]$after.snapshot.reportTotals.today.unclassifiedMinutes
+    }
+}
+
 function Invoke-ReportsNavigationAndTotals {
     $flow = "reports_navigation_and_totals"
     Invoke-VerifiedControl -TestTag "nav_reports" -Flow $flow -ActionPerformed "open reports screen" `
@@ -1003,10 +1060,14 @@ function Invoke-ReportsNavigationAndTotals {
     if ([double]$state.snapshot.reportTotals.today.drivenMiles -lt 12.5) {
         throw "[reports_totals] Today report did not include corrected miles."
     }
+    if ([int]$state.snapshot.reportTotals.today.driveMinutes -ne 0) {
+        throw "[reports_totals] Jobsite vehicle time was counted as drive minutes."
+    }
     return @{
         screenshot = Get-RelativeArtifactPath $shot
         totalDrivenMiles = [double]$state.snapshot.totalDrivenMiles
         todayReportMiles = [double]$state.snapshot.reportTotals.today.drivenMiles
+        todayDriveMinutes = [int]$state.snapshot.reportTotals.today.driveMinutes
     }
 }
 
@@ -1121,6 +1182,7 @@ try {
     Invoke-E2EFlow -Name "settings_timesheet_rules" -Action { Invoke-SettingsTimesheetRules }
     Invoke-E2EFlow -Name "home_location_controls" -Action { Invoke-HomeLocationControls }
     Invoke-E2EFlow -Name "tracking_session_correction" -Action { Invoke-TrackingSessionCorrection }
+    Invoke-E2EFlow -Name "jobsite_geofence_mileage_policy" -Action { Invoke-JobsiteGeofenceMileagePolicy }
     Invoke-E2EFlow -Name "reports_navigation_and_totals" -Action { Invoke-ReportsNavigationAndTotals }
     Invoke-E2EFlow -Name "bottom_nav_switching" -Action { Invoke-BottomNavSwitching }
     Invoke-E2EFlow -Name "persistence_relaunch" -Action { Run-PersistenceRelaunch }

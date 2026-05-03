@@ -3,6 +3,10 @@ package com.robertochavez.timetracker.testing
 import android.content.Context
 import android.content.pm.ApplicationInfo
 import com.robertochavez.timetracker.BuildConfig
+import com.robertochavez.timetracker.core.common.domain.ActivityBucketPolicy
+import com.robertochavez.timetracker.core.common.domain.MotionActivity
+import com.robertochavez.timetracker.core.common.domain.MotionTransition
+import com.robertochavez.timetracker.core.common.repository.TrackingRepository
 import com.robertochavez.timetracker.core.logging.AppLogger
 import com.robertochavez.timetracker.core.logging.JsonEncoding
 import com.robertochavez.timetracker.core.logging.LogCategory
@@ -19,6 +23,9 @@ import java.net.ServerSocket
 import java.net.Socket
 import java.net.URI
 import java.net.URLDecoder
+import java.time.Clock
+import java.time.Instant
+import java.time.temporal.ChronoUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -26,7 +33,10 @@ import javax.inject.Singleton
 class DebugStateEndpointServer @Inject constructor(
     @ApplicationContext context: Context,
     private val snapshotProvider: AppStateSnapshotProvider,
+    private val setupSources: SetupSnapshotSources,
+    private val trackingRepository: TrackingRepository,
     private val logger: AppLogger,
+    private val clock: Clock,
 ) {
     private val debuggable = context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
     private val enabled = debuggable && BuildConfig.E2E_DEBUG_ENABLED
@@ -70,16 +80,21 @@ class DebugStateEndpointServer @Inject constructor(
             }
 
             val uri = URI("http://$LOOPBACK${parts[1]}")
-            if (uri.path != STATE_PATH) {
-                writeJson(client, 404, mapOf("error" to "Unknown endpoint", "endpoint" to STATE_PATH))
+            val query = parseQuery(uri.rawQuery.orEmpty())
+            val runId = query["runId"] ?: "local"
+            val actorId = query["actorId"] ?: "local"
+            val payload = when (uri.path) {
+                STATE_PATH -> statePayload(runId = runId, actorId = actorId)
+                SEED_JOBSITE_DRIVE_PATH -> seedJobsiteDrivePayload(runId = runId, actorId = actorId)
+                else -> mapOf(
+                    "error" to "Unknown endpoint",
+                    "endpoints" to listOf(STATE_PATH, SEED_JOBSITE_DRIVE_PATH),
+                )
+            }
+            if (payload.containsKey("error")) {
+                writeJson(client, 404, payload)
                 return
             }
-
-            val query = parseQuery(uri.rawQuery.orEmpty())
-            val payload = statePayload(
-                runId = query["runId"] ?: "local",
-                actorId = query["actorId"] ?: "local",
-            )
             writeJson(client, 200, payload)
         }
     }
@@ -98,6 +113,48 @@ class DebugStateEndpointServer @Inject constructor(
             "snapshot" to snapshot.toMap(),
             "stateMachine" to state.toMap(),
             "recentLogs" to logs,
+        )
+    }
+
+    private suspend fun seedJobsiteDrivePayload(runId: String, actorId: String): Map<String, Any?> {
+        val localDate = Instant.now(clock).atZone(clock.zone).toLocalDate()
+        val sessionStart = localDate.atTime(12, 0).atZone(clock.zone).toInstant().truncatedTo(ChronoUnit.SECONDS)
+        val drivingStart = sessionStart.plus(5, ChronoUnit.MINUTES)
+        val drivingEnd = drivingStart.plus(JOBSITE_DRIVE_MINUTES, ChronoUnit.MINUTES)
+        val atWorkVehicleBucket = ActivityBucketPolicy.classify(
+            activity = MotionActivity.IN_VEHICLE,
+            transition = MotionTransition.ENTER,
+            atWork = true,
+        )
+
+        setupSources.workPresenceRepository.setAtWork(atWork = true, updatedAt = sessionStart)
+        val session = trackingRepository.startManualSession(sessionStart)
+        trackingRepository.recordActivityTransition(atWorkVehicleBucket, drivingStart)
+        trackingRepository.stopActiveAwaySession(drivingEnd)
+        trackingRepository.setDrivenMiles(session.id, JOBSITE_DRIVE_MILES)
+        setupSources.workPresenceRepository.setAtWork(atWork = false, updatedAt = drivingEnd)
+
+        val snapshot = snapshotProvider.build(runId = runId, actorId = actorId)
+        val todayReport = snapshot.reportTotals.getValue("today")
+        val proof = mapOf(
+            "scenario" to "jobsite_geofence_mileage_policy",
+            "sessionIdPrefix" to session.id.take(8),
+            "atWorkVehicleBucket" to atWorkVehicleBucket.name,
+            "seededMiles" to JOBSITE_DRIVE_MILES,
+            "seededJobsiteDriveMinutes" to JOBSITE_DRIVE_MINUTES,
+            "todayDrivenMiles" to todayReport.drivenMiles,
+            "todayDriveMinutes" to todayReport.driveMinutes,
+            "todayUnclassifiedMinutes" to todayReport.unclassifiedMinutes,
+        )
+        logger.info(LogCategory.TESTING, "Jobsite drive policy scenario seeded", proof)
+        return mapOf(
+            "transportReady" to true,
+            "debugHarness" to mapOf(
+                "debuggable" to debuggable,
+                "e2eDebugEnabled" to BuildConfig.E2E_DEBUG_ENABLED,
+            ),
+            "proof" to proof,
+            "snapshot" to snapshot.toMap(),
         )
     }
 
@@ -126,7 +183,10 @@ class DebugStateEndpointServer @Inject constructor(
     companion object {
         const val DEFAULT_PORT = 4948
         const val STATE_PATH = "/testing/state"
+        const val SEED_JOBSITE_DRIVE_PATH = "/testing/seed-jobsite-drive"
         private const val LOOPBACK = "127.0.0.1"
         private const val RECENT_LOG_LIMIT = 25
+        private const val JOBSITE_DRIVE_MILES = 6.75
+        private const val JOBSITE_DRIVE_MINUTES = 30L
     }
 }
