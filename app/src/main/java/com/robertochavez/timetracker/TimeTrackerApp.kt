@@ -1,11 +1,6 @@
 package com.robertochavez.timetracker
 
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.AccessTime
-import androidx.compose.material.icons.outlined.BarChart
-import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -14,7 +9,9 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
@@ -22,6 +19,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.robertochavez.timetracker.core.designsystem.TimeTrackerColors
+import com.robertochavez.timetracker.core.designsystem.TimeTrackerTestTags
 import com.robertochavez.timetracker.feature.home.HomeRoute
 import com.robertochavez.timetracker.feature.reports.ReportsRoute
 import com.robertochavez.timetracker.feature.settings.SettingsRoute
@@ -40,13 +38,19 @@ fun TimeTrackerApp() {
     val currentRoute = backStackEntry?.destination?.route ?: AppDestination.Home.route
 
     Scaffold(
+        modifier = Modifier
+            .semantics { testTagsAsResourceId = true }
+            .testTag(TimeTrackerTestTags.APP_ROOT),
+        containerColor = TimeTrackerColors.BackgroundBase,
         bottomBar = {
             NavigationBar(
-                containerColor = TimeTrackerColors.SurfaceDark,
+                modifier = Modifier.testTag(TimeTrackerTestTags.BOTTOM_NAV),
+                containerColor = TimeTrackerColors.SurfaceBase,
                 tonalElevation = 0.dp,
             ) {
                 destinations.forEach { destination ->
                     NavigationBarItem(
+                        modifier = Modifier.testTag(TimeTrackerTestTags.navItem(destination.route)),
                         selected = currentRoute == destination.route,
                         onClick = {
                             navController.navigate(destination.route) {
@@ -61,8 +65,8 @@ fun TimeTrackerApp() {
                         label = { androidx.compose.material3.Text(destination.label) },
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = TimeTrackerColors.TextInverse,
-                            selectedTextColor = TimeTrackerColors.PrimaryCyan,
-                            indicatorColor = TimeTrackerColors.PrimaryCyan,
+                            selectedTextColor = TimeTrackerColors.PrimaryOliveDark,
+                            indicatorColor = TimeTrackerColors.PrimaryOlive,
                             unselectedIconColor = TimeTrackerColors.TextSecondary,
                             unselectedTextColor = TimeTrackerColors.TextSecondary,
                         ),
@@ -90,11 +94,4 @@ fun TimeTrackerApp() {
             }
         }
     }
-}
-
-private sealed class AppDestination(val route: String, val label: String, val icon: ImageVector) {
-    data object Home : AppDestination("home", "Home", Icons.Outlined.Home)
-    data object Tracking : AppDestination("tracking", "Tracking", Icons.Outlined.AccessTime)
-    data object Reports : AppDestination("reports", "Reports", Icons.Outlined.BarChart)
-    data object Settings : AppDestination("settings", "Settings", Icons.Outlined.Settings)
 }

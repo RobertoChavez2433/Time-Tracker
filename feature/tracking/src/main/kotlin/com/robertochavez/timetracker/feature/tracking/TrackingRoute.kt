@@ -12,38 +12,58 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.robertochavez.timetracker.core.designsystem.TimeTrackerCard
 import com.robertochavez.timetracker.core.designsystem.TimeTrackerMutedText
+import com.robertochavez.timetracker.core.designsystem.TimeTrackerPanel
 import com.robertochavez.timetracker.core.designsystem.TimeTrackerPrimaryButton
 import com.robertochavez.timetracker.core.designsystem.TimeTrackerScreen
 import com.robertochavez.timetracker.core.designsystem.TimeTrackerScreenTitle
+import com.robertochavez.timetracker.core.designsystem.TimeTrackerSecondaryButton
 import com.robertochavez.timetracker.core.designsystem.TimeTrackerSectionTitle
+import com.robertochavez.timetracker.core.designsystem.TimeTrackerSettingSection
+import com.robertochavez.timetracker.core.designsystem.TimeTrackerTestTags
 
 @Composable
 fun TrackingRoute(modifier: Modifier = Modifier, viewModel: TrackingViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
-    TimeTrackerScreen(modifier = modifier) {
+    TimeTrackerScreen(modifier = modifier, testTag = TimeTrackerTestTags.TRACKING_SCREEN) {
         item {
             TimeTrackerScreenTitle(
                 title = "Tracking",
-                subtitle = "Manual controls and corrections for away sessions.",
+                subtitle = "Start or stop an away session, then adjust details only when needed.",
             )
         }
         item {
-            TimeTrackerCard {
+            TimeTrackerSettingSection(title = "Current state") {
                 Text(state.activeSummary, style = MaterialTheme.typography.titleMedium)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TimeTrackerPrimaryButton(text = "Start", onClick = viewModel::startManualSession)
-                    TimeTrackerPrimaryButton(text = "Stop", onClick = viewModel::stopActiveSession, enabled = state.hasActiveSession)
+                    TimeTrackerPrimaryButton(
+                        text = "Start",
+                        onClick = viewModel::startManualSession,
+                        modifier = Modifier.testTag(TimeTrackerTestTags.TRACKING_START_BUTTON),
+                    )
+                    TimeTrackerPrimaryButton(
+                        text = "Stop",
+                        onClick = viewModel::stopActiveSession,
+                        modifier = Modifier.testTag(TimeTrackerTestTags.TRACKING_STOP_BUTTON),
+                        enabled = state.hasActiveSession,
+                    )
                 }
             }
         }
         item {
-            TimeTrackerSectionTitle("Sessions")
+            TimeTrackerSectionTitle("Manual corrections")
+        }
+        if (state.sessions.isEmpty()) {
+            item {
+                TimeTrackerPanel {
+                    TimeTrackerMutedText("Completed sessions appear here after tracking stops.")
+                }
+            }
         }
         items(state.sessions, key = { it.id }) { session ->
             SessionCard(
@@ -70,7 +90,8 @@ private data class SessionActions(
 
 @Composable
 private fun SessionCard(session: SessionUiModel, actions: SessionActions) {
-    TimeTrackerCard {
+    val idPrefix = session.id.take(8)
+    TimeTrackerPanel(modifier = Modifier.testTag(TimeTrackerTestTags.trackingSessionCard(idPrefix))) {
         Text(session.title, style = MaterialTheme.typography.titleMedium)
         TimeTrackerMutedText(session.subtitle)
         Row(
@@ -79,29 +100,43 @@ private fun SessionCard(session: SessionUiModel, actions: SessionActions) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text("Counts toward totals")
-            Switch(checked = session.countsTowardTotals, onCheckedChange = actions.onToggleCounts)
+            Switch(
+                checked = session.countsTowardTotals,
+                onCheckedChange = actions.onToggleCounts,
+                modifier = Modifier.testTag(TimeTrackerTestTags.trackingSessionCountsSwitch(idPrefix)),
+            )
         }
         OutlinedTextField(
             value = session.editStart,
             onValueChange = actions.onStartChange,
             label = { Text("Start ISO instant") },
             singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag(TimeTrackerTestTags.trackingSessionStartField(idPrefix)),
         )
         OutlinedTextField(
             value = session.editEnd,
             onValueChange = actions.onEndChange,
             label = { Text("End ISO instant") },
             singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag(TimeTrackerTestTags.trackingSessionEndField(idPrefix)),
         )
         OutlinedTextField(
             value = session.editDrivenMiles,
             onValueChange = actions.onMilesChange,
             label = { Text("Miles driven") },
             singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag(TimeTrackerTestTags.trackingSessionMilesField(idPrefix)),
         )
-        TimeTrackerPrimaryButton(text = "Save Manual Correction", onClick = actions.onSaveWindow)
+        TimeTrackerSecondaryButton(
+            text = "Save Manual Correction",
+            onClick = actions.onSaveWindow,
+            modifier = Modifier.testTag(TimeTrackerTestTags.trackingSessionSaveButton(idPrefix)),
+        )
     }
 }

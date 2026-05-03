@@ -14,30 +14,31 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-private val TimeTrackerDarkColorScheme = darkColorScheme(
-    primary = TimeTrackerColors.PrimaryCyan,
+private val TimeTrackerColorScheme = darkColorScheme(
+    primary = TimeTrackerColors.PrimaryOlive,
     onPrimary = TimeTrackerColors.TextInverse,
-    primaryContainer = TimeTrackerColors.PrimaryDark,
-    onPrimaryContainer = TimeTrackerColors.TextPrimary,
-    secondary = TimeTrackerColors.AccentAmber,
+    primaryContainer = TimeTrackerColors.PrimaryOliveSoft,
+    onPrimaryContainer = TimeTrackerColors.PrimaryOliveDark,
+    secondary = TimeTrackerColors.AccentSage,
     onSecondary = TimeTrackerColors.TextInverse,
-    secondaryContainer = TimeTrackerColors.AccentOrange,
+    secondaryContainer = TimeTrackerColors.SurfaceTint,
     onSecondaryContainer = TimeTrackerColors.TextPrimary,
-    tertiary = TimeTrackerColors.PrimaryBlue,
-    onTertiary = TimeTrackerColors.TextInverse,
+    tertiary = TimeTrackerColors.AccentGold,
+    onTertiary = TimeTrackerColors.TextPrimary,
     background = TimeTrackerColors.BackgroundBase,
     onBackground = TimeTrackerColors.TextPrimary,
-    surface = TimeTrackerColors.SurfaceDark,
+    surface = TimeTrackerColors.SurfaceBase,
     onSurface = TimeTrackerColors.TextPrimary,
-    surfaceVariant = TimeTrackerColors.SurfaceHighlight,
+    surfaceVariant = TimeTrackerColors.SurfaceMuted,
     onSurfaceVariant = TimeTrackerColors.TextSecondary,
-    outline = TimeTrackerColors.SurfaceHighlight,
-    outlineVariant = TimeTrackerColors.SurfaceBright,
+    outline = TimeTrackerColors.Border,
+    outlineVariant = TimeTrackerColors.Divider,
     error = TimeTrackerColors.StatusError,
-    onError = TimeTrackerColors.TextPrimary,
+    onError = TimeTrackerColors.TextInverse,
+    errorContainer = TimeTrackerColors.DestructiveContainer,
+    onErrorContainer = TimeTrackerColors.Destructive,
 )
 
 private val TimeTrackerTypography = Typography(
@@ -80,11 +81,11 @@ private val TimeTrackerTypography = Typography(
 )
 
 private val TimeTrackerShapes = Shapes(
-    extraSmall = RoundedCornerShape(4.dp),
-    small = RoundedCornerShape(6.dp),
-    medium = RoundedCornerShape(8.dp),
-    large = RoundedCornerShape(10.dp),
-    extraLarge = RoundedCornerShape(14.dp),
+    extraSmall = RoundedCornerShape(TimeTrackerRadius.Small),
+    small = RoundedCornerShape(TimeTrackerRadius.Medium),
+    medium = RoundedCornerShape(TimeTrackerRadius.Large),
+    large = RoundedCornerShape(TimeTrackerRadius.Large),
+    extraLarge = RoundedCornerShape(TimeTrackerRadius.Large),
 )
 
 @Composable
@@ -101,7 +102,7 @@ fun TimeTrackerTheme(content: @Composable () -> Unit) {
     }
 
     MaterialTheme(
-        colorScheme = TimeTrackerDarkColorScheme,
+        colorScheme = TimeTrackerColorScheme,
         typography = TimeTrackerTypography,
         shapes = TimeTrackerShapes,
         content = content,

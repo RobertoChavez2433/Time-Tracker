@@ -8,34 +8,38 @@ import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.testTag
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.robertochavez.timetracker.core.designsystem.TimeTrackerCard
-import com.robertochavez.timetracker.core.designsystem.TimeTrackerMutedText
+import com.robertochavez.timetracker.core.designsystem.TimeTrackerDestructiveButton
 import com.robertochavez.timetracker.core.designsystem.TimeTrackerPrimaryButton
+import com.robertochavez.timetracker.core.designsystem.TimeTrackerQuietButton
 import com.robertochavez.timetracker.core.designsystem.TimeTrackerScreen
 import com.robertochavez.timetracker.core.designsystem.TimeTrackerScreenTitle
-import com.robertochavez.timetracker.core.designsystem.TimeTrackerSectionTitle
+import com.robertochavez.timetracker.core.designsystem.TimeTrackerSecondaryButton
+import com.robertochavez.timetracker.core.designsystem.TimeTrackerSettingRow
+import com.robertochavez.timetracker.core.designsystem.TimeTrackerSettingSection
 import com.robertochavez.timetracker.core.designsystem.TimeTrackerStatusText
+import com.robertochavez.timetracker.core.designsystem.TimeTrackerTestTags
 
 @Composable
 fun SettingsRoute(modifier: Modifier = Modifier, viewModel: SettingsViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    var showDeleteConfirmation by rememberSaveable { mutableStateOf(false) }
     val foregroundPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions(),
         onResult = { viewModel.onForegroundPermissionResult(it) },
@@ -49,11 +53,11 @@ fun SettingsRoute(modifier: Modifier = Modifier, viewModel: SettingsViewModel = 
         onResult = { viewModel.onBackgroundLocationSettingsOpened() },
     )
 
-    TimeTrackerScreen(modifier = modifier) {
+    TimeTrackerScreen(modifier = modifier, testTag = TimeTrackerTestTags.SETTINGS_SCREEN) {
         item {
             TimeTrackerScreenTitle(
                 title = "Settings",
-                subtitle = "Permissions, schedule, notifications, and local data.",
+                subtitle = "Tracking rules, notifications, and local data controls.",
             )
         }
         item {
@@ -85,10 +89,7 @@ fun SettingsRoute(modifier: Modifier = Modifier, viewModel: SettingsViewModel = 
             )
         }
         item {
-            TimeTrackerSectionTitle("Workdays")
-        }
-        items(state.workdays, key = { it.name }) { day ->
-            WorkdayRow(day = day, onTrackableChange = { viewModel.setDayTrackable(day.name, it) })
+            WorkdaysSection(workdays = state.workdays, onTrackableChange = viewModel::setDayTrackable)
         }
         item {
             NotificationsCard(
@@ -99,22 +100,26 @@ fun SettingsRoute(modifier: Modifier = Modifier, viewModel: SettingsViewModel = 
             )
         }
         item {
-            TimeTrackerCard {
-                SettingSwitch(
-                    label = "I understand background location and activity recognition are used only for local timesheet automation.",
-                    checked = state.privacyDisclosureAccepted,
-                    onCheckedChange = viewModel::setPrivacyDisclosureAccepted,
-                )
-            }
+            PrivacySection(state.privacyDisclosureAccepted, viewModel::setPrivacyDisclosureAccepted)
         }
         item {
-            LocalDataCard(onDeleteLocalData = viewModel::deleteAllLocalData)
+            LocalDataCard(onDeleteLocalData = { showDeleteConfirmation = true })
         }
         if (state.statusMessage.isNotBlank()) {
             item {
                 TimeTrackerStatusText(state.statusMessage)
             }
         }
+    }
+
+    if (showDeleteConfirmation) {
+        DeleteLocalDataConfirmationDialog(
+            onCancel = { showDeleteConfirmation = false },
+            onConfirm = {
+                showDeleteConfirmation = false
+                viewModel.deleteAllLocalData()
+            },
+        )
     }
 }
 
@@ -124,59 +129,87 @@ private fun PermissionCard(
     onRequestForegroundPermissions: () -> Unit,
     onEnableBackgroundLocation: () -> Unit,
 ) {
-    TimeTrackerCard {
-        Text("Permissions", style = MaterialTheme.typography.titleMedium)
-        TimeTrackerMutedText(
-            "Automatic tracking uses precise foreground location to set home, background location to receive " +
-                "home geofence events while the app is closed, and activity recognition to classify away time.",
+    TimeTrackerSettingSection(title = "Permissions", subtitle = "Grant foreground access first, then enable background location.") {
+        TimeTrackerPrimaryButton(
+            text = "Request Foreground Permissions",
+            onClick = onRequestForegroundPermissions,
+            modifier = Modifier.testTag(TimeTrackerTestTags.SETTINGS_REQUEST_FOREGROUND_BUTTON),
         )
-        TimeTrackerPrimaryButton(text = "Request Foreground Permissions", onClick = onRequestForegroundPermissions)
-        TimeTrackerMutedText(
-            "For background location, choose $backgroundPermissionLabel so home enter " +
-                "and exit events can be delivered outside the app.",
+        Text(
+            "For background location, choose $backgroundPermissionLabel in Android settings.",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodyMedium,
         )
-        TimeTrackerPrimaryButton(text = "Enable Background Location", onClick = onEnableBackgroundLocation)
+        TimeTrackerSecondaryButton(
+            text = "Enable Background Location",
+            onClick = onEnableBackgroundLocation,
+            modifier = Modifier.testTag(TimeTrackerTestTags.SETTINGS_ENABLE_BACKGROUND_BUTTON),
+        )
     }
 }
 
 @Composable
 private fun AutomationCard(onEnableActivityDetection: () -> Unit, onDisableActivityDetection: () -> Unit) {
-    TimeTrackerCard {
-        Text("Automation", style = MaterialTheme.typography.titleMedium)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            TimeTrackerPrimaryButton(text = "Enable Activity Detection", onClick = onEnableActivityDetection)
-            TimeTrackerPrimaryButton(text = "Disable", onClick = onDisableActivityDetection)
-        }
+    TimeTrackerSettingSection(title = "Automation", subtitle = "Activity detection classifies drive and idle time.") {
+        TimeTrackerPrimaryButton(
+            text = "Enable Activity Detection",
+            onClick = onEnableActivityDetection,
+            modifier = Modifier.testTag(TimeTrackerTestTags.SETTINGS_ENABLE_ACTIVITY_BUTTON),
+        )
+        TimeTrackerQuietButton(
+            text = "Disable",
+            onClick = onDisableActivityDetection,
+            modifier = Modifier.testTag(TimeTrackerTestTags.SETTINGS_DISABLE_ACTIVITY_BUTTON),
+        )
     }
 }
 
 @Composable
 private fun PayPeriodCard(anchorDate: String, onAnchorDateChange: (String) -> Unit, onSaveAnchorDate: () -> Unit) {
-    TimeTrackerCard {
-        Text("Pay Period", style = MaterialTheme.typography.titleMedium)
+    TimeTrackerSettingSection(title = "Pay period") {
         OutlinedTextField(
             value = anchorDate,
             onValueChange = onAnchorDateChange,
             label = { Text("Biweekly anchor date") },
             singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag(TimeTrackerTestTags.SETTINGS_ANCHOR_DATE_FIELD),
         )
-        TimeTrackerPrimaryButton(text = "Save Anchor", onClick = onSaveAnchorDate)
+        TimeTrackerPrimaryButton(
+            text = "Save Anchor",
+            onClick = onSaveAnchorDate,
+            modifier = Modifier.testTag(TimeTrackerTestTags.SETTINGS_SAVE_ANCHOR_BUTTON),
+        )
     }
 }
 
 @Composable
-private fun WorkdayRow(day: WorkdayUiModel, onTrackableChange: (Boolean) -> Unit) {
-    TimeTrackerCard {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
+private fun WorkdaysSection(workdays: List<WorkdayUiModel>, onTrackableChange: (String, Boolean) -> Unit) {
+    TimeTrackerSettingSection(title = "Workdays") {
+        workdays.forEach { day ->
+            TimeTrackerSettingRow(label = day.name) {
+                Switch(
+                    checked = day.trackable,
+                    onCheckedChange = { onTrackableChange(day.name, it) },
+                    modifier = Modifier.testTag(TimeTrackerTestTags.workdaySwitch(day.name)),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PrivacySection(accepted: Boolean, onAcceptedChange: (Boolean) -> Unit) {
+    TimeTrackerSettingSection(title = "Privacy") {
+        TimeTrackerSettingRow(
+            label = "Local-only automation",
+            supportingText = "Background location and activity recognition are used only for local timesheet automation.",
         ) {
-            Text(day.name)
             Switch(
-                checked = day.trackable,
-                onCheckedChange = onTrackableChange,
+                checked = accepted,
+                onCheckedChange = onAcceptedChange,
+                modifier = Modifier.testTag(TimeTrackerTestTags.SETTINGS_PRIVACY_DISCLOSURE_SWITCH),
             )
         }
     }
@@ -189,42 +222,66 @@ private fun NotificationsCard(
     onMinimalActiveNotificationChange: (Boolean) -> Unit,
     onLiveTimerNotificationChange: (Boolean) -> Unit,
 ) {
-    TimeTrackerCard {
-        Text("Notifications", style = MaterialTheme.typography.titleMedium)
+    TimeTrackerSettingSection(title = "Notifications") {
         SettingSwitch(
             label = "Minimal active notification",
             checked = minimalActiveNotificationEnabled,
             onCheckedChange = onMinimalActiveNotificationChange,
+            testTag = TimeTrackerTestTags.SETTINGS_MINIMAL_NOTIFICATION_SWITCH,
         )
         SettingSwitch(
             label = "Live timer notification",
             checked = liveTimerNotificationEnabled,
             onCheckedChange = onLiveTimerNotificationChange,
+            testTag = TimeTrackerTestTags.SETTINGS_LIVE_TIMER_NOTIFICATION_SWITCH,
         )
     }
 }
 
 @Composable
 private fun LocalDataCard(onDeleteLocalData: () -> Unit) {
-    TimeTrackerCard {
-        Text("Local Data", style = MaterialTheme.typography.titleMedium)
-        TimeTrackerMutedText(
-            "Delete saved home location, sessions, activity intervals, mileage, schedules, and app preferences on this device.",
+    TimeTrackerSettingSection(title = "Local data", subtitle = "Reset this device after confirmation.") {
+        TimeTrackerSecondaryButton(
+            text = "Delete Local Data",
+            onClick = onDeleteLocalData,
+            modifier = Modifier.testTag(TimeTrackerTestTags.SETTINGS_DELETE_LOCAL_DATA_BUTTON),
         )
-        TimeTrackerPrimaryButton(text = "Delete Local Data", onClick = onDeleteLocalData)
     }
 }
 
 @Composable
-private fun SettingSwitch(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(label, modifier = Modifier.weight(1f))
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+private fun SettingSwitch(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit, testTag: String) {
+    TimeTrackerSettingRow(label = label) {
+        Switch(checked = checked, onCheckedChange = onCheckedChange, modifier = Modifier.testTag(testTag))
     }
+}
+
+@Composable
+private fun DeleteLocalDataConfirmationDialog(onCancel: () -> Unit, onConfirm: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onCancel,
+        title = {
+            Text(
+                "Delete local data?",
+                modifier = Modifier.testTag(TimeTrackerTestTags.SETTINGS_DELETE_CONFIRM_DIALOG),
+            )
+        },
+        text = { Text("This clears saved locations, sessions, mileage, workdays, pay-period settings, and preferences on this device.") },
+        dismissButton = {
+            TimeTrackerQuietButton(
+                text = "Cancel",
+                onClick = onCancel,
+                modifier = Modifier.testTag(TimeTrackerTestTags.SETTINGS_DELETE_CONFIRM_CANCEL_BUTTON),
+            )
+        },
+        confirmButton = {
+            TimeTrackerDestructiveButton(
+                text = "Delete",
+                onClick = onConfirm,
+                modifier = Modifier.testTag(TimeTrackerTestTags.SETTINGS_DELETE_CONFIRM_BUTTON),
+            )
+        },
+    )
 }
 
 private fun foregroundTrackingPermissions(): Array<String> = buildList {
