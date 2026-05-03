@@ -1,0 +1,4 @@
+#!/bin/sh
+# Pre-commit hook wrapper. PowerShell keeps the Kotlin/Android gate usable on Windows.
+pwsh -ExecutionPolicy Bypass -File "scripts/git/pre-commit.ps1"
+exit $?

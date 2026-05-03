@@ -1,0 +1,30 @@
+complexity:
+  LongMethod:
+    active: true
+    threshold: 130
+  TooManyFunctions:
+    active: true
+    thresholdInFiles: 24
+    thresholdInClasses: 16
+    thresholdInInterfaces: 12
+    thresholdInObjects: 16
+    thresholdInEnums: 12
+
+naming:
+  FunctionNaming:
+    active: true
+    ignoreAnnotated:
+      - Composable
+
+performance:
+  SpreadOperator:
+    active: false
+
+style:
+  MagicNumber:
+    active: false
+  MaxLineLength:
+    active: true
+    maxLineLength: 180
+  UnusedPrivateMember:
+    active: true
