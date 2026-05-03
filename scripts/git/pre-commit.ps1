@@ -27,8 +27,10 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
     Fail "Git is required for the pre-commit hook."
 }
 
-$insideGit = ((& git rev-parse --is-inside-work-tree 2>$null | Select-Object -First 1) -as [string]).Trim()
-if ($LASTEXITCODE -ne 0 -or $insideGit -ne "true") {
+$insideGitOutput = @(& git rev-parse --is-inside-work-tree 2>$null)
+$insideGitExitCode = $LASTEXITCODE
+$insideGit = (($insideGitOutput | Select-Object -First 1) -as [string]).Trim()
+if ($insideGitExitCode -ne 0 -or $insideGit -ne "true") {
     Write-Host "Not a Git work tree - skipping pre-commit checks." -ForegroundColor Yellow
     exit 0
 }
