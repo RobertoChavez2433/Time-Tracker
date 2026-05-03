@@ -35,6 +35,14 @@ if ($insideGitExitCode -ne 0 -or $insideGit -ne "true") {
     exit 0
 }
 
+$repoRootOutput = @(& git rev-parse --show-toplevel)
+if ($LASTEXITCODE -ne 0) {
+    Fail "Failed to resolve repository root."
+}
+
+$repoRoot = (($repoRootOutput | Select-Object -First 1) -as [string]).Trim()
+Set-Location -LiteralPath $repoRoot
+
 $stagedFiles = @(git diff --cached --name-only --diff-filter=ACM)
 if ($LASTEXITCODE -ne 0) {
     Fail "Failed to read staged files."
