@@ -4,10 +4,14 @@ import com.robertochavez.timetracker.core.common.model.TrackingSessionController
 import com.robertochavez.timetracker.core.common.repository.HomeLocationRepository
 import com.robertochavez.timetracker.core.common.repository.PayPeriodSettingsRepository
 import com.robertochavez.timetracker.core.common.repository.TrackingRepository
+import com.robertochavez.timetracker.core.common.repository.WorkLocationRepository
+import com.robertochavez.timetracker.core.common.repository.WorkPresenceRepository
 import com.robertochavez.timetracker.core.common.repository.WorkScheduleRepository
 import com.robertochavez.timetracker.core.database.repository.RoomHomeLocationRepository
 import com.robertochavez.timetracker.core.database.repository.RoomPayPeriodSettingsRepository
 import com.robertochavez.timetracker.core.database.repository.RoomTrackingRepository
+import com.robertochavez.timetracker.core.database.repository.RoomWorkLocationRepository
+import com.robertochavez.timetracker.core.database.repository.RoomWorkPresenceRepository
 import com.robertochavez.timetracker.core.database.repository.RoomWorkScheduleRepository
 import dagger.Binds
 import dagger.Module
@@ -21,6 +25,14 @@ abstract class TrackingBindings {
     @Binds
     @Singleton
     abstract fun bindHomeLocationRepository(repository: RoomHomeLocationRepository): HomeLocationRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindWorkLocationRepository(repository: RoomWorkLocationRepository): WorkLocationRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindWorkPresenceRepository(repository: RoomWorkPresenceRepository): WorkPresenceRepository
 
     @Binds
     @Singleton

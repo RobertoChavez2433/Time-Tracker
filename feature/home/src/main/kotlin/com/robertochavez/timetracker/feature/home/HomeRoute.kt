@@ -33,59 +33,111 @@ fun HomeRoute(modifier: Modifier = Modifier, viewModel: HomeViewModel = hiltView
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Text("Home", style = MaterialTheme.typography.headlineMedium)
-            Text("Set the home geofence used to start and stop away sessions.")
-
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Text("Current Home", style = MaterialTheme.typography.titleMedium)
-                    Text(state.homeSummary)
-                    Button(onClick = viewModel::useCurrentLocation) {
-                        Text("Use Current Location")
-                    }
-                }
-            }
-
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Text("Map Pin", style = MaterialTheme.typography.titleMedium)
-                    Text("Adjust the pin coordinates and radius.")
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        PinNumberField(
-                            label = "Latitude",
-                            value = state.pinLatitude,
-                            onValueChange = viewModel::updatePinLatitude,
-                            modifier = Modifier.weight(1f),
-                        )
-                        PinNumberField(
-                            label = "Longitude",
-                            value = state.pinLongitude,
-                            onValueChange = viewModel::updatePinLongitude,
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
-                    PinNumberField(
-                        label = "Radius meters",
-                        value = state.pinRadiusMeters,
-                        onValueChange = viewModel::updatePinRadiusMeters,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Button(onClick = viewModel::saveMapPin) {
-                        Text("Save Home Pin")
-                    }
-                }
-            }
-
+            Text("Locations", style = MaterialTheme.typography.headlineMedium)
+            HomeCurrentCard(state.homeSummary, viewModel::useCurrentHomeLocation)
+            HomePinCard(state, viewModel::updateHomeField, viewModel::saveHomePin)
+            WorkLocationCard(state, viewModel::useCurrentWorkLocation, viewModel::updateWorkField, viewModel::saveWorkPin)
             if (state.statusMessage.isNotBlank()) {
                 Text(state.statusMessage, color = MaterialTheme.colorScheme.primary)
             }
         }
+    }
+}
+
+@Composable
+private fun HomeCurrentCard(summary: String, onUseCurrentLocation: () -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text("Current Home", style = MaterialTheme.typography.titleMedium)
+            Text(summary)
+            Button(onClick = onUseCurrentLocation) {
+                Text("Use Current Home Location")
+            }
+        }
+    }
+}
+
+@Composable
+private fun HomePinCard(state: HomeUiState, onFieldChange: (LocationField, String) -> Unit, onSave: () -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text("Home Pin", style = MaterialTheme.typography.titleMedium)
+            CoordinateRow(
+                latitude = state.homeLatitude,
+                longitude = state.homeLongitude,
+                onLatitudeChange = { onFieldChange(LocationField.LATITUDE, it) },
+                onLongitudeChange = { onFieldChange(LocationField.LONGITUDE, it) },
+            )
+            PinNumberField(
+                label = "Radius meters",
+                value = state.homeRadiusMeters,
+                onValueChange = { onFieldChange(LocationField.RADIUS_METERS, it) },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Button(onClick = onSave) {
+                Text("Save Home Pin")
+            }
+        }
+    }
+}
+
+@Composable
+private fun WorkLocationCard(
+    state: HomeUiState,
+    onUseCurrentLocation: () -> Unit,
+    onFieldChange: (LocationField, String) -> Unit,
+    onSave: () -> Unit,
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text("Work / Job Site", style = MaterialTheme.typography.titleMedium)
+            Text(state.workSummary)
+            Button(onClick = onUseCurrentLocation) {
+                Text("Use Current Work Location")
+            }
+            CoordinateRow(
+                latitude = state.workLatitude,
+                longitude = state.workLongitude,
+                onLatitudeChange = { onFieldChange(LocationField.LATITUDE, it) },
+                onLongitudeChange = { onFieldChange(LocationField.LONGITUDE, it) },
+            )
+            PinNumberField(
+                label = "Radius meters",
+                value = state.workRadiusMeters,
+                onValueChange = { onFieldChange(LocationField.RADIUS_METERS, it) },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Button(onClick = onSave) {
+                Text("Save Work Pin")
+            }
+        }
+    }
+}
+
+@Composable
+private fun CoordinateRow(latitude: String, longitude: String, onLatitudeChange: (String) -> Unit, onLongitudeChange: (String) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        PinNumberField(
+            label = "Latitude",
+            value = latitude,
+            onValueChange = onLatitudeChange,
+            modifier = Modifier.weight(1f),
+        )
+        PinNumberField(
+            label = "Longitude",
+            value = longitude,
+            onValueChange = onLongitudeChange,
+            modifier = Modifier.weight(1f),
+        )
     }
 }
 

@@ -32,6 +32,8 @@ object TestingStateMachine {
             interactionBlockers = blockers,
             facts = mapOf(
                 "homeSet" to snapshot.homeSet,
+                "workSet" to snapshot.workSet,
+                "atWork" to snapshot.atWork,
                 "activeSession" to (snapshot.activeSession != null),
                 "sessionCount" to snapshot.sessionCount,
                 "activityIntervalCount" to snapshot.activityIntervalCount,

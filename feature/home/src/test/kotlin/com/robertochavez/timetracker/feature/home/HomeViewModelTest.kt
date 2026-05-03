@@ -1,10 +1,13 @@
 package com.robertochavez.timetracker.feature.home
 
 import com.robertochavez.timetracker.core.common.model.HomeLocation
-import com.robertochavez.timetracker.core.location.CurrentHomeLocationProvider
+import com.robertochavez.timetracker.core.common.model.WorkLocation
+import com.robertochavez.timetracker.core.location.CurrentGeofenceLocationProvider
 import com.robertochavez.timetracker.core.location.geofence.HomeGeofenceRegistrar
+import com.robertochavez.timetracker.core.location.geofence.WorkGeofenceRegistrar
 import com.robertochavez.timetracker.core.logging.NoopAppLogger
 import com.robertochavez.timetracker.core.testing.FakeHomeLocationRepository
+import com.robertochavez.timetracker.core.testing.FakeWorkLocationRepository
 import com.robertochavez.timetracker.core.testing.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.collect
@@ -36,16 +39,19 @@ class HomeViewModelTest {
             updatedAt = Instant.parse("2026-05-04T12:00:00Z"),
         )
         val homeRepository = FakeHomeLocationRepository()
+        val workRepository = FakeWorkLocationRepository()
         val geofenceRegistrar = RecordingHomeGeofenceRegistrar()
         val viewModel = HomeViewModel(
             homeLocationRepository = homeRepository,
-            currentHomeLocationProvider = StaticCurrentHomeLocationProvider(homeLocation),
+            workLocationRepository = workRepository,
+            currentGeofenceLocationProvider = StaticCurrentGeofenceLocationProvider(homeLocation = homeLocation),
             homeGeofenceRegistrar = geofenceRegistrar,
+            workGeofenceRegistrar = RecordingWorkGeofenceRegistrar(),
             clock = clock,
             logger = NoopAppLogger(),
         )
 
-        viewModel.useCurrentLocation()
+        viewModel.useCurrentHomeLocation()
         advanceUntilIdle()
 
         assertEquals(homeLocation, homeRepository.homeLocation.value)
@@ -53,12 +59,41 @@ class HomeViewModelTest {
     }
 
     @Test
+    fun `current location saves work location`() = runTest(mainDispatcherRule.testDispatcher) {
+        val workLocation = WorkLocation(
+            latitude = 39.7292,
+            longitude = -104.9803,
+            radiusMeters = 500f,
+            updatedAt = Instant.parse("2026-05-04T12:00:00Z"),
+        )
+        val workRepository = FakeWorkLocationRepository()
+        val workGeofenceRegistrar = RecordingWorkGeofenceRegistrar()
+        val viewModel = HomeViewModel(
+            homeLocationRepository = FakeHomeLocationRepository(),
+            workLocationRepository = workRepository,
+            currentGeofenceLocationProvider = StaticCurrentGeofenceLocationProvider(workLocation = workLocation),
+            homeGeofenceRegistrar = RecordingHomeGeofenceRegistrar(),
+            workGeofenceRegistrar = workGeofenceRegistrar,
+            clock = clock,
+            logger = NoopAppLogger(),
+        )
+
+        viewModel.useCurrentWorkLocation()
+        advanceUntilIdle()
+
+        assertEquals(workLocation, workRepository.workLocation.value)
+        assertEquals(listOf(workLocation), workGeofenceRegistrar.registeredWorkLocations)
+    }
+
+    @Test
     fun `home is saved while surfacing geofence permission warnings`() = runTest(mainDispatcherRule.testDispatcher) {
         val homeRepository = FakeHomeLocationRepository()
         val viewModel = HomeViewModel(
             homeLocationRepository = homeRepository,
-            currentHomeLocationProvider = StaticCurrentHomeLocationProvider(null),
+            workLocationRepository = FakeWorkLocationRepository(),
+            currentGeofenceLocationProvider = StaticCurrentGeofenceLocationProvider(),
             homeGeofenceRegistrar = FailingHomeGeofenceRegistrar("Precise location is required."),
+            workGeofenceRegistrar = RecordingWorkGeofenceRegistrar(),
             clock = clock,
             logger = NoopAppLogger(),
         )
@@ -66,10 +101,10 @@ class HomeViewModelTest {
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
             viewModel.uiState.collect()
         }
-        viewModel.updatePinLatitude("39.7392")
-        viewModel.updatePinLongitude("-104.9903")
-        viewModel.updatePinRadiusMeters("150")
-        viewModel.saveMapPin()
+        viewModel.updateHomeField(LocationField.LATITUDE, "39.7392")
+        viewModel.updateHomeField(LocationField.LONGITUDE, "-104.9903")
+        viewModel.updateHomeField(LocationField.RADIUS_METERS, "150")
+        viewModel.saveHomePin()
         advanceUntilIdle()
 
         assertEquals(39.7392, homeRepository.homeLocation.value?.latitude ?: 0.0, 0.0001)
@@ -77,8 +112,13 @@ class HomeViewModelTest {
     }
 }
 
-private class StaticCurrentHomeLocationProvider(private val homeLocation: HomeLocation?) : CurrentHomeLocationProvider {
+private class StaticCurrentGeofenceLocationProvider(
+    private val homeLocation: HomeLocation? = null,
+    private val workLocation: WorkLocation? = null,
+) : CurrentGeofenceLocationProvider {
     override suspend fun currentPreciseHomeLocation(radiusMeters: Float): HomeLocation? = homeLocation
+
+    override suspend fun currentPreciseWorkLocation(radiusMeters: Float): WorkLocation? = workLocation
 }
 
 private class RecordingHomeGeofenceRegistrar : HomeGeofenceRegistrar {
@@ -89,6 +129,16 @@ private class RecordingHomeGeofenceRegistrar : HomeGeofenceRegistrar {
     }
 
     override suspend fun unregisterHomeGeofence() = Unit
+}
+
+private class RecordingWorkGeofenceRegistrar : WorkGeofenceRegistrar {
+    val registeredWorkLocations = mutableListOf<WorkLocation>()
+
+    override suspend fun registerWorkGeofence(workLocation: WorkLocation) {
+        registeredWorkLocations += workLocation
+    }
+
+    override suspend fun unregisterWorkGeofence() = Unit
 }
 
 private class FailingHomeGeofenceRegistrar(private val message: String) : HomeGeofenceRegistrar {

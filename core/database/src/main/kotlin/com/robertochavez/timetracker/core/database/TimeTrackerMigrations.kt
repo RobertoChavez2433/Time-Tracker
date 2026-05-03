@@ -1,7 +1,40 @@
 package com.robertochavez.timetracker.core.database
 
 import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 
 object TimeTrackerMigrations {
-    val ALL: Array<Migration> = emptyArray()
+    val MIGRATION_1_2: Migration = object : Migration(1, 2) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS `work_locations` (
+                    `id` TEXT NOT NULL,
+                    `latitude` REAL NOT NULL,
+                    `longitude` REAL NOT NULL,
+                    `radiusMeters` REAL NOT NULL,
+                    `updatedAtEpochMillis` INTEGER NOT NULL,
+                    PRIMARY KEY(`id`)
+                )
+                """.trimIndent(),
+            )
+        }
+    }
+
+    val MIGRATION_2_3: Migration = object : Migration(2, 3) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS `work_presence` (
+                    `id` TEXT NOT NULL,
+                    `atWork` INTEGER NOT NULL,
+                    `updatedAtEpochMillis` INTEGER NOT NULL,
+                    PRIMARY KEY(`id`)
+                )
+                """.trimIndent(),
+            )
+        }
+    }
+
+    val ALL: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3)
 }

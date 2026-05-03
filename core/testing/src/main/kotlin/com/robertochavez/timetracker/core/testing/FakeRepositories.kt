@@ -6,12 +6,16 @@ import com.robertochavez.timetracker.core.common.model.AppSettings
 import com.robertochavez.timetracker.core.common.model.AwaySession
 import com.robertochavez.timetracker.core.common.model.HomeLocation
 import com.robertochavez.timetracker.core.common.model.PayPeriodSettings
+import com.robertochavez.timetracker.core.common.model.WorkLocation
+import com.robertochavez.timetracker.core.common.model.WorkPresence
 import com.robertochavez.timetracker.core.common.model.WorkSchedule
 import com.robertochavez.timetracker.core.common.repository.AppSettingsRepository
 import com.robertochavez.timetracker.core.common.repository.HomeLocationRepository
 import com.robertochavez.timetracker.core.common.repository.LocalDataResetter
 import com.robertochavez.timetracker.core.common.repository.PayPeriodSettingsRepository
 import com.robertochavez.timetracker.core.common.repository.TrackingRepository
+import com.robertochavez.timetracker.core.common.repository.WorkLocationRepository
+import com.robertochavez.timetracker.core.common.repository.WorkPresenceRepository
 import com.robertochavez.timetracker.core.common.repository.WorkScheduleRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,6 +31,30 @@ class FakeHomeLocationRepository(initialHomeLocation: HomeLocation? = null) : Ho
 
     override suspend fun setHomeLocation(homeLocation: HomeLocation) {
         this.homeLocation.value = homeLocation
+    }
+}
+
+class FakeWorkLocationRepository(initialWorkLocation: WorkLocation? = null) : WorkLocationRepository {
+    val workLocation = MutableStateFlow(initialWorkLocation)
+
+    override fun observeWorkLocation(): Flow<WorkLocation?> = workLocation
+
+    override suspend fun getWorkLocation(): WorkLocation? = workLocation.value
+
+    override suspend fun setWorkLocation(workLocation: WorkLocation) {
+        this.workLocation.value = workLocation
+    }
+}
+
+class FakeWorkPresenceRepository(initialWorkPresence: WorkPresence = WorkPresence(false, Instant.EPOCH)) : WorkPresenceRepository {
+    val workPresence = MutableStateFlow(initialWorkPresence)
+
+    override fun observeWorkPresence(): Flow<WorkPresence> = workPresence
+
+    override suspend fun getWorkPresence(): WorkPresence = workPresence.value
+
+    override suspend fun setAtWork(atWork: Boolean, updatedAt: Instant) {
+        workPresence.value = WorkPresence(atWork = atWork, updatedAt = updatedAt)
     }
 }
 

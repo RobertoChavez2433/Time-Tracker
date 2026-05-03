@@ -3,9 +3,12 @@ package com.robertochavez.timetracker.feature.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.robertochavez.timetracker.core.common.model.HomeLocation
+import com.robertochavez.timetracker.core.common.model.WorkLocation
 import com.robertochavez.timetracker.core.common.repository.HomeLocationRepository
-import com.robertochavez.timetracker.core.location.CurrentHomeLocationProvider
+import com.robertochavez.timetracker.core.common.repository.WorkLocationRepository
+import com.robertochavez.timetracker.core.location.CurrentGeofenceLocationProvider
 import com.robertochavez.timetracker.core.location.geofence.HomeGeofenceRegistrar
+import com.robertochavez.timetracker.core.location.geofence.WorkGeofenceRegistrar
 import com.robertochavez.timetracker.core.logging.AppLogger
 import com.robertochavez.timetracker.core.logging.LogCategory
 import com.robertochavez.timetracker.core.logging.info
@@ -18,98 +21,117 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.Clock
-import java.time.Instant
 import javax.inject.Inject
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val homeLocationRepository: HomeLocationRepository,
-    private val currentHomeLocationProvider: CurrentHomeLocationProvider,
+    private val workLocationRepository: WorkLocationRepository,
+    private val currentGeofenceLocationProvider: CurrentGeofenceLocationProvider,
     private val homeGeofenceRegistrar: HomeGeofenceRegistrar,
+    private val workGeofenceRegistrar: WorkGeofenceRegistrar,
     private val clock: Clock,
     private val logger: AppLogger,
 ) : ViewModel() {
-    private val editorState = MutableStateFlow(HomeEditorState())
+    private val homeEditorState = MutableStateFlow(HomeEditorState())
+    private val workEditorState = MutableStateFlow(WorkEditorState())
     private val statusMessage = MutableStateFlow("")
 
     val uiState: StateFlow<HomeUiState> = combine(
         homeLocationRepository.observeHomeLocation(),
-        editorState,
+        workLocationRepository.observeWorkLocation(),
+        homeEditorState,
+        workEditorState,
         statusMessage,
-    ) { home, editor, status ->
+    ) { home, work, homeEditor, workEditor, status ->
         HomeUiState(
-            homeSummary = home?.let {
-                "${it.latitude.formatCoordinate()}, ${it.longitude.formatCoordinate()} (${it.radiusMeters.toInt()} m)"
-            } ?: "No home location set",
-            pinLatitude = editor.pinLatitude,
-            pinLongitude = editor.pinLongitude,
-            pinRadiusMeters = editor.pinRadiusMeters,
+            homeSummary = home?.summary() ?: "No home location set",
+            workSummary = work?.summary() ?: "No work location set",
+            homeLatitude = homeEditor.latitude,
+            homeLongitude = homeEditor.longitude,
+            homeRadiusMeters = homeEditor.radiusMeters,
+            workLatitude = workEditor.latitude,
+            workLongitude = workEditor.longitude,
+            workRadiusMeters = workEditor.radiusMeters,
             statusMessage = status,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
 
-    fun updatePinLatitude(value: String) {
-        editorState.value = editorState.value.copy(pinLatitude = value)
+    fun updateHomeField(field: LocationField, value: String) {
+        homeEditorState.value = homeEditorState.value.updated(field, value)
     }
 
-    fun updatePinLongitude(value: String) {
-        editorState.value = editorState.value.copy(pinLongitude = value)
+    fun updateWorkField(field: LocationField, value: String) {
+        workEditorState.value = workEditorState.value.updated(field, value)
     }
 
-    fun updatePinRadiusMeters(value: String) {
-        editorState.value = editorState.value.copy(pinRadiusMeters = value)
-    }
-
-    fun useCurrentLocation() {
-        logger.info(LogCategory.UI, "Use current location requested")
+    fun useCurrentHomeLocation() {
+        logger.info(LogCategory.UI, "Use current home location requested")
         viewModelScope.launch {
             runCatching {
-                currentHomeLocationProvider.currentPreciseHomeLocation()
+                currentGeofenceLocationProvider.currentPreciseHomeLocation(homeEditorState.value.radiusInput())
             }.onSuccess { home ->
                 if (home == null) {
                     statusMessage.value =
                         "Precise current location was unavailable. Grant precise location before setting home automatically."
                 } else {
                     statusMessage.value = saveHome(home)
-                    editorState.value = HomeEditorState(
-                        pinLatitude = home.latitude.toString(),
-                        pinLongitude = home.longitude.toString(),
-                        pinRadiusMeters = home.radiusMeters.toInt().toString(),
-                    )
+                    homeEditorState.value = HomeEditorState.fromLocation(home)
                 }
             }.onFailure { error ->
-                logger.warn(LogCategory.LOCATION, "Use current location failed", error = error)
+                logger.warn(LogCategory.LOCATION, "Use current home location failed", error = error)
                 statusMessage.value = error.message ?: "Location permission or service unavailable."
             }
         }
     }
 
-    fun saveMapPin() {
-        logger.info(LogCategory.UI, "Save map pin requested")
+    fun useCurrentWorkLocation() {
+        logger.info(LogCategory.UI, "Use current work location requested")
         viewModelScope.launch {
-            val editor = editorState.value
-            val latitude = editor.pinLatitude.toDoubleOrNull()
-            val longitude = editor.pinLongitude.toDoubleOrNull()
-            val radius = editor.pinRadiusMeters.toFloatOrNull()
-            if (latitude == null || longitude == null || radius == null) {
-                logger.info(LogCategory.UI, "Save map pin rejected because input was invalid")
-                statusMessage.value = "Enter valid latitude, longitude, and radius."
-                return@launch
-            }
-
             runCatching {
-                HomeLocation(
-                    latitude = latitude,
-                    longitude = longitude,
-                    radiusMeters = radius,
-                    updatedAt = Instant.now(clock),
-                )
-            }.onSuccess { home ->
-                statusMessage.value = saveHome(home)
+                currentGeofenceLocationProvider.currentPreciseWorkLocation(workEditorState.value.radiusInput())
+            }.onSuccess { work ->
+                if (work == null) {
+                    statusMessage.value =
+                        "Precise current location was unavailable. Grant precise location before setting work automatically."
+                } else {
+                    statusMessage.value = saveWork(work)
+                    workEditorState.value = WorkEditorState.fromLocation(work)
+                }
             }.onFailure { error ->
-                logger.warn(LogCategory.LOCATION, "Save map pin failed", error = error)
-                statusMessage.value = error.message ?: "Invalid home pin."
+                logger.warn(LogCategory.LOCATION, "Use current work location failed", error = error)
+                statusMessage.value = error.message ?: "Location permission or service unavailable."
             }
+        }
+    }
+
+    fun saveHomePin() {
+        logger.info(LogCategory.UI, "Save home pin requested")
+        viewModelScope.launch {
+            homeEditorState.value.toHomeLocation(clock).fold(
+                onSuccess = { home ->
+                    statusMessage.value = saveHome(home)
+                },
+                onFailure = { error ->
+                    logger.warn(LogCategory.LOCATION, "Save home pin failed", error = error)
+                    statusMessage.value = error.message ?: "Invalid home pin."
+                },
+            )
+        }
+    }
+
+    fun saveWorkPin() {
+        logger.info(LogCategory.UI, "Save work pin requested")
+        viewModelScope.launch {
+            workEditorState.value.toWorkLocation(clock).fold(
+                onSuccess = { work ->
+                    statusMessage.value = saveWork(work)
+                },
+                onFailure = { error ->
+                    logger.warn(LogCategory.LOCATION, "Save work pin failed", error = error)
+                    statusMessage.value = error.message ?: "Invalid work pin."
+                },
+            )
         }
     }
 
@@ -128,20 +150,32 @@ class HomeViewModel @Inject constructor(
             },
         )
     }
+
+    private suspend fun saveWork(workLocation: WorkLocation): String {
+        workLocationRepository.setWorkLocation(workLocation)
+        return runCatching {
+            workGeofenceRegistrar.registerWorkGeofence(workLocation)
+        }.fold(
+            onSuccess = {
+                logger.info(LogCategory.LOCATION, "Work saved and geofence registered")
+                "Work location saved and geofence registered."
+            },
+            onFailure = { error ->
+                logger.warn(LogCategory.LOCATION, "Work saved but geofence registration failed", error = error)
+                "Work location saved. ${error.message ?: "Geofence could not be registered."}"
+            },
+        )
+    }
 }
 
 data class HomeUiState(
     val homeSummary: String = "No home location set",
-    val pinLatitude: String = "",
-    val pinLongitude: String = "",
-    val pinRadiusMeters: String = HomeLocation.MINIMUM_RADIUS_METERS.toInt().toString(),
+    val workSummary: String = "No work location set",
+    val homeLatitude: String = "",
+    val homeLongitude: String = "",
+    val homeRadiusMeters: String = HomeLocation.MINIMUM_RADIUS_METERS.toInt().toString(),
+    val workLatitude: String = "",
+    val workLongitude: String = "",
+    val workRadiusMeters: String = WorkLocation.MINIMUM_RADIUS_METERS.toInt().toString(),
     val statusMessage: String = "",
 )
-
-private data class HomeEditorState(
-    val pinLatitude: String = "",
-    val pinLongitude: String = "",
-    val pinRadiusMeters: String = HomeLocation.MINIMUM_RADIUS_METERS.toInt().toString(),
-)
-
-private fun Double.formatCoordinate(): String = "%.5f".format(this)

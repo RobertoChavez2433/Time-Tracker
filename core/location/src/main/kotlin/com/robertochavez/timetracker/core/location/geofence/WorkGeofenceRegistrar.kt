@@ -8,7 +8,7 @@ import android.os.Build
 import com.google.android.gms.location.Geofence
 import com.google.android.gms.location.GeofencingClient
 import com.google.android.gms.location.GeofencingRequest
-import com.robertochavez.timetracker.core.common.model.HomeLocation
+import com.robertochavez.timetracker.core.common.model.WorkLocation
 import com.robertochavez.timetracker.core.location.awaitTask
 import com.robertochavez.timetracker.core.location.hasBackgroundLocationPermission
 import com.robertochavez.timetracker.core.location.hasFineLocationPermission
@@ -20,30 +20,30 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
-interface HomeGeofenceRegistrar {
-    suspend fun registerHomeGeofence(homeLocation: HomeLocation)
+interface WorkGeofenceRegistrar {
+    suspend fun registerWorkGeofence(workLocation: WorkLocation)
 
-    suspend fun unregisterHomeGeofence()
+    suspend fun unregisterWorkGeofence()
 }
 
 @Singleton
-class PlayServicesHomeGeofenceRegistrar @Inject constructor(
+class PlayServicesWorkGeofenceRegistrar @Inject constructor(
     @ApplicationContext private val context: Context,
     private val geofencingClient: GeofencingClient,
     private val logger: AppLogger,
-) : HomeGeofenceRegistrar {
+) : WorkGeofenceRegistrar {
     @SuppressLint("MissingPermission")
-    override suspend fun registerHomeGeofence(homeLocation: HomeLocation) {
+    override suspend fun registerWorkGeofence(workLocation: WorkLocation) {
         if (!context.hasFineLocationPermission()) {
-            error("Precise location is required to register the home geofence. Approximate location can miss home enter and exit events.")
+            error("Precise location is required to register the work geofence.")
         }
         if (!context.hasBackgroundLocationPermission()) {
-            error("Allow all the time location access before enabling automatic home enter and exit detection.")
+            error("Allow all the time location access before enabling automatic work enter and exit detection.")
         }
-        unregisterHomeGeofence()
+        unregisterWorkGeofence()
         val geofence = Geofence.Builder()
-            .setRequestId(TimeTrackerGeofenceIds.HOME)
-            .setCircularRegion(homeLocation.latitude, homeLocation.longitude, homeLocation.radiusMeters)
+            .setRequestId(TimeTrackerGeofenceIds.WORK)
+            .setCircularRegion(workLocation.latitude, workLocation.longitude, workLocation.radiusMeters)
             .setExpirationDuration(Geofence.NEVER_EXPIRE)
             .setLoiteringDelay(TimeTrackerGeofenceIds.DWELL_DELAY_MILLIS)
             .setTransitionTypes(
@@ -60,20 +60,18 @@ class PlayServicesHomeGeofenceRegistrar @Inject constructor(
 
         try {
             geofencingClient.addGeofences(request, pendingIntent()).awaitTask()
-            logger.info(LogCategory.LOCATION, "Home geofence registered", mapOf("radiusMeters" to homeLocation.radiusMeters))
+            logger.info(LogCategory.LOCATION, "Work geofence registered", mapOf("radiusMeters" to workLocation.radiusMeters))
         } catch (error: SecurityException) {
-            // Permission can be revoked after the preflight check.
-            logger.warn(LogCategory.LOCATION, "Home geofence registration lost permission", error = error)
+            logger.warn(LogCategory.LOCATION, "Work geofence registration lost permission", error = error)
         }
     }
 
-    override suspend fun unregisterHomeGeofence() {
+    override suspend fun unregisterWorkGeofence() {
         try {
-            geofencingClient.removeGeofences(listOf(TimeTrackerGeofenceIds.HOME)).awaitTask()
-            logger.info(LogCategory.LOCATION, "Home geofence unregistered")
+            geofencingClient.removeGeofences(listOf(TimeTrackerGeofenceIds.WORK)).awaitTask()
+            logger.info(LogCategory.LOCATION, "Work geofence unregistered")
         } catch (error: SecurityException) {
-            // Permission can be revoked after the preflight check.
-            logger.warn(LogCategory.LOCATION, "Home geofence unregister lost permission", error = error)
+            logger.warn(LogCategory.LOCATION, "Work geofence unregister lost permission", error = error)
         }
     }
 

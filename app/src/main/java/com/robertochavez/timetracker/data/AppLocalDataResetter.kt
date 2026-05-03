@@ -5,6 +5,7 @@ import com.robertochavez.timetracker.core.common.repository.LocalDataResetter
 import com.robertochavez.timetracker.core.database.TimeTrackerDatabase
 import com.robertochavez.timetracker.core.location.activity.ActivityTransitionRegistrar
 import com.robertochavez.timetracker.core.location.geofence.HomeGeofenceRegistrar
+import com.robertochavez.timetracker.core.location.geofence.WorkGeofenceRegistrar
 import com.robertochavez.timetracker.core.logging.AppLogger
 import com.robertochavez.timetracker.core.logging.LogCategory
 import com.robertochavez.timetracker.core.logging.info
@@ -18,12 +19,14 @@ class AppLocalDataResetter @Inject constructor(
     private val database: TimeTrackerDatabase,
     private val appSettingsRepository: AppSettingsRepository,
     private val homeGeofenceRegistrar: HomeGeofenceRegistrar,
+    private val workGeofenceRegistrar: WorkGeofenceRegistrar,
     private val activityTransitionRegistrar: ActivityTransitionRegistrar,
     private val logger: AppLogger,
 ) : LocalDataResetter {
     override suspend fun deleteAllLocalData() {
         logger.info(LogCategory.SETTINGS, "Local data reset started")
         runCatching { homeGeofenceRegistrar.unregisterHomeGeofence() }
+        runCatching { workGeofenceRegistrar.unregisterWorkGeofence() }
         runCatching { activityTransitionRegistrar.unregisterDriveAndIdleTransitions() }
         withContext(Dispatchers.IO) {
             database.clearAllTables()

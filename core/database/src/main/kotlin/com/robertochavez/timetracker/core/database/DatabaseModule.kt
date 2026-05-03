@@ -6,6 +6,8 @@ import com.robertochavez.timetracker.core.database.dao.ActivityIntervalDao
 import com.robertochavez.timetracker.core.database.dao.AwaySessionDao
 import com.robertochavez.timetracker.core.database.dao.HomeLocationDao
 import com.robertochavez.timetracker.core.database.dao.PayPeriodSettingsDao
+import com.robertochavez.timetracker.core.database.dao.WorkLocationDao
+import com.robertochavez.timetracker.core.database.dao.WorkPresenceDao
 import com.robertochavez.timetracker.core.database.dao.WorkScheduleDao
 import dagger.Module
 import dagger.Provides
@@ -27,6 +29,12 @@ object DatabaseModule {
 
     @Provides
     fun provideHomeLocationDao(database: TimeTrackerDatabase): HomeLocationDao = database.homeLocationDao()
+
+    @Provides
+    fun provideWorkLocationDao(database: TimeTrackerDatabase): WorkLocationDao = database.workLocationDao()
+
+    @Provides
+    fun provideWorkPresenceDao(database: TimeTrackerDatabase): WorkPresenceDao = database.workPresenceDao()
 
     @Provides
     fun provideAwaySessionDao(database: TimeTrackerDatabase): AwaySessionDao = database.awaySessionDao()

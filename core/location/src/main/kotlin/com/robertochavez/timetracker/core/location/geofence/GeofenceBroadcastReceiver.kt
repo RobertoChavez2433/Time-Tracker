@@ -6,6 +6,7 @@ import android.content.Intent
 import com.google.android.gms.location.Geofence
 import com.google.android.gms.location.GeofencingEvent
 import com.robertochavez.timetracker.core.common.model.TrackingSessionController
+import com.robertochavez.timetracker.core.common.repository.WorkPresenceRepository
 import com.robertochavez.timetracker.core.logging.AppLogger
 import com.robertochavez.timetracker.core.logging.LogCategory
 import com.robertochavez.timetracker.core.logging.info
@@ -22,6 +23,8 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class GeofenceBroadcastReceiver : BroadcastReceiver() {
     @Inject lateinit var trackingSessionController: TrackingSessionController
+
+    @Inject lateinit var workPresenceRepository: WorkPresenceRepository
 
     @Inject lateinit var clock: Clock
 
@@ -45,16 +48,43 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
             return
         }
 
-        when (event.geofenceTransition) {
+        val now = Instant.now(clock)
+        val requestIds = event.triggeringGeofences?.map { it.requestId }?.toSet().orEmpty()
+
+        if (requestIds.isEmpty() || TimeTrackerGeofenceIds.HOME in requestIds) {
+            handleHomeTransition(event.geofenceTransition, now)
+        }
+        if (TimeTrackerGeofenceIds.WORK in requestIds) {
+            handleWorkTransition(event.geofenceTransition, now)
+        }
+    }
+
+    private suspend fun handleHomeTransition(transition: Int, at: Instant) {
+        when (transition) {
             Geofence.GEOFENCE_TRANSITION_EXIT -> {
                 logger.info(LogCategory.LOCATION, "Home geofence exit received")
-                trackingSessionController.startAwaySessionIfTrackable(Instant.now(clock))
+                trackingSessionController.startAwaySessionIfTrackable(at)
             }
             Geofence.GEOFENCE_TRANSITION_ENTER,
             Geofence.GEOFENCE_TRANSITION_DWELL,
             -> {
                 logger.info(LogCategory.LOCATION, "Home geofence enter or dwell received")
-                trackingSessionController.stopActiveAwaySession(Instant.now(clock))
+                trackingSessionController.stopActiveAwaySession(at)
+            }
+        }
+    }
+
+    private suspend fun handleWorkTransition(transition: Int, at: Instant) {
+        when (transition) {
+            Geofence.GEOFENCE_TRANSITION_EXIT -> {
+                logger.info(LogCategory.LOCATION, "Work geofence exit received")
+                workPresenceRepository.setAtWork(atWork = false, updatedAt = at)
+            }
+            Geofence.GEOFENCE_TRANSITION_ENTER,
+            Geofence.GEOFENCE_TRANSITION_DWELL,
+            -> {
+                logger.info(LogCategory.LOCATION, "Work geofence enter or dwell received")
+                workPresenceRepository.setAtWork(atWork = true, updatedAt = at)
             }
         }
     }

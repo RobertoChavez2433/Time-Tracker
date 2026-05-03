@@ -34,8 +34,23 @@ class TimeTrackerMigrationsTest {
     }
 
     @Test
-    fun `schema one has no migrations yet`() {
-        assertEquals(0, TimeTrackerMigrations.ALL.size)
+    fun `schema one has two upgrade migrations`() {
+        assertEquals(2, TimeTrackerMigrations.ALL.size)
+    }
+
+    @Test
+    fun `migrations add work location and presence tables`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val database = helper.createDatabase(context.getDatabasePath(TEST_DATABASE).absolutePath, 1)
+
+        try {
+            TimeTrackerMigrations.MIGRATION_1_2.migrate(database)
+            TimeTrackerMigrations.MIGRATION_2_3.migrate(database)
+            database.query("SELECT id, latitude, longitude, radiusMeters, updatedAtEpochMillis FROM work_locations").close()
+            database.query("SELECT id, atWork, updatedAtEpochMillis FROM work_presence").close()
+        } finally {
+            database.close()
+        }
     }
 
     private companion object {
