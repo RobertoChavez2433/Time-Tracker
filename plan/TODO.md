@@ -158,7 +158,7 @@ ui
 ## Core Tracking Domain
 
 - [x] Model `HomeLocation`.
-- [ ] Model `WorkLocation`.
+- [x] Model `WorkLocation`.
 - [x] Model `AwaySession`.
 - [x] Model `ActivityInterval`.
 - [x] Model `WorkSchedule`.
@@ -184,20 +184,20 @@ Work/job-site geofence requirement:
 
 - [x] Let user set home by current precise location.
 - [x] Let user set or adjust home by map pin.
-- [ ] Let user set work/job-site location by current precise location.
-- [ ] Let user set or adjust work/job-site location by map pin or coordinate/radius fields.
-- [ ] Let user customize home geofence radius.
-- [ ] Let user customize work/job-site geofence radius.
-- [ ] Allow work/job-site geofence radius up to 5 miles when Android geofencing accepts the configured radius.
+- [x] Let user set work/job-site location by current precise location.
+- [x] Let user set or adjust work/job-site location by map pin or coordinate/radius fields.
+- [x] Let user customize home geofence radius.
+- [x] Let user customize work/job-site geofence radius.
+- [x] Allow work/job-site geofence radius up to 5 miles when Android geofencing accepts the configured radius.
 - [x] Register a home geofence.
-- [ ] Register a work/job-site geofence.
+- [x] Register a work/job-site geofence.
 - [x] On geofence exit, start an away session only if the day is trackable.
 - [x] On geofence enter/dwell, stop the active away session.
-- [ ] On work/job-site geofence enter/dwell, mark the session as at work.
-- [ ] On work/job-site geofence exit, mark the session as away from work.
+- [x] On work/job-site geofence enter/dwell, mark the session as at work.
+- [x] On work/job-site geofence exit, mark the session as away from work.
 - [x] Use Activity Recognition Transition API for `IN_VEHICLE` and `STILL`.
-- [ ] Do not count `IN_VEHICLE` time as tracked drive time while inside the work/job-site geofence.
-- [ ] Keep job-site driving separate from commute/away driving in reports if it is shown at all.
+- [x] Do not count `IN_VEHICLE` time as tracked drive time while inside the work/job-site geofence.
+- [x] Keep job-site driving separate from commute/away driving in reports if it is shown at all.
 - [x] Do not use GPS speed for drive classification.
 - [x] Do not calculate mileage from GPS speed.
 - [x] Do not store route geometry for mileage.
@@ -210,8 +210,9 @@ Work/job-site geofence requirement:
 ## Local Persistence
 
 - [x] Persist home location locally.
-- [ ] Persist work/job-site location locally.
-- [ ] Persist home and work/job-site geofence radius settings locally.
+- [x] Persist work/job-site location locally.
+- [x] Persist home and work/job-site geofence radius settings locally.
+- [x] Persist current at-work presence locally.
 - [x] Persist active and completed away sessions locally.
 - [x] Persist activity intervals locally.
 - [x] Persist driven miles locally with away sessions.
@@ -224,7 +225,7 @@ Work/job-site geofence requirement:
 
 - [x] Add app shell and navigation.
 - [x] Add home setup screen.
-- [ ] Add work/job-site setup controls.
+- [x] Add work/job-site setup controls.
 - [x] Add current status/today summary screen.
 - [x] Add tracking/session detail screen.
 - [x] Add reports screen.
@@ -240,7 +241,7 @@ Work/job-site geofence requirement:
 - [x] Show monthly totals.
 - [x] Show yearly totals.
 - [x] Show miles driven in daily, weekly, biweekly, monthly, and yearly reports.
-- [ ] Exclude job-site driving from tracked drive totals.
+- [x] Exclude job-site driving from tracked drive totals.
 - [x] Split sessions across midnight by calendar day.
 - [x] Ignore non-workdays automatically.
 - [x] Show unclassified time separately.
@@ -261,6 +262,11 @@ Work/job-site geofence requirement:
 - [x] Unit test manual edits updating reports.
 - [x] Unit test activity bucket aggregation.
 - [x] Unit test mileage aggregation.
+- [x] Unit test work/job-site geofence radius validation.
+- [x] Unit test work/job-site location persistence.
+- [x] Unit test work/job-site location and presence migration from schema version 1 to 3.
+- [x] Unit test work/job-site presence persistence.
+- [x] Unit test work/job-site drive suppression policy.
 - [x] Integration test Room repositories.
 - [x] Add fake location/activity adapters for domain tests.
 - [x] Add manual device test checklist for geofence behavior.
@@ -340,6 +346,9 @@ Checklist:
 - [x] Add S21/emulator setup scripts for ADB forward/reverse ports.
 - [x] Add tests for log sanitization and state-machine readiness.
 - [x] Document how to run the debug log server and query the state endpoint.
+- [x] Verify `GET /testing/state` on S21 hardware through ADB port forwarding.
+- [x] Verify `GET /testing/state` on a headless Android emulator through ADB port forwarding.
+- [x] Run CodeMunch audit after work-location/geofence implementation and confirm no cycles or layer violations.
 - [x] Re-run LIMP, Spotless, Detekt, unit tests, Android lint, and debug assemble.
 
 ## Remaining Implementation + Verification
@@ -354,7 +363,7 @@ Checklist:
 - [x] Decide whether CSV export is post-MVP or near-term.
   - Decision: post-MVP unless the user asks for export before release.
 - [!] Run and record the manual device checklist for geofence exit, enter, dwell, delayed delivery, reboot/app restart, and activity transitions.
-  - Blocked until a physical Android device with Google Play services is used.
+  - Blocked until an intentional physical movement/device test session is performed with home/work geofences configured.
 - [!] Add accessibility pass for Compose screens before release.
   - Needs TalkBack/font-scale/input-mode review on device before a release track.
 - [!] Add release build/signing configuration when a release track is planned.

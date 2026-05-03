@@ -2,6 +2,48 @@
 
 ## 2026-05-03
 
+### Implementation - Work Location Persistence
+- Added `WorkLocation` as a plain Kotlin domain model with a 100 m minimum radius and 8046.72 m maximum radius.
+- Added a `WorkLocationRepository` contract, Room entity/DAO/repository implementation, Hilt binding, and fake repository.
+- Bumped the Room database to version 2 and added a `work_locations` migration.
+- Added work-location facts to the debug state endpoint without making work setup a blocker yet.
+
+### Verification - Work Location Persistence
+- Passed `./gradlew spotlessApply :core:common:test :core:database:testDebugUnitTest :app:testDebugUnitTest --console=plain`.
+
+### Notes - Work Location Persistence
+- Kept Room schema export disabled for now because the Room Gradle schema plugin failed in this dependency set while reading existing schema assets. The explicit migration SQL is covered by a Robolectric migration test.
+
+### Implementation - Work Location Setup UI
+- Generalized the current precise-location adapter from home-only to geofence-location setup.
+- Added current-location and coordinate/radius controls for the work/job-site location on the Locations screen.
+- Kept work setup in `:feature:home` behind `WorkLocationRepository`; the feature still does not depend on Room directly.
+
+### Verification - Work Location Setup UI
+- Passed `./gradlew spotlessApply :feature:home:testDebugUnitTest :core:location:compileDebugKotlin :app:testDebugUnitTest --console=plain`.
+
+### Implementation - Work Geofence And Drive Suppression
+- Added a work geofence registrar with the same permission guardrails as home geofencing.
+- Added persisted `WorkPresence` state and updated the geofence receiver to mark at-work state on work enter/dwell/exit.
+- Updated local data reset to unregister both home and work geofences.
+- Added a pure Kotlin activity-bucket policy so `IN_VEHICLE` while at work becomes `UNCLASSIFIED` instead of `DRIVE`.
+
+### Verification - Work Geofence And Drive Suppression
+- Passed `./gradlew spotlessApply :core:common:test :core:location:compileDebugKotlin :core:database:testDebugUnitTest :feature:home:testDebugUnitTest :app:testDebugUnitTest --console=plain`.
+
+### Hygiene - CodeMunch Follow-Up
+- Re-indexed the repo with CodeMunch after work-location/geofence changes.
+- CodeMunch reported no dependency cycles and no layer violations.
+- Refactored `tools/debug-server/server.js` route handling after CodeMunch flagged the original `handle` function as high complexity; `handle` is now low complexity.
+- CodeMunch still reports high likely-dead-code percentage, but this is inflated by Android/Hilt entry points and should not be used as a deletion list without runtime-aware follow-up.
+
+### Verification - Full Gate And Devices
+- Passed `./scripts/quality/check-limp-policies.ps1`.
+- Passed `./gradlew spotlessCheck detekt testDebugUnitTest lintDebug assembleDebug --console=plain`.
+- Passed `node --check tools/debug-server/server.js` and host `/health` smoke test.
+- Verified `GET /testing/state` on S21 `RFCNC0Y975L`; payload included `workSet: false` and `atWork: false`, and host logs drained successfully.
+- Verified `GET /testing/state` on headless emulator `Pixel_7_API_36`; payload included `workSet: false` and `atWork: false`, and host logs drained successfully.
+
 ### Direction - Logging And Test Control
 - Adapted Field Guide's testing nervous system in smaller Kotlin-native form.
 - Keep one debug-only app endpoint, `GET /testing/state`, instead of a broad driver API.
