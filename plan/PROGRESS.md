@@ -32,7 +32,7 @@
 - `./gradlew.bat "-PtimeTracker.e2eDebug=true" spotlessCheck detekt testDebugUnitTest lintDebug assembleDebug --console=plain` passed.
 - `./scripts/quality/check-limp-policies.ps1` passed.
 - `./tools/testing/Invoke-E2EVerification.ps1 -DeviceId RFCNC0Y975L -PackageName com.robertochavez.timetracker.debug -SkipInstall` passed on S21 hardware.
-- Latest E2E artifacts: `tools/testing/test-results/2026-05-03/time-tracker-e2e-20260503-183439/summary.json`, `report.md`, `button-state-matrix.json`, and `persistence-comparison.json`.
+- Latest E2E artifacts: `tools/testing/test-results/2026-05-03/time-tracker-e2e-20260503-185337/summary.json`, `report.md`, `button-state-matrix.json`, and `persistence-comparison.json`.
 - The E2E report verified all 10 named subflows and 45/45 controls, including persistence relaunch, report totals, debug-log audit, and destructive reset confirmation.
 
 ### Implementation - Work Location Persistence

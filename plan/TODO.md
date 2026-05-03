@@ -253,7 +253,7 @@ Spec source: [E2E_VERIFICATION_TODO_SPEC.md](E2E_VERIFICATION_TODO_SPEC.md).
 - [x] Keep the design-system boundary in `:core:designsystem`.
 - [x] Keep E2E/debug behavior gated behind `-PtimeTracker.e2eDebug=true`.
 - [x] Run and record the full device E2E verification evidence from `tools/testing/Invoke-E2EVerification.ps1`.
-- [x] Latest passing evidence: `tools/testing/test-results/2026-05-03/time-tracker-e2e-20260503-183439/summary.json` and `report.md`.
+- [x] Latest passing evidence: `tools/testing/test-results/2026-05-03/time-tracker-e2e-20260503-185337/summary.json` and `report.md`.
 
 ## Reports
 
