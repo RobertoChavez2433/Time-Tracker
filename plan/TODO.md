@@ -58,6 +58,7 @@ Initial module layout:
 :core:common
 :core:database
 :core:datastore
+:core:logging
 :core:location
 :core:notifications
 :core:testing
@@ -72,6 +73,7 @@ Module rules:
 - `:core:common` owns plain Kotlin primitives, time helpers, result types, and shared domain abstractions that are not feature-specific.
 - `:core:database` owns Room entities, DAOs, migrations, and local persistence implementations.
 - `:core:datastore` owns preference schemas and settings persistence.
+- `:core:logging` owns structured app logging, sanitization, local log retention, Logcat bridging, and debug log-drain transport.
 - `:core:location` owns geofence and activity-recognition adapters behind interfaces.
 - `:core:notifications` owns notification channels, permission-aware notification helpers, and future live timer notification support.
 - `:core:testing` owns fakes, fixture builders, coroutine test utilities, and reusable test helpers.
@@ -156,6 +158,7 @@ ui
 ## Core Tracking Domain
 
 - [x] Model `HomeLocation`.
+- [ ] Model `WorkLocation`.
 - [x] Model `AwaySession`.
 - [x] Model `ActivityInterval`.
 - [x] Model `WorkSchedule`.
@@ -173,12 +176,28 @@ ui
 
 ## Location + Activity Automation
 
+Work/job-site geofence requirement:
+- Home and work/job-site geofence radii must be separately configurable.
+- Work/job-site radius should support up to 5 miles where Android geofencing behavior remains reliable enough for the user.
+- Job-site driving is not tracked as commute/away drive time.
+- Activity Recognition `IN_VEHICLE` events inside the work/job-site geofence should be suppressed or reported separately from tracked drive time.
+
 - [x] Let user set home by current precise location.
 - [x] Let user set or adjust home by map pin.
+- [ ] Let user set work/job-site location by current precise location.
+- [ ] Let user set or adjust work/job-site location by map pin or coordinate/radius fields.
+- [ ] Let user customize home geofence radius.
+- [ ] Let user customize work/job-site geofence radius.
+- [ ] Allow work/job-site geofence radius up to 5 miles when Android geofencing accepts the configured radius.
 - [x] Register a home geofence.
+- [ ] Register a work/job-site geofence.
 - [x] On geofence exit, start an away session only if the day is trackable.
 - [x] On geofence enter/dwell, stop the active away session.
+- [ ] On work/job-site geofence enter/dwell, mark the session as at work.
+- [ ] On work/job-site geofence exit, mark the session as away from work.
 - [x] Use Activity Recognition Transition API for `IN_VEHICLE` and `STILL`.
+- [ ] Do not count `IN_VEHICLE` time as tracked drive time while inside the work/job-site geofence.
+- [ ] Keep job-site driving separate from commute/away driving in reports if it is shown at all.
 - [x] Do not use GPS speed for drive classification.
 - [x] Do not calculate mileage from GPS speed.
 - [x] Do not store route geometry for mileage.
@@ -191,6 +210,8 @@ ui
 ## Local Persistence
 
 - [x] Persist home location locally.
+- [ ] Persist work/job-site location locally.
+- [ ] Persist home and work/job-site geofence radius settings locally.
 - [x] Persist active and completed away sessions locally.
 - [x] Persist activity intervals locally.
 - [x] Persist driven miles locally with away sessions.
@@ -203,6 +224,7 @@ ui
 
 - [x] Add app shell and navigation.
 - [x] Add home setup screen.
+- [ ] Add work/job-site setup controls.
 - [x] Add current status/today summary screen.
 - [x] Add tracking/session detail screen.
 - [x] Add reports screen.
@@ -218,6 +240,7 @@ ui
 - [x] Show monthly totals.
 - [x] Show yearly totals.
 - [x] Show miles driven in daily, weekly, biweekly, monthly, and yearly reports.
+- [ ] Exclude job-site driving from tracked drive totals.
 - [x] Split sessions across midnight by calendar day.
 - [x] Ignore non-workdays automatically.
 - [x] Show unclassified time separately.
@@ -293,6 +316,31 @@ Policy source: `docs/LIMP_POLICIES.md`.
 - [x] Wire LIMP policies into the local pre-commit gate.
 - [x] Wire LIMP policies into GitHub Actions.
 - [x] Keep the old module-boundary script as a compatibility wrapper around the LIMP gate.
+
+## Logging + Test Control Nervous System
+
+Field Guide patterns to adapt:
+- Use a host debug-log server to capture structured app logs during device verification.
+- Use an app-side loopback HTTP server only in debug builds.
+- Use ADB port forwarding/reversing so the same scripts work against S21 hardware and Android emulators.
+- Expose state-machine readiness as structured JSON before the test runner acts.
+- Keep the Time Tracker version much smaller than Field Guide: one state endpoint instead of a broad driver API.
+
+Checklist:
+- [x] Audit Field Guide's driver server, debug log server, state machine, and Android device scripts.
+- [x] Add `:core:logging` as a narrow cross-cutting module.
+- [x] Add structured log categories for app lifecycle, UI, tracking, location, activity, database, settings, reports, and testing.
+- [x] Add log sanitization so sensitive fields and exact coordinates are not emitted to host logs.
+- [x] Add Logcat, bounded in-memory, local file, and debug host-drain logging sinks.
+- [x] Wire logger calls through app startup, ViewModels, repositories, geofence/activity receivers, and location/activity adapters.
+- [x] Add a small host debug-log server with `/log`, `/logs`, `/logs/errors`, `/logs/summary`, `/clear`, and `/health`.
+- [x] Add a debug-only app loopback endpoint `GET /testing/state`.
+- [x] Build the `/testing/state` payload from app snapshot + state-machine readiness + recent sanitized logs.
+- [x] Keep the app endpoint unavailable in non-debuggable builds.
+- [x] Add S21/emulator setup scripts for ADB forward/reverse ports.
+- [x] Add tests for log sanitization and state-machine readiness.
+- [x] Document how to run the debug log server and query the state endpoint.
+- [x] Re-run LIMP, Spotless, Detekt, unit tests, Android lint, and debug assemble.
 
 ## Remaining Implementation + Verification
 

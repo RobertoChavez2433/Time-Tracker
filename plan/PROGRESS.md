@@ -2,6 +2,48 @@
 
 ## 2026-05-03
 
+### Direction - Logging And Test Control
+- Adapted Field Guide's testing nervous system in smaller Kotlin-native form.
+- Keep one debug-only app endpoint, `GET /testing/state`, instead of a broad driver API.
+- Use host debug-log capture plus ADB port setup for both S21 hardware and emulators.
+
+### Research Notes - Field Guide Testing
+- Field Guide runs a host debug-log server on `127.0.0.1:3947`.
+- Field Guide runs an app-side loopback driver server and reaches it from the host with ADB port forwarding.
+- Field Guide forwards device logs through Logcat and app logs through a structured debug server.
+- Field Guide readiness is driven by a device-state snapshot plus a `stateMachine` JSON payload.
+- Time Tracker should keep the pattern, not the scale: structured logs, one state endpoint, and simple scripts.
+
+### Implementation Direction - Logging And Test Control
+- Add `:core:logging` for structured, sanitized logs.
+- Start a debug-only loopback endpoint from the app process when the app is debuggable.
+- Query `GET /testing/state` through `adb forward tcp:4948 tcp:4948`.
+- Drain debug app logs to the host through `adb reverse tcp:3947 tcp:3947`.
+- Keep exact home coordinates out of logs by default.
+
+### Open Items - Logging And Test Control
+- Verify the debug endpoint on physical S21 and emulator after implementation.
+- Decide later whether interactive UI-driving endpoints are needed; do not add them until a test flow requires them.
+
+### Implementation - Logging And Test Control
+- Added `:core:logging` with structured categories, sanitization, Logcat output, bounded in-memory logs, local file logging, and debug host-drain transport.
+- Added a tiny host debug-log server under `tools/debug-server/server.js`.
+- Added debug-device scripts for starting the log server, preparing ADB forward/reverse ports, and querying app state.
+- Added debug-only `GET /testing/state` app endpoint that reports app snapshot, state-machine readiness, and recent sanitized logs.
+- Wired logging through app startup, ViewModels, Room/DataStore repositories, notification setup, geofence receiver, activity receiver, and Play services adapters.
+- Added tests for log sanitization and testing state-machine readiness.
+- Verified with LIMP, Spotless, Detekt, `testDebugUnitTest`, Android lint, `assembleDebug`, and a host debug-server `/health` smoke test.
+- Installed and launched the debug app on S21 `RFCNC0Y975L`.
+- Verified `GET /testing/state` through ADB forward on S21; the endpoint returned `transportReady: true` and expected setup blockers.
+- Verified app logs reached the host debug server through ADB reverse; `/logs/summary` reported lifecycle, app, and testing entries.
+
+### Direction - Work Location Geofence
+- Added work/job-site location to the product spec.
+- Home and work/job-site geofence radii need separate user-configurable settings.
+- Work/job-site geofence radius should support up to 5 miles when Android geofencing behavior is acceptable.
+- Job-site driving should not count as tracked commute/away drive time.
+- Activity Recognition drive buckets should be suppressed or separately reported while the user is inside the work/job-site geofence.
+
 ### Direction
 - Chose native Kotlin Android instead of Flutter.
 - App is an automatic timesheet, not a speed tracker.
