@@ -90,8 +90,8 @@ Write-Host "Staged Android XML files: $($stagedAndroidXml.Count)"
 Write-Host "Staged Gradle/catalog files: $($stagedGradle.Count)"
 
 $gradleCandidates = @(
-    Join-Path (Get-Location) "gradlew.bat",
-    Join-Path (Get-Location) "gradlew"
+    (Join-Path -Path (Get-Location) -ChildPath "gradlew.bat")
+    (Join-Path -Path (Get-Location) -ChildPath "gradlew")
 )
 
 $script:gradleExecutable = $gradleCandidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
