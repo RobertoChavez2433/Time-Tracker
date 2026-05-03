@@ -2,6 +2,8 @@
 
 Last refreshed: 2026-05-03.
 
+Premium olive/E2E correction spec: [E2E_VERIFICATION_TODO_SPEC.md](E2E_VERIFICATION_TODO_SPEC.md).
+
 Status legend:
 - `[ ]` not started
 - `[~]` in progress
@@ -74,7 +76,7 @@ Module rules:
 - `:core:common` owns plain Kotlin primitives, time helpers, result types, and shared domain abstractions that are not feature-specific.
 - `:core:database` owns Room entities, DAOs, migrations, and local persistence implementations.
 - `:core:datastore` owns preference schemas and settings persistence.
-- `:core:designsystem` owns the Field Guide-inspired dark theme, color tokens, shared Compose screen scaffolds, cards, buttons, and report rows.
+- `:core:designsystem` owns the premium dark olive Time Tracker design system using Field Guide-style modular structure, color tokens, shared Compose screen scaffolds, panels, buttons, settings rows, and report rows.
 - `:core:logging` owns structured app logging, sanitization, local log retention, Logcat bridging, and debug log-drain transport.
 - `:core:location` owns geofence and activity-recognition adapters behind interfaces.
 - `:core:notifications` owns notification channels, permission-aware notification helpers, and future live timer notification support.
@@ -233,10 +235,25 @@ Work/job-site geofence requirement:
 - [x] Add reports screen.
 - [x] Add settings screen.
 - [x] Add permission education and request flow for precise/background location and activity recognition.
-- [x] Add a Field Guide-inspired dark theme as the default app theme.
+- [x] Add a premium dark olive Time Tracker design system as the default app theme.
 - [x] Move shared UI primitives into `:core:designsystem` so feature screens do not hand-style cards, buttons, titles, and report rows.
 - [x] Replace text-letter bottom navigation icons with Material icons.
-- [x] Verify the dark UI on S21 hardware.
+- [x] Reject Field Guide's cyan-heavy visual feel while preserving its modular workflow and verification discipline.
+- [x] Verify the premium dark olive UI on S21 hardware.
+
+## Premium Olive UI + E2E Verification Correction
+
+Spec source: [E2E_VERIFICATION_TODO_SPEC.md](E2E_VERIFICATION_TODO_SPEC.md).
+
+- [x] Save the premium dark olive UI and E2E verification TODO spec in `plan/E2E_VERIFICATION_TODO_SPEC.md`.
+- [x] Link the saved spec from `plan/TODO.md`.
+- [x] Record that Field Guide structure is adapted for durable planning, modular design-system ownership, stable test tags, and structured E2E evidence.
+- [x] Record that Field Guide visual feel is rejected for Time Tracker: no cyan primary styling, dense card wall, or operational dashboard copy.
+- [x] Accept the simple, calm, premium dark olive Time Tracker design direction.
+- [x] Keep the design-system boundary in `:core:designsystem`.
+- [x] Keep E2E/debug behavior gated behind `-PtimeTracker.e2eDebug=true`.
+- [x] Run and record the full device E2E verification evidence from `tools/testing/Invoke-E2EVerification.ps1`.
+- [x] Latest passing evidence: `tools/testing/test-results/2026-05-03/time-tracker-e2e-20260503-183439/summary.json` and `report.md`.
 
 ## Reports
 
@@ -349,6 +366,9 @@ Checklist:
 - [x] Add a debug-only app loopback endpoint `GET /testing/state`.
 - [x] Build the `/testing/state` payload from app snapshot + state-machine readiness + recent sanitized logs.
 - [x] Keep the app endpoint unavailable in non-debuggable builds.
+- [x] Gate the app-side testing endpoint behind explicit `-PtimeTracker.e2eDebug=true` debug builds.
+- [x] Add stable Compose test tags for the app shell, feature screens, buttons, fields, switches, and report cards.
+- [x] Add a Field Guide-style host E2E verification script that drives UI actions and validates state/log artifacts.
 - [x] Add S21/emulator setup scripts for ADB forward/reverse ports.
 - [x] Add tests for log sanitization and state-machine readiness.
 - [x] Document how to run the debug log server and query the state endpoint.
@@ -356,7 +376,7 @@ Checklist:
 - [x] Verify `GET /testing/state` on a headless Android emulator through ADB port forwarding.
 - [x] Run CodeMunch audit after work-location/geofence implementation and confirm no cycles or layer violations.
 - [x] Re-run LIMP, Spotless, Detekt, unit tests, Android lint, and debug assemble.
-- [x] Verify the Field Guide-style dark UI on S21 hardware after the design-system refactor.
+- [x] Verify the premium dark olive Time Tracker UI on S21 hardware after the design-system correction.
 
 ## Remaining Implementation + Verification
 

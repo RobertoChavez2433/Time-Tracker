@@ -2,6 +2,39 @@
 
 ## 2026-05-03
 
+### Direction - Premium Olive UI And E2E Correction
+- Saved the additive TODO spec at `plan/E2E_VERIFICATION_TODO_SPEC.md` and linked it from `plan/TODO.md`.
+- Corrected the design direction: Field Guide remains a reference for planning discipline, design-system modularity, stable test tags, and structured E2E evidence only.
+- Rejected Field Guide's visual feel for Time Tracker: no cyan primary actions, dense operational card wall, or dashboard-style copy.
+- Accepted a simple, calm, premium dark olive Time Tracker identity owned by `:core:designsystem`.
+- E2E verification remains required and all debug/state harness behavior remains gated behind `-PtimeTracker.e2eDebug=true`.
+
+### Implementation - Premium Olive Design System
+- Rebuilt `TimeTrackerColors` around a dark olive theme, warm charcoal surfaces, sage/stone/gold accents, explicit border/divider colors, and destructive/status colors.
+- Added tokenized spacing, radius, elevation, motion, and density primitives under `:core:designsystem`.
+- Updated shared panels, grouped settings sections, setting rows, status messages, and button variants for primary, secondary, quiet, and destructive actions.
+- Moved destructive styling to the confirmed delete action instead of the initial reset entry point.
+
+### Implementation - Simplified Screens And Reset UX
+- Simplified Home into setup status plus home/work geofence sections.
+- Rebalanced Tracking around the current tracking state first, with manual corrections as secondary detail.
+- Reworked Reports so today's headline totals appear first, followed by period detail cards.
+- Reorganized Settings into permission, automation, pay-period, workday, notification, privacy, and local-data sections.
+- Added a delete-local-data confirmation dialog with cancel and destructive confirm paths.
+
+### Implementation - E2E Harness Expansion
+- Refactored `tools/testing/Invoke-E2EVerification.ps1` into named subflows: `bootstrap_reset`, `settings_tracking_setup`, `settings_timesheet_rules`, `home_location_controls`, `tracking_session_correction`, `reports_navigation_and_totals`, `bottom_nav_switching`, `persistence_relaunch`, `destructive_reset_confirmation`, and `debug_log_audit`.
+- Added canonical artifacts under `tools/testing/test-results/<date>/<run-id>/`: `summary.json`, `report.md`, `button-state-matrix.json`, state snapshots, screenshots, UI dumps, persistence baseline/relaunch snapshots, and a persistence comparison.
+- Added relaunch persistence checks for configured locations/radii, privacy and notification settings, pay-period/workday state, session count, latest correction mileage, total miles, and report totals.
+- Updated the debug build application id to `com.robertochavez.timetracker.debug` for device E2E runs.
+
+### Verification - Premium Dark Olive UI And E2E
+- `./gradlew.bat "-PtimeTracker.e2eDebug=true" spotlessCheck detekt testDebugUnitTest lintDebug assembleDebug --console=plain` passed.
+- `./scripts/quality/check-limp-policies.ps1` passed.
+- `./tools/testing/Invoke-E2EVerification.ps1 -DeviceId RFCNC0Y975L -PackageName com.robertochavez.timetracker.debug -SkipInstall` passed on S21 hardware.
+- Latest E2E artifacts: `tools/testing/test-results/2026-05-03/time-tracker-e2e-20260503-183439/summary.json`, `report.md`, `button-state-matrix.json`, and `persistence-comparison.json`.
+- The E2E report verified all 10 named subflows and 45/45 controls, including persistence relaunch, report totals, debug-log audit, and destructive reset confirmation.
+
 ### Implementation - Work Location Persistence
 - Added `WorkLocation` as a plain Kotlin domain model with a 100 m minimum radius and 8046.72 m maximum radius.
 - Added a `WorkLocationRepository` contract, Room entity/DAO/repository implementation, Hilt binding, and fake repository.
@@ -43,6 +76,13 @@
 - Passed `node --check tools/debug-server/server.js` and host `/health` smoke test.
 - Verified `GET /testing/state` on S21 `RFCNC0Y975L`; payload included `workSet: false` and `atWork: false`, and host logs drained successfully.
 - Verified `GET /testing/state` on headless emulator `Pixel_7_API_36`; payload included `workSet: false` and `atWork: false`, and host logs drained successfully.
+
+### Implementation - E2E UI Verification Harness
+- Added build-time E2E gating with `-PtimeTracker.e2eDebug=true`; release builds always keep the endpoint disabled.
+- Extended `/testing/state` with debug-harness metadata and richer app facts for session correction, mileage, workday, notification, and pay-period assertions.
+- Added stable Compose test tags across navigation, feature roots, location fields/buttons, tracking session controls, report cards, and settings switches/buttons.
+- Added `tools/testing/Invoke-E2EVerification.ps1`, a host-side ADB/UIAutomator flow that installs the flagged debug app, drives UI controls, captures screenshots/hierarchy/state artifacts, and fails on app error logs.
+- Updated testing docs to make the E2E script the primary verification path and keep lower-level state/log scripts as manual debugging tools.
 
 ### Direction - Logging And Test Control
 - Adapted Field Guide's testing nervous system in smaller Kotlin-native form.
@@ -257,15 +297,15 @@
 - `./scripts/quality/check-limp-policies.ps1` passed.
 - `./gradlew.bat spotlessCheck detekt --console=plain` passed.
 
-### Direction - Dark Design System
-- User rejected the default light Material look and requested a dark UI closer to Field Guide.
-- Field Guide design intent adapted, not copied wholesale: dark-first background, elevated charcoal cards, cyan primary actions, restrained radii, dense operational screens, and theme/shared-component ownership instead of per-screen hand styling.
+### Superseded Direction - Dark Design System
+- Earlier direction requested a dark UI closer to Field Guide, but this has been superseded by the premium dark olive correction above.
+- Field Guide is now adapted for structure and verification discipline only, not for cyan visuals, dense layout, or operational dashboard tone.
 - Added `:core:designsystem` as the UI boundary for the app theme, color tokens, shared screen scaffold, cards, muted/status text, metric rows, and primary buttons.
 - Updated feature screens to consume shared design-system primitives.
-- Replaced bottom-navigation text initials with Material icons and cyan selected-state styling.
+- Replaced bottom-navigation text initials with Material icons; selected-state styling is now olive.
 - Fixed the Home screen clipping found during S21 verification by moving screen content to a shared scrollable list pattern.
 
-### Verification - Dark Design System
+### Verification - Prior Dark Design System
 - `./scripts/quality/check-limp-policies.ps1` passed.
 - `./gradlew.bat spotlessCheck detekt testDebugUnitTest lintDebug assembleDebug --console=plain --no-daemon --no-configuration-cache` passed.
 - CodeMunch incremental re-index completed after the design-system split; dependency cycles remained at 0 and custom layer violations remained at 0.
