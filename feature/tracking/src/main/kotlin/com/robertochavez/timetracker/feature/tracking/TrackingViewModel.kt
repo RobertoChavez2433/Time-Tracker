@@ -7,11 +7,13 @@ import com.robertochavez.timetracker.core.common.repository.TrackingRepository
 import com.robertochavez.timetracker.core.logging.AppLogger
 import com.robertochavez.timetracker.core.logging.LogCategory
 import com.robertochavez.timetracker.core.logging.info
+import com.robertochavez.timetracker.core.logging.warn
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.Clock
@@ -35,19 +37,15 @@ class TrackingViewModel @Inject constructor(
             activeSummary = active?.let { "Active since ${it.start}" } ?: "No active away session",
             hasActiveSession = active != null,
             sessions = sessions.map { session ->
-                val edit = edits[session.id] ?: SessionEdit(
-                    start = session.start.toString(),
-                    end = session.end?.toString().orEmpty(),
-                    drivenMiles = session.drivenMiles.toString(),
-                )
+                val edit = edits[session.id]
                 SessionUiModel(
                     id = session.id,
                     title = session.title(),
                     subtitle = session.subtitle(),
                     countsTowardTotals = session.countsTowardTotals,
-                    editStart = edit.start,
-                    editEnd = edit.end,
-                    editDrivenMiles = edit.drivenMiles,
+                    editStart = edit?.start ?: session.start.toString(),
+                    editEnd = edit?.end ?: session.end?.toString().orEmpty(),
+                    editDrivenMiles = edit?.drivenMiles ?: session.drivenMiles.toString(),
                 )
             },
         )
@@ -93,10 +91,23 @@ class TrackingViewModel @Inject constructor(
     fun saveSessionCorrections(sessionId: String) {
         logger.info(LogCategory.UI, "Session correction save requested", mapOf("session" to sessionId.take(8)))
         viewModelScope.launch {
-            val edit = edits.value[sessionId] ?: return@launch
-            val start = Instant.parse(edit.start)
-            val end = edit.end.takeIf { it.isNotBlank() }?.let(Instant::parse)
-            val drivenMiles = edit.drivenMiles.toDoubleOrNull() ?: return@launch
+            val existing = trackingRepository.observeSessions().first().firstOrNull { it.id == sessionId } ?: return@launch
+            val edit = edits.value[sessionId] ?: SessionEdit()
+            val startText = edit.start ?: existing.start.toString()
+            val endText = edit.end ?: existing.end?.toString().orEmpty()
+            val milesText = edit.drivenMiles ?: existing.drivenMiles.toString()
+            val start = parseInstantOrNull(sessionId, "start", startText) ?: return@launch
+            val end = endText.takeIf { it.isNotBlank() }?.let {
+                parseInstantOrNull(sessionId, "end", it) ?: return@launch
+            }
+            val drivenMiles = milesText.toDoubleOrNull() ?: run {
+                logger.warn(
+                    LogCategory.UI,
+                    "Invalid session correction miles",
+                    mapOf("session" to sessionId.take(8), "value" to milesText),
+                )
+                return@launch
+            }
             trackingRepository.updateSessionWindow(sessionId, start, end)
             trackingRepository.setDrivenMiles(sessionId, drivenMiles)
         }
@@ -106,6 +117,17 @@ class TrackingViewModel @Inject constructor(
         val current = edits.value[sessionId] ?: SessionEdit()
         edits.value = edits.value + (sessionId to transform(current))
     }
+
+    private fun parseInstantOrNull(sessionId: String, field: String, value: String): Instant? =
+        runCatching { Instant.parse(value) }.getOrElse { error ->
+            logger.warn(
+                LogCategory.UI,
+                "Invalid session correction instant",
+                mapOf("session" to sessionId.take(8), "field" to field, "value" to value),
+                error,
+            )
+            null
+        }
 }
 
 data class TrackingUiState(
@@ -124,7 +146,7 @@ data class SessionUiModel(
     val editDrivenMiles: String,
 )
 
-private data class SessionEdit(val start: String = "", val end: String = "", val drivenMiles: String = "0.0")
+private data class SessionEdit(val start: String? = null, val end: String? = null, val drivenMiles: String? = null)
 
 private fun AwaySession.title(): String = if (isActive) {
     "Active session"

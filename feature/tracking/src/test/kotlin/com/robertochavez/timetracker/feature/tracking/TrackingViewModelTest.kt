@@ -50,4 +50,22 @@ class TrackingViewModelTest {
         assertEquals(12.5, updated.drivenMiles, 0.001)
         assertTrue(updated.manuallyAdjusted)
     }
+
+    @Test
+    fun `saves edited miles without requiring untouched start and end fields`() = runTest(mainDispatcherRule.testDispatcher) {
+        val end = now.plusSeconds(3600)
+        val session = AwaySession(id = "session", start = now, end = end)
+        val repository = FakeTrackingRepository(initialSessions = listOf(session))
+        val viewModel = TrackingViewModel(repository, clock, NoopAppLogger())
+
+        viewModel.updateEditDrivenMiles("session", "12.5")
+        viewModel.saveSessionCorrections("session")
+        advanceUntilIdle()
+
+        val updated = repository.sessions.value.single()
+        assertEquals(now, updated.start)
+        assertEquals(end, updated.end)
+        assertEquals(12.5, updated.drivenMiles, 0.001)
+        assertTrue(updated.manuallyAdjusted)
+    }
 }
