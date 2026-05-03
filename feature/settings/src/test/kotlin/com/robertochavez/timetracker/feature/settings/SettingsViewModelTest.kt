@@ -1,6 +1,7 @@
 package com.robertochavez.timetracker.feature.settings
 
 import com.robertochavez.timetracker.core.location.activity.ActivityTransitionRegistrar
+import com.robertochavez.timetracker.core.logging.NoopAppLogger
 import com.robertochavez.timetracker.core.testing.FakeAppSettingsRepository
 import com.robertochavez.timetracker.core.testing.FakeLocalDataResetter
 import com.robertochavez.timetracker.core.testing.FakePayPeriodSettingsRepository
@@ -29,6 +30,7 @@ class SettingsViewModelTest {
             appSettingsRepository = FakeAppSettingsRepository(),
             localDataResetter = FakeLocalDataResetter(),
             activityTransitionRegistrar = RecordingActivityTransitionRegistrar(),
+            logger = NoopAppLogger(),
         )
 
         viewModel.setDayTrackable(DayOfWeek.SATURDAY.name, true)
@@ -46,6 +48,7 @@ class SettingsViewModelTest {
             appSettingsRepository = FakeAppSettingsRepository(),
             localDataResetter = FakeLocalDataResetter(),
             activityTransitionRegistrar = activityRegistrar,
+            logger = NoopAppLogger(),
         )
 
         viewModel.registerActivityTransitions()
@@ -63,6 +66,7 @@ class SettingsViewModelTest {
             appSettingsRepository = FakeAppSettingsRepository(),
             localDataResetter = localDataResetter,
             activityTransitionRegistrar = RecordingActivityTransitionRegistrar(),
+            logger = NoopAppLogger(),
         )
 
         viewModel.deleteAllLocalData()

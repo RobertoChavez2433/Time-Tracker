@@ -18,16 +18,23 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.robertochavez.timetracker.core.logging.AppLogger
+import com.robertochavez.timetracker.core.logging.LogCategory
+import com.robertochavez.timetracker.core.logging.info
 import com.robertochavez.timetracker.feature.home.HomeRoute
 import com.robertochavez.timetracker.feature.reports.ReportsRoute
 import com.robertochavez.timetracker.feature.settings.SettingsRoute
 import com.robertochavez.timetracker.feature.tracking.TrackingRoute
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    @Inject lateinit var logger: AppLogger
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        logger.info(LogCategory.LIFECYCLE, "MainActivity created")
         setContent {
             TimeTrackerTheme {
                 TimeTrackerApp()

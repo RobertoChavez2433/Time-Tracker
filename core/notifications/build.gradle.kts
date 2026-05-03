@@ -25,6 +25,7 @@ android {
 
 dependencies {
     implementation(project(":core:common"))
+    implementation(project(":core:logging"))
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
 }

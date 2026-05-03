@@ -1,6 +1,7 @@
 package com.robertochavez.timetracker.feature.tracking
 
 import com.robertochavez.timetracker.core.common.model.AwaySession
+import com.robertochavez.timetracker.core.logging.NoopAppLogger
 import com.robertochavez.timetracker.core.testing.FakeTrackingRepository
 import com.robertochavez.timetracker.core.testing.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -25,7 +26,7 @@ class TrackingViewModelTest {
     @Test
     fun `starts manual session at current clock instant`() = runTest(mainDispatcherRule.testDispatcher) {
         val repository = FakeTrackingRepository()
-        val viewModel = TrackingViewModel(repository, clock)
+        val viewModel = TrackingViewModel(repository, clock, NoopAppLogger())
 
         viewModel.startManualSession()
         advanceUntilIdle()
@@ -37,7 +38,7 @@ class TrackingViewModelTest {
     fun `saves edited miles through repository contract`() = runTest(mainDispatcherRule.testDispatcher) {
         val session = AwaySession(id = "session", start = now, end = now.plusSeconds(3600))
         val repository = FakeTrackingRepository(initialSessions = listOf(session))
-        val viewModel = TrackingViewModel(repository, clock)
+        val viewModel = TrackingViewModel(repository, clock, NoopAppLogger())
 
         viewModel.updateEditStart("session", now.toString())
         viewModel.updateEditEnd("session", now.plusSeconds(3600).toString())

@@ -6,6 +6,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.robertochavez.timetracker.core.common.model.WorkSchedule
 import com.robertochavez.timetracker.core.database.entity.WorkScheduleEntity
 import com.robertochavez.timetracker.core.database.repository.RoomTrackingRepository
+import com.robertochavez.timetracker.core.logging.NoopAppLogger
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -37,6 +38,7 @@ class TrackingRepositoryTest {
             activityIntervalDao = database.activityIntervalDao(),
             workScheduleDao = database.workScheduleDao(),
             clock = Clock.fixed(Instant.parse("2026-05-04T12:00:00Z"), ZoneId.of("America/New_York")),
+            logger = NoopAppLogger(),
         )
     }
 

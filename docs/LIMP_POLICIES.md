@@ -16,6 +16,7 @@ The project should prefer standard Kotlin and Android tooling before custom chec
 - `:core:common` owns pure Kotlin domain models, report math, repository contracts, and shared business interfaces.
 - `:core:database` owns Room entities, DAOs, migrations, and repository implementations.
 - `:core:datastore` owns DataStore-backed settings implementations.
+- `:core:logging` owns structured logging, sanitization, Logcat/file sinks, and debug log-drain transport.
 - `:core:location` owns location, geofence, and activity-recognition adapters behind interfaces.
 - `:core:notifications` owns notification channels and notification policy helpers.
 - `:core:testing` owns fakes and test utilities only.
@@ -26,6 +27,8 @@ Dependency rules:
 - Feature modules must not depend on `:core:database`, `:core:datastore`, or `:core:testing` in production code.
 - Core modules must not depend on feature modules.
 - `:core:common` must stay plain Kotlin/JVM and must not import Android, Compose, Hilt, Room, DataStore, or Play services APIs.
+- Cross-cutting logging should flow through `:core:logging`, not ad hoc `Log.*` calls spread through features.
+- `android.util.Log` is allowed only inside `:core:logging`.
 - Persistence and platform implementation details stay behind interfaces before they reach ViewModels.
 
 ## Kotlin Structure

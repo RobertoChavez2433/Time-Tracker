@@ -25,6 +25,7 @@ android {
 
 dependencies {
     implementation(project(":core:common"))
+    implementation(project(":core:logging"))
     implementation(libs.coroutines.android)
     implementation(libs.datastore.preferences)
     implementation(libs.hilt.android)

@@ -30,6 +30,7 @@ android {
 
 dependencies {
     implementation(project(":core:common"))
+    implementation(project(":core:logging"))
     implementation(project(":core:location"))
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.material3)

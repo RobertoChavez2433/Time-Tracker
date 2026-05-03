@@ -4,6 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.robertochavez.timetracker.core.common.model.AwaySession
 import com.robertochavez.timetracker.core.common.repository.TrackingRepository
+import com.robertochavez.timetracker.core.logging.AppLogger
+import com.robertochavez.timetracker.core.logging.LogCategory
+import com.robertochavez.timetracker.core.logging.info
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -16,7 +19,11 @@ import java.time.Instant
 import javax.inject.Inject
 
 @HiltViewModel
-class TrackingViewModel @Inject constructor(private val trackingRepository: TrackingRepository, private val clock: Clock) : ViewModel() {
+class TrackingViewModel @Inject constructor(
+    private val trackingRepository: TrackingRepository,
+    private val clock: Clock,
+    private val logger: AppLogger,
+) : ViewModel() {
     private val edits = MutableStateFlow<Map<String, SessionEdit>>(emptyMap())
 
     val uiState: StateFlow<TrackingUiState> = combine(
@@ -47,18 +54,25 @@ class TrackingViewModel @Inject constructor(private val trackingRepository: Trac
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TrackingUiState())
 
     fun startManualSession() {
+        logger.info(LogCategory.UI, "Manual away session start requested")
         viewModelScope.launch {
             trackingRepository.startManualSession(Instant.now(clock))
         }
     }
 
     fun stopActiveSession() {
+        logger.info(LogCategory.UI, "Active away session stop requested")
         viewModelScope.launch {
             trackingRepository.stopActiveAwaySession(Instant.now(clock))
         }
     }
 
     fun setCountsTowardTotals(sessionId: String, countsTowardTotals: Boolean) {
+        logger.info(
+            LogCategory.UI,
+            "Session totals toggle requested",
+            mapOf("session" to sessionId.take(8), "countsTowardTotals" to countsTowardTotals),
+        )
         viewModelScope.launch {
             trackingRepository.setCountsTowardTotals(sessionId, countsTowardTotals)
         }
@@ -77,6 +91,7 @@ class TrackingViewModel @Inject constructor(private val trackingRepository: Trac
     }
 
     fun saveSessionCorrections(sessionId: String) {
+        logger.info(LogCategory.UI, "Session correction save requested", mapOf("session" to sessionId.take(8)))
         viewModelScope.launch {
             val edit = edits.value[sessionId] ?: return@launch
             val start = Instant.parse(edit.start)

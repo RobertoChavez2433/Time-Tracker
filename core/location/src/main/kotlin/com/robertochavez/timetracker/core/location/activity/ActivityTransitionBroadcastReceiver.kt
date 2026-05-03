@@ -8,6 +8,9 @@ import com.google.android.gms.location.ActivityTransitionResult
 import com.google.android.gms.location.DetectedActivity
 import com.robertochavez.timetracker.core.common.model.ActivityBucket
 import com.robertochavez.timetracker.core.common.model.TrackingSessionController
+import com.robertochavez.timetracker.core.logging.AppLogger
+import com.robertochavez.timetracker.core.logging.LogCategory
+import com.robertochavez.timetracker.core.logging.info
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -23,8 +26,11 @@ class ActivityTransitionBroadcastReceiver : BroadcastReceiver() {
 
     @Inject lateinit var clock: Clock
 
+    @Inject lateinit var logger: AppLogger
+
     override fun onReceive(context: Context, intent: Intent) {
         if (!ActivityTransitionResult.hasResult(intent)) {
+            logger.info(LogCategory.ACTIVITY, "Activity transition broadcast had no result")
             return
         }
 
@@ -41,6 +47,7 @@ class ActivityTransitionBroadcastReceiver : BroadcastReceiver() {
                         event.transitionType == ActivityTransition.ACTIVITY_TRANSITION_EXIT -> ActivityBucket.UNCLASSIFIED
                         else -> ActivityBucket.UNCLASSIFIED
                     }
+                    logger.info(LogCategory.ACTIVITY, "Activity transition received", mapOf("bucket" to bucket.name))
                     trackingSessionController.recordActivityTransition(bucket, Instant.now(clock))
                 }
             } finally {

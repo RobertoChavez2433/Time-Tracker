@@ -6,6 +6,10 @@ import com.robertochavez.timetracker.core.common.model.HomeLocation
 import com.robertochavez.timetracker.core.common.repository.HomeLocationRepository
 import com.robertochavez.timetracker.core.location.CurrentHomeLocationProvider
 import com.robertochavez.timetracker.core.location.geofence.HomeGeofenceRegistrar
+import com.robertochavez.timetracker.core.logging.AppLogger
+import com.robertochavez.timetracker.core.logging.LogCategory
+import com.robertochavez.timetracker.core.logging.info
+import com.robertochavez.timetracker.core.logging.warn
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -23,6 +27,7 @@ class HomeViewModel @Inject constructor(
     private val currentHomeLocationProvider: CurrentHomeLocationProvider,
     private val homeGeofenceRegistrar: HomeGeofenceRegistrar,
     private val clock: Clock,
+    private val logger: AppLogger,
 ) : ViewModel() {
     private val editorState = MutableStateFlow(HomeEditorState())
     private val statusMessage = MutableStateFlow("")
@@ -56,6 +61,7 @@ class HomeViewModel @Inject constructor(
     }
 
     fun useCurrentLocation() {
+        logger.info(LogCategory.UI, "Use current location requested")
         viewModelScope.launch {
             runCatching {
                 currentHomeLocationProvider.currentPreciseHomeLocation()
@@ -72,18 +78,21 @@ class HomeViewModel @Inject constructor(
                     )
                 }
             }.onFailure { error ->
+                logger.warn(LogCategory.LOCATION, "Use current location failed", error = error)
                 statusMessage.value = error.message ?: "Location permission or service unavailable."
             }
         }
     }
 
     fun saveMapPin() {
+        logger.info(LogCategory.UI, "Save map pin requested")
         viewModelScope.launch {
             val editor = editorState.value
             val latitude = editor.pinLatitude.toDoubleOrNull()
             val longitude = editor.pinLongitude.toDoubleOrNull()
             val radius = editor.pinRadiusMeters.toFloatOrNull()
             if (latitude == null || longitude == null || radius == null) {
+                logger.info(LogCategory.UI, "Save map pin rejected because input was invalid")
                 statusMessage.value = "Enter valid latitude, longitude, and radius."
                 return@launch
             }
@@ -98,6 +107,7 @@ class HomeViewModel @Inject constructor(
             }.onSuccess { home ->
                 statusMessage.value = saveHome(home)
             }.onFailure { error ->
+                logger.warn(LogCategory.LOCATION, "Save map pin failed", error = error)
                 statusMessage.value = error.message ?: "Invalid home pin."
             }
         }
@@ -108,8 +118,14 @@ class HomeViewModel @Inject constructor(
         return runCatching {
             homeGeofenceRegistrar.registerHomeGeofence(homeLocation)
         }.fold(
-            onSuccess = { "Home saved and geofence registered." },
-            onFailure = { error -> "Home saved. ${error.message ?: "Geofence could not be registered."}" },
+            onSuccess = {
+                logger.info(LogCategory.LOCATION, "Home saved and geofence registered")
+                "Home saved and geofence registered."
+            },
+            onFailure = { error ->
+                logger.warn(LogCategory.LOCATION, "Home saved but geofence registration failed", error = error)
+                "Home saved. ${error.message ?: "Geofence could not be registered."}"
+            },
         )
     }
 }

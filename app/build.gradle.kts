@@ -37,6 +37,7 @@ dependencies {
     implementation(project(":core:common"))
     implementation(project(":core:database"))
     implementation(project(":core:datastore"))
+    implementation(project(":core:logging"))
     implementation(project(":core:location"))
     implementation(project(":core:notifications"))
     implementation(project(":feature:home"))
@@ -57,4 +58,7 @@ dependencies {
     ksp(libs.hilt.compiler)
 
     debugImplementation(libs.compose.ui.tooling)
+
+    testImplementation(libs.coroutines.test)
+    testImplementation(libs.junit)
 }

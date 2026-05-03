@@ -5,12 +5,18 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
 import android.os.Build
+import com.robertochavez.timetracker.core.logging.AppLogger
+import com.robertochavez.timetracker.core.logging.LogCategory
+import com.robertochavez.timetracker.core.logging.info
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class TrackingNotificationCoordinator @Inject constructor(@ApplicationContext private val context: Context) {
+class TrackingNotificationCoordinator @Inject constructor(
+    @ApplicationContext private val context: Context,
+    private val logger: AppLogger,
+) {
     fun ensureChannels() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
             return
@@ -24,12 +30,14 @@ class TrackingNotificationCoordinator @Inject constructor(@ApplicationContext pr
             description = "Optional status for active away-from-home tracking."
         }
         manager.createNotificationChannel(channel)
+        logger.info(LogCategory.APP, "Tracking notification channel ensured")
     }
 
     fun activeNotificationPolicy(): TrackingNotificationPolicy = TrackingNotificationPolicy()
 
     fun cancelActiveNotification() {
         context.getSystemService(NotificationManager::class.java).cancel(ACTIVE_TRACKING_NOTIFICATION_ID)
+        logger.info(LogCategory.APP, "Active tracking notification cancelled")
     }
 
     fun buildMinimalActiveNotification(): Notification.Builder {

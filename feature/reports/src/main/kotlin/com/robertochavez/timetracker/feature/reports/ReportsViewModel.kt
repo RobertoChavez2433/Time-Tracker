@@ -9,6 +9,9 @@ import com.robertochavez.timetracker.core.common.model.PeriodReport
 import com.robertochavez.timetracker.core.common.repository.PayPeriodSettingsRepository
 import com.robertochavez.timetracker.core.common.repository.TrackingRepository
 import com.robertochavez.timetracker.core.common.repository.WorkScheduleRepository
+import com.robertochavez.timetracker.core.logging.AppLogger
+import com.robertochavez.timetracker.core.logging.LogCategory
+import com.robertochavez.timetracker.core.logging.info
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -27,6 +30,7 @@ class ReportsViewModel @Inject constructor(
     workScheduleRepository: WorkScheduleRepository,
     payPeriodSettingsRepository: PayPeriodSettingsRepository,
     private val clock: Clock,
+    private val logger: AppLogger,
 ) : ViewModel() {
     val uiState: StateFlow<ReportsUiState> = combine(
         trackingRepository.observeSessions(),
@@ -42,6 +46,11 @@ class ReportsViewModel @Inject constructor(
         val biweekly = calculator.biweekly(today, sessions, intervals, now)
         val monthly = calculator.monthly(YearMonth.from(today), sessions, intervals, now)
         val yearly = calculator.yearly(today.year, sessions, intervals, now)
+        logger.info(
+            LogCategory.REPORTS,
+            "Reports recalculated",
+            mapOf("sessionCount" to sessions.size, "activityIntervalCount" to intervals.size),
+        )
         ReportsUiState(
             reports = listOf(
                 daily.toUi("Today"),

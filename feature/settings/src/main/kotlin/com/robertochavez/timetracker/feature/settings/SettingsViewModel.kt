@@ -9,6 +9,10 @@ import com.robertochavez.timetracker.core.common.repository.LocalDataResetter
 import com.robertochavez.timetracker.core.common.repository.PayPeriodSettingsRepository
 import com.robertochavez.timetracker.core.common.repository.WorkScheduleRepository
 import com.robertochavez.timetracker.core.location.activity.ActivityTransitionRegistrar
+import com.robertochavez.timetracker.core.logging.AppLogger
+import com.robertochavez.timetracker.core.logging.LogCategory
+import com.robertochavez.timetracker.core.logging.info
+import com.robertochavez.timetracker.core.logging.warn
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -27,6 +31,7 @@ class SettingsViewModel @Inject constructor(
     private val appSettingsRepository: AppSettingsRepository,
     private val localDataResetter: LocalDataResetter,
     private val activityTransitionRegistrar: ActivityTransitionRegistrar,
+    private val logger: AppLogger,
 ) : ViewModel() {
     private val editedAnchorDate = MutableStateFlow<String?>(null)
     private val statusMessage = MutableStateFlow("")
@@ -62,8 +67,10 @@ class SettingsViewModel @Inject constructor(
                 payPeriodSettingsRepository.setSettings(PayPeriodSettings(date))
                 editedAnchorDate.value = null
                 statusMessage.value = "Biweekly anchor saved."
+                logger.info(LogCategory.SETTINGS, "Biweekly anchor saved", mapOf("anchorDate" to date.toString()))
             }.onFailure {
                 statusMessage.value = "Use YYYY-MM-DD for the biweekly anchor."
+                logger.info(LogCategory.SETTINGS, "Biweekly anchor save rejected")
             }
         }
     }
@@ -78,6 +85,7 @@ class SettingsViewModel @Inject constructor(
                 current.trackableDays - day
             }
             workScheduleRepository.setWorkSchedule(WorkSchedule(updatedDays))
+            logger.info(LogCategory.SETTINGS, "Workday setting changed", mapOf("day" to day.name, "trackable" to trackable))
         }
     }
 
@@ -105,7 +113,9 @@ class SettingsViewModel @Inject constructor(
                 activityTransitionRegistrar.registerDriveAndIdleTransitions()
             }.onSuccess {
                 statusMessage.value = "Activity detection enabled."
+                logger.info(LogCategory.ACTIVITY, "Activity detection enabled from settings")
             }.onFailure { error ->
+                logger.warn(LogCategory.ACTIVITY, "Activity detection enable failed", error = error)
                 statusMessage.value = error.message ?: "Activity detection could not be enabled."
             }
         }
@@ -117,6 +127,7 @@ class SettingsViewModel @Inject constructor(
                 activityTransitionRegistrar.unregisterDriveAndIdleTransitions()
             }.onSuccess {
                 statusMessage.value = "Activity detection disabled."
+                logger.info(LogCategory.ACTIVITY, "Activity detection disabled from settings")
             }
         }
     }
@@ -124,6 +135,7 @@ class SettingsViewModel @Inject constructor(
     fun onForegroundPermissionResult(result: Map<String, Boolean>) {
         val grantedCount = result.values.count { it }
         statusMessage.value = "$grantedCount of ${result.size} foreground tracking permissions granted."
+        logger.info(LogCategory.SETTINGS, "Foreground permission result", mapOf("grantedCount" to grantedCount, "total" to result.size))
     }
 
     fun onBackgroundPermissionResult(granted: Boolean) {
@@ -132,10 +144,12 @@ class SettingsViewModel @Inject constructor(
         } else {
             "Background location was not granted. Automatic home enter and exit detection may not work while the app is closed."
         }
+        logger.info(LogCategory.SETTINGS, "Background location permission result", mapOf("granted" to granted))
     }
 
     fun onBackgroundLocationSettingsOpened() {
         statusMessage.value = "In Android settings, choose location and enable Allow all the time for automatic tracking."
+        logger.info(LogCategory.SETTINGS, "Background location settings opened")
     }
 
     fun deleteAllLocalData() {
@@ -144,7 +158,9 @@ class SettingsViewModel @Inject constructor(
                 localDataResetter.deleteAllLocalData()
             }.onSuccess {
                 statusMessage.value = "Local time tracking data deleted."
+                logger.info(LogCategory.SETTINGS, "Local data delete completed")
             }.onFailure { error ->
+                logger.warn(LogCategory.SETTINGS, "Local data delete failed", error = error)
                 statusMessage.value = error.message ?: "Local data could not be deleted."
             }
         }

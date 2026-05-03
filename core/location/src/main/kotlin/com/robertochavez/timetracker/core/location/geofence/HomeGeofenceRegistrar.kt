@@ -12,6 +12,10 @@ import com.robertochavez.timetracker.core.common.model.HomeLocation
 import com.robertochavez.timetracker.core.location.awaitTask
 import com.robertochavez.timetracker.core.location.hasBackgroundLocationPermission
 import com.robertochavez.timetracker.core.location.hasFineLocationPermission
+import com.robertochavez.timetracker.core.logging.AppLogger
+import com.robertochavez.timetracker.core.logging.LogCategory
+import com.robertochavez.timetracker.core.logging.info
+import com.robertochavez.timetracker.core.logging.warn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -26,6 +30,7 @@ interface HomeGeofenceRegistrar {
 class PlayServicesHomeGeofenceRegistrar @Inject constructor(
     @ApplicationContext private val context: Context,
     private val geofencingClient: GeofencingClient,
+    private val logger: AppLogger,
 ) : HomeGeofenceRegistrar {
     @SuppressLint("MissingPermission")
     override suspend fun registerHomeGeofence(homeLocation: HomeLocation) {
@@ -55,16 +60,20 @@ class PlayServicesHomeGeofenceRegistrar @Inject constructor(
 
         try {
             geofencingClient.addGeofences(request, pendingIntent()).awaitTask()
-        } catch (_: SecurityException) {
+            logger.info(LogCategory.LOCATION, "Home geofence registered", mapOf("radiusMeters" to homeLocation.radiusMeters))
+        } catch (error: SecurityException) {
             // Permission can be revoked after the preflight check.
+            logger.warn(LogCategory.LOCATION, "Home geofence registration lost permission", error = error)
         }
     }
 
     override suspend fun unregisterHomeGeofence() {
         try {
             geofencingClient.removeGeofences(listOf(HOME_GEOFENCE_ID)).awaitTask()
-        } catch (_: SecurityException) {
+            logger.info(LogCategory.LOCATION, "Home geofence unregistered")
+        } catch (error: SecurityException) {
             // Permission can be revoked after the preflight check.
+            logger.warn(LogCategory.LOCATION, "Home geofence unregister lost permission", error = error)
         }
     }
 

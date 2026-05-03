@@ -3,6 +3,7 @@ package com.robertochavez.timetracker.feature.home
 import com.robertochavez.timetracker.core.common.model.HomeLocation
 import com.robertochavez.timetracker.core.location.CurrentHomeLocationProvider
 import com.robertochavez.timetracker.core.location.geofence.HomeGeofenceRegistrar
+import com.robertochavez.timetracker.core.logging.NoopAppLogger
 import com.robertochavez.timetracker.core.testing.FakeHomeLocationRepository
 import com.robertochavez.timetracker.core.testing.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -41,6 +42,7 @@ class HomeViewModelTest {
             currentHomeLocationProvider = StaticCurrentHomeLocationProvider(homeLocation),
             homeGeofenceRegistrar = geofenceRegistrar,
             clock = clock,
+            logger = NoopAppLogger(),
         )
 
         viewModel.useCurrentLocation()
@@ -58,6 +60,7 @@ class HomeViewModelTest {
             currentHomeLocationProvider = StaticCurrentHomeLocationProvider(null),
             homeGeofenceRegistrar = FailingHomeGeofenceRegistrar("Precise location is required."),
             clock = clock,
+            logger = NoopAppLogger(),
         )
 
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {

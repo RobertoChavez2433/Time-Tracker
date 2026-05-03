@@ -35,6 +35,7 @@ android {
 
 dependencies {
     implementation(project(":core:common"))
+    implementation(project(":core:logging"))
     implementation(libs.coroutines.android)
     implementation(libs.hilt.android)
     implementation(libs.room.ktx)

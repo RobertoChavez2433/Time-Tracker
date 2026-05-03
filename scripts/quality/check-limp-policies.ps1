@@ -97,6 +97,9 @@ function Test-ForbiddenMainImport {
     if ($RelativePath -notmatch "^core/testing/" -and $import -match "^com\.robertochavez\.timetracker\.core\.testing\b") {
         return ":core:testing is for test source sets only."
     }
+    if ($RelativePath -notmatch "^core/logging/" -and $import -match "^android\.util\.Log\b") {
+        return "use :core:logging instead of direct android.util.Log imports."
+    }
 
     return $null
 }

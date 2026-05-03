@@ -11,6 +11,10 @@ import com.google.android.gms.location.ActivityTransitionRequest
 import com.google.android.gms.location.DetectedActivity
 import com.robertochavez.timetracker.core.location.awaitTask
 import com.robertochavez.timetracker.core.location.hasActivityRecognitionPermission
+import com.robertochavez.timetracker.core.logging.AppLogger
+import com.robertochavez.timetracker.core.logging.LogCategory
+import com.robertochavez.timetracker.core.logging.info
+import com.robertochavez.timetracker.core.logging.warn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -25,30 +29,37 @@ interface ActivityTransitionRegistrar {
 class PlayServicesActivityTransitionRegistrar @Inject constructor(
     @ApplicationContext private val context: Context,
     private val activityRecognitionClient: ActivityRecognitionClient,
+    private val logger: AppLogger,
 ) : ActivityTransitionRegistrar {
     @SuppressLint("MissingPermission")
     override suspend fun registerDriveAndIdleTransitions() {
         if (!context.hasActivityRecognitionPermission()) {
+            logger.info(LogCategory.ACTIVITY, "Activity transition registration skipped because permission is missing")
             return
         }
         try {
             activityRecognitionClient
                 .requestActivityTransitionUpdates(activityTransitionRequest(), pendingIntent())
                 .awaitTask()
-        } catch (_: SecurityException) {
+            logger.info(LogCategory.ACTIVITY, "Activity transitions registered")
+        } catch (error: SecurityException) {
             // Permission can be revoked after the preflight check.
+            logger.warn(LogCategory.ACTIVITY, "Activity transition registration lost permission", error = error)
         }
     }
 
     @SuppressLint("MissingPermission")
     override suspend fun unregisterDriveAndIdleTransitions() {
         if (!context.hasActivityRecognitionPermission()) {
+            logger.info(LogCategory.ACTIVITY, "Activity transition unregister skipped because permission is missing")
             return
         }
         try {
             activityRecognitionClient.removeActivityTransitionUpdates(pendingIntent()).awaitTask()
-        } catch (_: SecurityException) {
+            logger.info(LogCategory.ACTIVITY, "Activity transitions unregistered")
+        } catch (error: SecurityException) {
             // Permission can be revoked after the preflight check.
+            logger.warn(LogCategory.ACTIVITY, "Activity transition unregister lost permission", error = error)
         }
     }
 

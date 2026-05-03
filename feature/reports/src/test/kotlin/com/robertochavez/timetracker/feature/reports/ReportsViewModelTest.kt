@@ -1,6 +1,7 @@
 package com.robertochavez.timetracker.feature.reports
 
 import com.robertochavez.timetracker.core.common.model.AwaySession
+import com.robertochavez.timetracker.core.logging.NoopAppLogger
 import com.robertochavez.timetracker.core.testing.FakePayPeriodSettingsRepository
 import com.robertochavez.timetracker.core.testing.FakeTrackingRepository
 import com.robertochavez.timetracker.core.testing.FakeWorkScheduleRepository
@@ -40,6 +41,7 @@ class ReportsViewModelTest {
             workScheduleRepository = FakeWorkScheduleRepository(),
             payPeriodSettingsRepository = FakePayPeriodSettingsRepository(),
             clock = clock,
+            logger = NoopAppLogger(),
         )
 
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {

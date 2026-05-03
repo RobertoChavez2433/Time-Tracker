@@ -14,6 +14,9 @@ import com.robertochavez.timetracker.core.database.dao.WorkScheduleDao
 import com.robertochavez.timetracker.core.database.entity.ActivityIntervalEntity
 import com.robertochavez.timetracker.core.database.entity.AwaySessionEntity
 import com.robertochavez.timetracker.core.database.entity.WorkScheduleEntity
+import com.robertochavez.timetracker.core.logging.AppLogger
+import com.robertochavez.timetracker.core.logging.LogCategory
+import com.robertochavez.timetracker.core.logging.info
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.time.Clock
@@ -29,6 +32,7 @@ class RoomTrackingRepository @Inject constructor(
     private val activityIntervalDao: ActivityIntervalDao,
     private val workScheduleDao: WorkScheduleDao,
     private val clock: Clock,
+    private val logger: AppLogger,
 ) : TrackingRepository,
     TrackingSessionController {
     override fun observeSessions(): Flow<List<AwaySession>> = awaySessionDao.observeSessions()
@@ -43,10 +47,11 @@ class RoomTrackingRepository @Inject constructor(
         val schedule = WorkScheduleEntity.toSchedule(workScheduleDao.getWorkScheduleDays())
         val localDate = at.atZone(clock.zone).toLocalDate()
         if (!schedule.isTrackable(localDate)) {
+            logger.info(LogCategory.TRACKING, "Geofence exit ignored for non-trackable day", mapOf("day" to localDate.dayOfWeek.name))
             return null
         }
         return database.withTransaction {
-            awaySessionDao.getActiveSession()?.toModel() ?: createSession(at)
+            awaySessionDao.getActiveSession()?.toModel() ?: createSession(at, source = "geofence")
         }
     }
 
@@ -55,6 +60,7 @@ class RoomTrackingRepository @Inject constructor(
         val stopped = active.toModel().copy(end = at)
         closeOpenActivityInterval(active.id, at)
         awaySessionDao.upsert(AwaySessionEntity.fromModel(stopped))
+        logger.info(LogCategory.TRACKING, "Away session stopped", mapOf("session" to active.id.safePrefix()))
         stopped
     }
 
@@ -71,6 +77,11 @@ class RoomTrackingRepository @Inject constructor(
                     endEpochMillis = null,
                 ),
             )
+            logger.info(
+                LogCategory.ACTIVITY,
+                "Activity bucket transition recorded",
+                mapOf("session" to active.id.safePrefix(), "bucket" to bucket.name),
+            )
         }
     }
 
@@ -78,6 +89,7 @@ class RoomTrackingRepository @Inject constructor(
         val existing = awaySessionDao.getSession(sessionId)?.toModel() ?: return null
         val updated = ManualCorrectionService.updateSessionWindow(existing, start, end)
         awaySessionDao.upsert(AwaySessionEntity.fromModel(updated))
+        logger.info(LogCategory.TRACKING, "Session window manually adjusted", mapOf("session" to sessionId.safePrefix()))
         return updated
     }
 
@@ -85,6 +97,11 @@ class RoomTrackingRepository @Inject constructor(
         val existing = awaySessionDao.getSession(sessionId)?.toModel() ?: return null
         val updated = ManualCorrectionService.setCountsTowardTotals(existing, countsTowardTotals)
         awaySessionDao.upsert(AwaySessionEntity.fromModel(updated))
+        logger.info(
+            LogCategory.TRACKING,
+            "Session totals inclusion changed",
+            mapOf("session" to sessionId.safePrefix(), "countsTowardTotals" to countsTowardTotals),
+        )
         return updated
     }
 
@@ -92,6 +109,14 @@ class RoomTrackingRepository @Inject constructor(
         val existing = awaySessionDao.getSession(sessionId)?.toModel() ?: return null
         val updated = ManualCorrectionService.setDrivenMiles(existing, drivenMiles)
         awaySessionDao.upsert(AwaySessionEntity.fromModel(updated))
+        logger.info(
+            LogCategory.TRACKING,
+            "Session miles manually adjusted",
+            mapOf(
+                "session" to sessionId.safePrefix(),
+                "miles" to drivenMiles,
+            ),
+        )
         return updated
     }
 
@@ -102,16 +127,22 @@ class RoomTrackingRepository @Inject constructor(
             awaySessionDao.upsert(AwaySessionEntity.fromModel(updated))
             activityIntervalDao.deleteForSession(sessionId)
             activityIntervalDao.upsertAll(correctedIntervals.map(ActivityIntervalEntity::fromModel))
+            logger.info(
+                LogCategory.ACTIVITY,
+                "Session activity intervals replaced",
+                mapOf("session" to sessionId.safePrefix(), "intervalCount" to correctedIntervals.size),
+            )
             updated
         }
 
-    private suspend fun createSession(at: Instant): AwaySession {
+    private suspend fun createSession(at: Instant, source: String = "manual"): AwaySession {
         val session = AwaySession(
             id = UUID.randomUUID().toString(),
             start = at,
             end = null,
         )
         awaySessionDao.upsert(AwaySessionEntity.fromModel(session))
+        logger.info(LogCategory.TRACKING, "Away session started", mapOf("session" to session.id.safePrefix(), "source" to source))
         return session
     }
 
@@ -124,3 +155,5 @@ class RoomTrackingRepository @Inject constructor(
         }
     }
 }
+
+private fun String.safePrefix(): String = take(8)

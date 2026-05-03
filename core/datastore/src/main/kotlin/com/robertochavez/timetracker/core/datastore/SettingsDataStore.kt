@@ -9,6 +9,9 @@ import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.preferencesDataStore
 import com.robertochavez.timetracker.core.common.model.AppSettings
 import com.robertochavez.timetracker.core.common.repository.AppSettingsRepository
+import com.robertochavez.timetracker.core.logging.AppLogger
+import com.robertochavez.timetracker.core.logging.LogCategory
+import com.robertochavez.timetracker.core.logging.info
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -22,7 +25,8 @@ private val Context.timeTrackerSettingsDataStore: DataStore<Preferences> by pref
 )
 
 @Singleton
-class SettingsDataStore @Inject constructor(@ApplicationContext private val context: Context) : AppSettingsRepository {
+class SettingsDataStore @Inject constructor(@ApplicationContext private val context: Context, private val logger: AppLogger) :
+    AppSettingsRepository {
     override val settings: Flow<AppSettings> = context.timeTrackerSettingsDataStore.data
         .catch { error ->
             if (error is IOException) {
@@ -41,18 +45,22 @@ class SettingsDataStore @Inject constructor(@ApplicationContext private val cont
 
     override suspend fun setMinimalActiveNotificationEnabled(enabled: Boolean) {
         context.timeTrackerSettingsDataStore.edit { it[MINIMAL_ACTIVE_NOTIFICATION] = enabled }
+        logger.info(LogCategory.SETTINGS, "Minimal active notification setting changed", mapOf("enabled" to enabled))
     }
 
     override suspend fun setLiveTimerNotificationEnabled(enabled: Boolean) {
         context.timeTrackerSettingsDataStore.edit { it[LIVE_TIMER_NOTIFICATION] = enabled }
+        logger.info(LogCategory.SETTINGS, "Live timer notification setting changed", mapOf("enabled" to enabled))
     }
 
     override suspend fun setPrivacyDisclosureAccepted(accepted: Boolean) {
         context.timeTrackerSettingsDataStore.edit { it[PRIVACY_DISCLOSURE_ACCEPTED] = accepted }
+        logger.info(LogCategory.SETTINGS, "Privacy disclosure setting changed", mapOf("accepted" to accepted))
     }
 
     override suspend fun resetSettings() {
         context.timeTrackerSettingsDataStore.edit { it.clear() }
+        logger.info(LogCategory.SETTINGS, "App settings reset")
     }
 
     private companion object {
