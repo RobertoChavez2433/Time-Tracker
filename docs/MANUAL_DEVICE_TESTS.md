@@ -7,9 +7,10 @@ Run these on a physical Android device with Google Play services.
 - Install a debug build.
 - Open Settings.
 - Read the background location and activity recognition disclosure.
-- Request tracking permissions.
+- Request foreground tracking permissions.
 - Confirm precise location is granted.
-- Confirm background location is granted through Android system settings when required by the OS.
+- Enable background location separately.
+- On Android 11 and higher, confirm the app opens system settings and the user can choose `Allow all the time`.
 - Confirm activity recognition is granted.
 
 ## Home Setup
@@ -46,6 +47,9 @@ Run these on a physical Android device with Google Play services.
 - Save the manual correction.
 - Toggle whether the session counts toward totals.
 - Confirm Reports update after the edit.
+- Open Settings.
+- Tap `Delete Local Data`.
+- Confirm home, sessions, mileage, reports, work schedule changes, and app preferences are cleared.
 
 ## Privacy Regression
 

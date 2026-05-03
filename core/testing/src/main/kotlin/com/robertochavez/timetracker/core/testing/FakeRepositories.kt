@@ -9,6 +9,7 @@ import com.robertochavez.timetracker.core.common.model.PayPeriodSettings
 import com.robertochavez.timetracker.core.common.model.WorkSchedule
 import com.robertochavez.timetracker.core.common.repository.AppSettingsRepository
 import com.robertochavez.timetracker.core.common.repository.HomeLocationRepository
+import com.robertochavez.timetracker.core.common.repository.LocalDataResetter
 import com.robertochavez.timetracker.core.common.repository.PayPeriodSettingsRepository
 import com.robertochavez.timetracker.core.common.repository.TrackingRepository
 import com.robertochavez.timetracker.core.common.repository.WorkScheduleRepository
@@ -154,5 +155,21 @@ class FakeAppSettingsRepository(
 
     override suspend fun setPrivacyDisclosureAccepted(accepted: Boolean) {
         settings.value = settings.value.copy(privacyDisclosureAccepted = accepted)
+    }
+
+    override suspend fun resetSettings() {
+        settings.value = AppSettings(
+            minimalActiveNotificationEnabled = false,
+            liveTimerNotificationEnabled = false,
+            privacyDisclosureAccepted = false,
+        )
+    }
+}
+
+class FakeLocalDataResetter : LocalDataResetter {
+    var deleteCount = 0
+
+    override suspend fun deleteAllLocalData() {
+        deleteCount += 1
     }
 }

@@ -19,6 +19,10 @@ Time Tracker is local-only by default.
 - Cloud account data.
 - Advertising or analytics identifiers.
 
+## Data Deletion
+
+Settings includes a delete-local-data action that clears saved home location, away sessions, activity intervals, mileage, schedules, pay-period settings, notification/privacy preferences, and automation registrations on this device.
+
 ## Location Use
 
 Precise location is used to set the user's home point and register a geofence. Background location is required only so Android can deliver home enter, dwell, and exit geofence transitions while the app is not open. The app does not run a continuous GPS tracker.

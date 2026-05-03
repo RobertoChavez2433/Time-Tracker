@@ -2,6 +2,7 @@ package com.robertochavez.timetracker.feature.settings
 
 import com.robertochavez.timetracker.core.location.activity.ActivityTransitionRegistrar
 import com.robertochavez.timetracker.core.testing.FakeAppSettingsRepository
+import com.robertochavez.timetracker.core.testing.FakeLocalDataResetter
 import com.robertochavez.timetracker.core.testing.FakePayPeriodSettingsRepository
 import com.robertochavez.timetracker.core.testing.FakeWorkScheduleRepository
 import com.robertochavez.timetracker.core.testing.MainDispatcherRule
@@ -26,6 +27,7 @@ class SettingsViewModelTest {
             workScheduleRepository = workScheduleRepository,
             payPeriodSettingsRepository = FakePayPeriodSettingsRepository(),
             appSettingsRepository = FakeAppSettingsRepository(),
+            localDataResetter = FakeLocalDataResetter(),
             activityTransitionRegistrar = RecordingActivityTransitionRegistrar(),
         )
 
@@ -42,6 +44,7 @@ class SettingsViewModelTest {
             workScheduleRepository = FakeWorkScheduleRepository(),
             payPeriodSettingsRepository = FakePayPeriodSettingsRepository(),
             appSettingsRepository = FakeAppSettingsRepository(),
+            localDataResetter = FakeLocalDataResetter(),
             activityTransitionRegistrar = activityRegistrar,
         )
 
@@ -49,6 +52,23 @@ class SettingsViewModelTest {
         advanceUntilIdle()
 
         assertEquals(1, activityRegistrar.registerCount)
+    }
+
+    @Test
+    fun `deletes local data through reset contract`() = runTest(mainDispatcherRule.testDispatcher) {
+        val localDataResetter = FakeLocalDataResetter()
+        val viewModel = SettingsViewModel(
+            workScheduleRepository = FakeWorkScheduleRepository(),
+            payPeriodSettingsRepository = FakePayPeriodSettingsRepository(),
+            appSettingsRepository = FakeAppSettingsRepository(),
+            localDataResetter = localDataResetter,
+            activityTransitionRegistrar = RecordingActivityTransitionRegistrar(),
+        )
+
+        viewModel.deleteAllLocalData()
+        advanceUntilIdle()
+
+        assertEquals(1, localDataResetter.deleteCount)
     }
 }
 

@@ -53,6 +53,7 @@ dependencies {
     implementation(libs.hilt.android)
     implementation(libs.lifecycle.runtime.ktx)
     implementation(libs.navigation.compose)
+    implementation(libs.room.runtime)
     ksp(libs.hilt.compiler)
 
     debugImplementation(libs.compose.ui.tooling)

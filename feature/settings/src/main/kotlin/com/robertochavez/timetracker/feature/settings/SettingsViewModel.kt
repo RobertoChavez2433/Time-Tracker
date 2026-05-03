@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.robertochavez.timetracker.core.common.model.PayPeriodSettings
 import com.robertochavez.timetracker.core.common.model.WorkSchedule
 import com.robertochavez.timetracker.core.common.repository.AppSettingsRepository
+import com.robertochavez.timetracker.core.common.repository.LocalDataResetter
 import com.robertochavez.timetracker.core.common.repository.PayPeriodSettingsRepository
 import com.robertochavez.timetracker.core.common.repository.WorkScheduleRepository
 import com.robertochavez.timetracker.core.location.activity.ActivityTransitionRegistrar
@@ -24,6 +25,7 @@ class SettingsViewModel @Inject constructor(
     private val workScheduleRepository: WorkScheduleRepository,
     private val payPeriodSettingsRepository: PayPeriodSettingsRepository,
     private val appSettingsRepository: AppSettingsRepository,
+    private val localDataResetter: LocalDataResetter,
     private val activityTransitionRegistrar: ActivityTransitionRegistrar,
 ) : ViewModel() {
     private val editedAnchorDate = MutableStateFlow<String?>(null)
@@ -119,9 +121,33 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    fun onPermissionResult(result: Map<String, Boolean>) {
+    fun onForegroundPermissionResult(result: Map<String, Boolean>) {
         val grantedCount = result.values.count { it }
-        statusMessage.value = "$grantedCount of ${result.size} tracking permissions granted."
+        statusMessage.value = "$grantedCount of ${result.size} foreground tracking permissions granted."
+    }
+
+    fun onBackgroundPermissionResult(granted: Boolean) {
+        statusMessage.value = if (granted) {
+            "Background location granted."
+        } else {
+            "Background location was not granted. Automatic home enter and exit detection may not work while the app is closed."
+        }
+    }
+
+    fun onBackgroundLocationSettingsOpened() {
+        statusMessage.value = "In Android settings, choose location and enable Allow all the time for automatic tracking."
+    }
+
+    fun deleteAllLocalData() {
+        viewModelScope.launch {
+            runCatching {
+                localDataResetter.deleteAllLocalData()
+            }.onSuccess {
+                statusMessage.value = "Local time tracking data deleted."
+            }.onFailure { error ->
+                statusMessage.value = error.message ?: "Local data could not be deleted."
+            }
+        }
     }
 }
 

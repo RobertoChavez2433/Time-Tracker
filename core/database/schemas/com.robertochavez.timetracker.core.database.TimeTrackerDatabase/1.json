@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "6f58ae020fd246410e4334074ed3d05e",
+    "identityHash": "6432de336d40a0671313248eb130b866",
     "entities": [
       {
         "tableName": "home_locations",
@@ -48,7 +48,7 @@
       },
       {
         "tableName": "away_sessions",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `startEpochMillis` INTEGER NOT NULL, `endEpochMillis` INTEGER, `countsTowardTotals` INTEGER NOT NULL, `manuallyAdjusted` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `startEpochMillis` INTEGER NOT NULL, `endEpochMillis` INTEGER, `countsTowardTotals` INTEGER NOT NULL, `manuallyAdjusted` INTEGER NOT NULL, `drivenMiles` REAL NOT NULL, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -77,6 +77,12 @@
             "fieldPath": "manuallyAdjusted",
             "columnName": "manuallyAdjusted",
             "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "drivenMiles",
+            "columnName": "drivenMiles",
+            "affinity": "REAL",
             "notNull": true
           }
         ],
@@ -203,7 +209,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '6f58ae020fd246410e4334074ed3d05e')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '6432de336d40a0671313248eb130b866')"
     ]
   }
 }

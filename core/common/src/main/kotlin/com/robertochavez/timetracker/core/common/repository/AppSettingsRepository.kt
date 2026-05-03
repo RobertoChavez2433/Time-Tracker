@@ -11,4 +11,6 @@ interface AppSettingsRepository {
     suspend fun setLiveTimerNotificationEnabled(enabled: Boolean)
 
     suspend fun setPrivacyDisclosureAccepted(accepted: Boolean)
+
+    suspend fun resetSettings()
 }

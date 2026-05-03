@@ -61,15 +61,14 @@ class HomeViewModel @Inject constructor(
                 currentHomeLocationProvider.currentPreciseHomeLocation()
             }.onSuccess { home ->
                 if (home == null) {
-                    statusMessage.value = "Current location was unavailable."
+                    statusMessage.value = "Precise current location was unavailable. Grant precise location before setting home automatically."
                 } else {
-                    saveHome(home)
+                    statusMessage.value = saveHome(home)
                     editorState.value = HomeEditorState(
                         pinLatitude = home.latitude.toString(),
                         pinLongitude = home.longitude.toString(),
                         pinRadiusMeters = home.radiusMeters.toInt().toString(),
                     )
-                    statusMessage.value = "Home location saved from current location."
                 }
             }.onFailure { error ->
                 statusMessage.value = error.message ?: "Location permission or service unavailable."
@@ -96,17 +95,21 @@ class HomeViewModel @Inject constructor(
                     updatedAt = Instant.now(clock),
                 )
             }.onSuccess { home ->
-                saveHome(home)
-                statusMessage.value = "Home pin saved and geofence registered."
+                statusMessage.value = saveHome(home)
             }.onFailure { error ->
                 statusMessage.value = error.message ?: "Invalid home pin."
             }
         }
     }
 
-    private suspend fun saveHome(homeLocation: HomeLocation) {
+    private suspend fun saveHome(homeLocation: HomeLocation): String {
         homeLocationRepository.setHomeLocation(homeLocation)
-        homeGeofenceRegistrar.registerHomeGeofence(homeLocation)
+        return runCatching {
+            homeGeofenceRegistrar.registerHomeGeofence(homeLocation)
+        }.fold(
+            onSuccess = { "Home saved and geofence registered." },
+            onFailure = { error -> "Home saved. ${error.message ?: "Geofence could not be registered."}" },
+        )
     }
 }
 

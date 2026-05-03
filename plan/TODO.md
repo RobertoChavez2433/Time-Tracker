@@ -269,18 +269,27 @@ Review result: aligned in the broad shape, with one boundary tightened during re
 - [x] Replace deprecated `hiltViewModel` imports with the current package.
 - [x] Add feature ViewModel unit tests using fake repository contracts.
 - [x] Add reusable fake repository implementations in `:core:testing`.
-- [ ] Add CI wiring for module-boundary checks when CI exists.
-- [ ] Consider splitting `:core:location` into API and Play-services implementation modules if location code grows beyond the current small adapter surface.
+- [x] Add CI wiring for module-boundary checks when CI exists.
+- [x] Consider splitting `:core:location` into API and Play-services implementation modules if location code grows beyond the current small adapter surface.
+  - Decision: keep the current single `:core:location` module for now because the adapter surface is small and still isolated behind interfaces. Split it into API/implementation modules only if it grows.
 
 ## Remaining Implementation + Verification
 
-- [ ] Implement staged Android 11+ background-location permission UX: foreground first, educational UI, then app-settings handoff for "Allow all the time".
-- [ ] Add runtime checks that explain approximate-location limitations before registering a precise home geofence.
-- [ ] Run and record the manual device checklist for geofence exit, enter, dwell, delayed delivery, reboot/app restart, and activity transitions.
-- [ ] Decide whether the map-pin adjustment must become an actual map UI instead of coordinate/radius fields.
-- [ ] If map UI is required, add map dependency/API-key handling and keep home location storage to a single point plus radius.
-- [ ] Decide whether CSV export is post-MVP or near-term.
-- [ ] Add migration test harness before the first schema upgrade beyond version 1.
-- [ ] Add accessibility pass for Compose screens before release.
-- [ ] Add release build/signing configuration when a release track is planned.
-- [ ] If automatic mileage is requested later, design it explicitly for privacy and battery before implementation; do not infer miles from stored routes or continuous GPS by default.
+- [x] Implement staged Android 11+ background-location permission UX: foreground first, educational UI, then app-settings handoff for "Allow all the time".
+- [x] Add runtime checks that explain approximate-location limitations before registering a precise home geofence.
+- [x] Add migration test harness before the first schema upgrade beyond version 1.
+- [x] Add CI workflow for module-boundary checks and the full Gradle verification gate.
+- [x] Add user-facing delete-all-local-data flow before production release.
+- [x] Decide whether the map-pin adjustment must become an actual map UI instead of coordinate/radius fields.
+  - Decision: keep coordinate/radius fields for MVP to avoid adding Maps API key handling before the product needs it.
+- [x] Decide whether CSV export is post-MVP or near-term.
+  - Decision: post-MVP unless the user asks for export before release.
+- [!] Run and record the manual device checklist for geofence exit, enter, dwell, delayed delivery, reboot/app restart, and activity transitions.
+  - Blocked until a physical Android device with Google Play services is used.
+- [!] Add accessibility pass for Compose screens before release.
+  - Needs TalkBack/font-scale/input-mode review on device before a release track.
+- [!] Add release build/signing configuration when a release track is planned.
+  - Needs release keystore/signing direction.
+- [!] Record the Play background-location declaration video and review final policy copy before Play release.
+  - Needs a physical device and final release UI.
+- [!] If automatic mileage is requested later, design it explicitly for privacy and battery before implementation; do not infer miles from stored routes or continuous GPS by default.

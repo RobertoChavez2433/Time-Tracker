@@ -6,9 +6,13 @@ import com.robertochavez.timetracker.core.location.geofence.HomeGeofenceRegistra
 import com.robertochavez.timetracker.core.testing.FakeHomeLocationRepository
 import com.robertochavez.timetracker.core.testing.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import java.time.Clock
@@ -45,6 +49,29 @@ class HomeViewModelTest {
         assertEquals(homeLocation, homeRepository.homeLocation.value)
         assertEquals(listOf(homeLocation), geofenceRegistrar.registeredHomes)
     }
+
+    @Test
+    fun `home is saved while surfacing geofence permission warnings`() = runTest(mainDispatcherRule.testDispatcher) {
+        val homeRepository = FakeHomeLocationRepository()
+        val viewModel = HomeViewModel(
+            homeLocationRepository = homeRepository,
+            currentHomeLocationProvider = StaticCurrentHomeLocationProvider(null),
+            homeGeofenceRegistrar = FailingHomeGeofenceRegistrar("Precise location is required."),
+            clock = clock,
+        )
+
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.uiState.collect()
+        }
+        viewModel.updatePinLatitude("39.7392")
+        viewModel.updatePinLongitude("-104.9903")
+        viewModel.updatePinRadiusMeters("150")
+        viewModel.saveMapPin()
+        advanceUntilIdle()
+
+        assertEquals(39.7392, homeRepository.homeLocation.value?.latitude ?: 0.0, 0.0001)
+        assertTrue(viewModel.uiState.value.statusMessage.contains("Precise location is required."))
+    }
 }
 
 private class StaticCurrentHomeLocationProvider(
@@ -58,6 +85,16 @@ private class RecordingHomeGeofenceRegistrar : HomeGeofenceRegistrar {
 
     override suspend fun registerHomeGeofence(homeLocation: HomeLocation) {
         registeredHomes += homeLocation
+    }
+
+    override suspend fun unregisterHomeGeofence() = Unit
+}
+
+private class FailingHomeGeofenceRegistrar(
+    private val message: String,
+) : HomeGeofenceRegistrar {
+    override suspend fun registerHomeGeofence(homeLocation: HomeLocation) {
+        error(message)
     }
 
     override suspend fun unregisterHomeGeofence() = Unit

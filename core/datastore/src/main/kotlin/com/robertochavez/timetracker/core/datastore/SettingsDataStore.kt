@@ -53,6 +53,10 @@ class SettingsDataStore @Inject constructor(
         context.timeTrackerSettingsDataStore.edit { it[PRIVACY_DISCLOSURE_ACCEPTED] = accepted }
     }
 
+    override suspend fun resetSettings() {
+        context.timeTrackerSettingsDataStore.edit { it.clear() }
+    }
+
     private companion object {
         val MINIMAL_ACTIVE_NOTIFICATION = booleanPreferencesKey("minimal_active_notification")
         val LIVE_TIMER_NOTIFICATION = booleanPreferencesKey("live_timer_notification")

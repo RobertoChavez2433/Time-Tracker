@@ -37,7 +37,6 @@ Reference: https://support.google.com/googleplay/android-developer/answer/101443
 
 ## Pre-Release Blockers
 
-- Add a user-facing delete-all-local-data flow.
 - Record the background location declaration video.
 - Review disclosure text against the exact release UI.
 - Run the full manual device checklist.

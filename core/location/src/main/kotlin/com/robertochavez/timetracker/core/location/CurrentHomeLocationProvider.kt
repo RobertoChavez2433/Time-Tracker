@@ -24,7 +24,7 @@ class PlayServicesCurrentHomeLocationProvider @Inject constructor(
     private val clock: Clock,
 ) : CurrentHomeLocationProvider {
     @SuppressLint("MissingPermission")
-    override suspend fun currentPreciseHomeLocation(radiusMeters: Float): HomeLocation? = if (!context.hasForegroundLocationPermission()) {
+    override suspend fun currentPreciseHomeLocation(radiusMeters: Float): HomeLocation? = if (!context.hasFineLocationPermission()) {
         null
     } else {
         val request = CurrentLocationRequest.Builder()

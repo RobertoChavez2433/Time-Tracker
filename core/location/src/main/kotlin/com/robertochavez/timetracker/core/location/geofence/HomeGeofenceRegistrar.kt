@@ -10,6 +10,7 @@ import com.google.android.gms.location.GeofencingClient
 import com.google.android.gms.location.GeofencingRequest
 import com.robertochavez.timetracker.core.common.model.HomeLocation
 import com.robertochavez.timetracker.core.location.awaitTask
+import com.robertochavez.timetracker.core.location.hasBackgroundLocationPermission
 import com.robertochavez.timetracker.core.location.hasFineLocationPermission
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -29,7 +30,10 @@ class PlayServicesHomeGeofenceRegistrar @Inject constructor(
     @SuppressLint("MissingPermission")
     override suspend fun registerHomeGeofence(homeLocation: HomeLocation) {
         if (!context.hasFineLocationPermission()) {
-            return
+            error("Precise location is required to register the home geofence. Approximate location can miss home enter and exit events.")
+        }
+        if (!context.hasBackgroundLocationPermission()) {
+            error("Allow all the time location access before enabling automatic home enter and exit detection.")
         }
         unregisterHomeGeofence()
         val geofence = Geofence.Builder()

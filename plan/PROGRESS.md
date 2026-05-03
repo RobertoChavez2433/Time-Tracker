@@ -146,3 +146,17 @@
 - Added feature ViewModel unit tests for Home, Tracking, Reports, and Settings so feature logic can be verified through repository/location contracts instead of Room, DataStore, or Play services implementations.
 - `./gradlew.bat spotlessApply --console=plain` passed.
 - `./gradlew.bat testDebugUnitTest --console=plain` passed.
+
+### Permission, Migration, CI, And Privacy Follow-Up
+- Reworked Settings permissions into a staged flow: foreground tracking permissions first, then Android 11+ app-settings handoff for background location.
+- Added precise/background location preflight failures before geofence registration so approximate-only or foreground-only grants produce an actionable UI message instead of silently failing.
+- Added a Room migration test harness using the committed schema as the v1 baseline.
+- Updated the v1 schema JSON to include driven miles after the migration test exposed that the schema snapshot was stale.
+- Added a GitHub Actions Android workflow that runs module-boundary checks plus `spotlessCheck`, `detekt`, `testDebugUnitTest`, `lintDebug`, and `assembleDebug`.
+- Added a delete-local-data flow in Settings, backed by a `LocalDataResetter` contract. The app implementation clears Room tables, resets DataStore settings, and unregisters geofence/activity automation.
+- Decided to keep coordinate/radius home pin adjustment for MVP; a full map UI stays deferred until a Maps API key/product requirement exists.
+- Decided CSV export is post-MVP unless explicitly requested before release.
+
+### Remaining Blockers
+- Physical-device verification is still required for real geofence latency, enter/exit/dwell, reboot/app restart, activity transitions, TalkBack/font-scale accessibility, and the Play background-location declaration video.
+- Release signing still needs release keystore/signing direction.
