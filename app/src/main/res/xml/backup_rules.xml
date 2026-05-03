@@ -1,0 +1,3 @@
+<full-backup-content>
+    <exclude domain="database" path="time_tracker.db" />
+</full-backup-content>
