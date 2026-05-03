@@ -24,10 +24,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @Composable
-fun TrackingRoute(
-    modifier: Modifier = Modifier,
-    viewModel: TrackingViewModel = hiltViewModel(),
-) {
+fun TrackingRoute(modifier: Modifier = Modifier, viewModel: TrackingViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
     Scaffold(modifier = modifier) { padding ->
@@ -87,10 +84,7 @@ private data class SessionActions(
 )
 
 @Composable
-private fun SessionCard(
-    session: SessionUiModel,
-    actions: SessionActions,
-) {
+private fun SessionCard(session: SessionUiModel, actions: SessionActions) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(16.dp),

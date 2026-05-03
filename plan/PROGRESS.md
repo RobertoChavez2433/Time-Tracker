@@ -160,3 +160,15 @@
 ### Remaining Blockers
 - Physical-device verification is still required for real geofence latency, enter/exit/dwell, reboot/app restart, activity transitions, TalkBack/font-scale accessibility, and the Play background-location declaration video.
 - Release signing still needs release keystore/signing direction.
+
+### LIMP Policy Lock-In
+- Researched the current standard tool layer for Kotlin/Android quality: Kotlin coding conventions, Android Kotlin style, ktlint standard rules, Detekt complexity rules, Android architecture, and Android modularization.
+- Added `docs/LIMP_POLICIES.md` as the compact policy source for module boundaries, Kotlin source structure, and size/complexity budgets.
+- Added `.editorconfig` so ktlint runs with explicit official Kotlin code style and a 140-character project line budget.
+- Tightened Detekt's built-in Kotlin budgets for method length, class length, complexity, nesting, parameters, functions per file/class, and max line length.
+- Added `scripts/quality/check-limp-policies.ps1` for the project-specific rules that ktlint/Detekt do not own: module dependencies, source imports, package-directory alignment, file length, and import counts.
+- Replaced the CI and pre-commit module-boundary step with the broader LIMP policy gate; kept `check-module-boundaries.ps1` as a wrapper for compatibility.
+- Kept `:core:common` plain Kotlin by changing its coroutine dependency from `kotlinx-coroutines-android` to `kotlinx-coroutines-core`.
+- Wrapped long Kotlin declarations and queries exposed by the new 140-character Detekt limit.
+- `./scripts/quality/check-limp-policies.ps1` passed.
+- `./gradlew.bat spotlessCheck detekt --console=plain` passed.

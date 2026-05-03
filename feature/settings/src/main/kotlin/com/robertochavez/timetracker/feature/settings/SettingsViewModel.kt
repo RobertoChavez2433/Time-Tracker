@@ -160,7 +160,4 @@ data class SettingsUiState(
     val statusMessage: String = "",
 )
 
-data class WorkdayUiModel(
-    val name: String,
-    val trackable: Boolean,
-)
+data class WorkdayUiModel(val name: String, val trackable: Boolean)

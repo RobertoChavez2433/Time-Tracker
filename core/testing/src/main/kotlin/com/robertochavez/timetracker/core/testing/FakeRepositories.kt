@@ -18,9 +18,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import java.time.Instant
 import java.time.LocalDate
 
-class FakeHomeLocationRepository(
-    initialHomeLocation: HomeLocation? = null,
-) : HomeLocationRepository {
+class FakeHomeLocationRepository(initialHomeLocation: HomeLocation? = null) : HomeLocationRepository {
     val homeLocation = MutableStateFlow(initialHomeLocation)
 
     override fun observeHomeLocation(): Flow<HomeLocation?> = homeLocation
@@ -32,10 +30,8 @@ class FakeHomeLocationRepository(
     }
 }
 
-class FakeTrackingRepository(
-    initialSessions: List<AwaySession> = emptyList(),
-    initialIntervals: List<ActivityInterval> = emptyList(),
-) : TrackingRepository {
+class FakeTrackingRepository(initialSessions: List<AwaySession> = emptyList(), initialIntervals: List<ActivityInterval> = emptyList()) :
+    TrackingRepository {
     val sessions = MutableStateFlow(initialSessions)
     val intervals = MutableStateFlow(initialIntervals)
     val manualStarts = mutableListOf<Instant>()
@@ -68,34 +64,21 @@ class FakeTrackingRepository(
         activityTransitions += bucket to at
     }
 
-    override suspend fun updateSessionWindow(
-        sessionId: String,
-        start: Instant,
-        end: Instant?,
-    ): AwaySession? = updateSession(sessionId) { it.copy(start = start, end = end, manuallyAdjusted = true) }
+    override suspend fun updateSessionWindow(sessionId: String, start: Instant, end: Instant?): AwaySession? =
+        updateSession(sessionId) { it.copy(start = start, end = end, manuallyAdjusted = true) }
 
-    override suspend fun setCountsTowardTotals(
-        sessionId: String,
-        countsTowardTotals: Boolean,
-    ): AwaySession? = updateSession(sessionId) { it.copy(countsTowardTotals = countsTowardTotals, manuallyAdjusted = true) }
+    override suspend fun setCountsTowardTotals(sessionId: String, countsTowardTotals: Boolean): AwaySession? =
+        updateSession(sessionId) { it.copy(countsTowardTotals = countsTowardTotals, manuallyAdjusted = true) }
 
-    override suspend fun setDrivenMiles(
-        sessionId: String,
-        drivenMiles: Double,
-    ): AwaySession? = updateSession(sessionId) { it.copy(drivenMiles = drivenMiles, manuallyAdjusted = true) }
+    override suspend fun setDrivenMiles(sessionId: String, drivenMiles: Double): AwaySession? =
+        updateSession(sessionId) { it.copy(drivenMiles = drivenMiles, manuallyAdjusted = true) }
 
-    override suspend fun replaceActivityIntervals(
-        sessionId: String,
-        intervals: List<ActivityInterval>,
-    ): AwaySession? {
+    override suspend fun replaceActivityIntervals(sessionId: String, intervals: List<ActivityInterval>): AwaySession? {
         this.intervals.value = this.intervals.value.filterNot { it.sessionId == sessionId } + intervals
         return updateSession(sessionId) { it.copy(manuallyAdjusted = true) }
     }
 
-    private fun updateSession(
-        sessionId: String,
-        transform: (AwaySession) -> AwaySession,
-    ): AwaySession? {
+    private fun updateSession(sessionId: String, transform: (AwaySession) -> AwaySession): AwaySession? {
         var updated: AwaySession? = null
         sessions.value = sessions.value.map {
             if (it.id == sessionId) {
@@ -108,9 +91,7 @@ class FakeTrackingRepository(
     }
 }
 
-class FakeWorkScheduleRepository(
-    initialSchedule: WorkSchedule = WorkSchedule(),
-) : WorkScheduleRepository {
+class FakeWorkScheduleRepository(initialSchedule: WorkSchedule = WorkSchedule()) : WorkScheduleRepository {
     val schedule = MutableStateFlow(initialSchedule)
 
     override fun observeWorkSchedule(): Flow<WorkSchedule> = schedule
@@ -122,9 +103,8 @@ class FakeWorkScheduleRepository(
     }
 }
 
-class FakePayPeriodSettingsRepository(
-    initialSettings: PayPeriodSettings = PayPeriodSettings(LocalDate.of(2026, 4, 20)),
-) : PayPeriodSettingsRepository {
+class FakePayPeriodSettingsRepository(initialSettings: PayPeriodSettings = PayPeriodSettings(LocalDate.of(2026, 4, 20))) :
+    PayPeriodSettingsRepository {
     val settings = MutableStateFlow(initialSettings)
 
     override fun observeSettings(): Flow<PayPeriodSettings> = settings

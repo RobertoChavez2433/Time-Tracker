@@ -20,9 +20,10 @@ import javax.inject.Singleton
 object DatabaseModule {
     @Provides
     @Singleton
-    fun provideDatabase(@ApplicationContext context: Context): TimeTrackerDatabase = Room.databaseBuilder(context, TimeTrackerDatabase::class.java, "time_tracker.db")
-        .addMigrations(*TimeTrackerMigrations.ALL)
-        .build()
+    fun provideDatabase(@ApplicationContext context: Context): TimeTrackerDatabase =
+        Room.databaseBuilder(context, TimeTrackerDatabase::class.java, "time_tracker.db")
+            .addMigrations(*TimeTrackerMigrations.ALL)
+            .build()
 
     @Provides
     fun provideHomeLocationDao(database: TimeTrackerDatabase): HomeLocationDao = database.homeLocationDao()

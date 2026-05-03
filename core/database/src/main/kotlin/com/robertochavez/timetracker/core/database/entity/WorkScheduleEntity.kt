@@ -6,10 +6,7 @@ import com.robertochavez.timetracker.core.common.model.WorkSchedule
 import java.time.DayOfWeek
 
 @Entity(tableName = "work_schedule_days")
-data class WorkScheduleEntity(
-    @PrimaryKey val dayOfWeek: Int,
-    val trackable: Boolean,
-) {
+data class WorkScheduleEntity(@PrimaryKey val dayOfWeek: Int, val trackable: Boolean) {
     companion object {
         fun fromSchedule(schedule: WorkSchedule): List<WorkScheduleEntity> = DayOfWeek.entries.map { day ->
             WorkScheduleEntity(

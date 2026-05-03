@@ -74,9 +74,7 @@ class HomeViewModelTest {
     }
 }
 
-private class StaticCurrentHomeLocationProvider(
-    private val homeLocation: HomeLocation?,
-) : CurrentHomeLocationProvider {
+private class StaticCurrentHomeLocationProvider(private val homeLocation: HomeLocation?) : CurrentHomeLocationProvider {
     override suspend fun currentPreciseHomeLocation(radiusMeters: Float): HomeLocation? = homeLocation
 }
 
@@ -90,9 +88,7 @@ private class RecordingHomeGeofenceRegistrar : HomeGeofenceRegistrar {
     override suspend fun unregisterHomeGeofence() = Unit
 }
 
-private class FailingHomeGeofenceRegistrar(
-    private val message: String,
-) : HomeGeofenceRegistrar {
+private class FailingHomeGeofenceRegistrar(private val message: String) : HomeGeofenceRegistrar {
     override suspend fun registerHomeGeofence(homeLocation: HomeLocation) {
         error(message)
     }

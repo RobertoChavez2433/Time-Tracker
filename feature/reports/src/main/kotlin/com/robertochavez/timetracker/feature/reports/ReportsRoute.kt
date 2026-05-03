@@ -19,10 +19,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @Composable
-fun ReportsRoute(
-    modifier: Modifier = Modifier,
-    viewModel: ReportsViewModel = hiltViewModel(),
-) {
+fun ReportsRoute(modifier: Modifier = Modifier, viewModel: ReportsViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
     Scaffold(modifier = modifier) { padding ->

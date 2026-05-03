@@ -33,10 +33,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @Composable
-fun SettingsRoute(
-    modifier: Modifier = Modifier,
-    viewModel: SettingsViewModel = hiltViewModel(),
-) {
+fun SettingsRoute(modifier: Modifier = Modifier, viewModel: SettingsViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val foregroundPermissionLauncher = rememberLauncherForActivityResult(
@@ -155,10 +152,7 @@ private fun PermissionCard(
 }
 
 @Composable
-private fun AutomationCard(
-    onEnableActivityDetection: () -> Unit,
-    onDisableActivityDetection: () -> Unit,
-) {
+private fun AutomationCard(onEnableActivityDetection: () -> Unit, onDisableActivityDetection: () -> Unit) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -178,11 +172,7 @@ private fun AutomationCard(
 }
 
 @Composable
-private fun PayPeriodCard(
-    anchorDate: String,
-    onAnchorDateChange: (String) -> Unit,
-    onSaveAnchorDate: () -> Unit,
-) {
+private fun PayPeriodCard(anchorDate: String, onAnchorDateChange: (String) -> Unit, onSaveAnchorDate: () -> Unit) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -204,10 +194,7 @@ private fun PayPeriodCard(
 }
 
 @Composable
-private fun WorkdayRow(
-    day: WorkdayUiModel,
-    onTrackableChange: (Boolean) -> Unit,
-) {
+private fun WorkdayRow(day: WorkdayUiModel, onTrackableChange: (Boolean) -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -249,9 +236,7 @@ private fun NotificationsCard(
 }
 
 @Composable
-private fun LocalDataCard(
-    onDeleteLocalData: () -> Unit,
-) {
+private fun LocalDataCard(onDeleteLocalData: () -> Unit) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -267,11 +252,7 @@ private fun LocalDataCard(
 }
 
 @Composable
-private fun SettingSwitch(
-    label: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-) {
+private fun SettingSwitch(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,

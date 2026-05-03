@@ -9,11 +9,7 @@ import java.time.LocalDate
 import java.time.ZoneId
 
 object SessionSplitter {
-    fun splitByDay(
-        session: AwaySession,
-        zoneId: ZoneId,
-        now: Instant,
-    ): List<DailyDurationSlice> = splitInstantRange(
+    fun splitByDay(session: AwaySession, zoneId: ZoneId, now: Instant): List<DailyDurationSlice> = splitInstantRange(
         start = session.start,
         end = session.end ?: now,
         zoneId = zoneId,
@@ -26,10 +22,7 @@ object SessionSplitter {
         )
     }
 
-    fun splitActivityIntervalByDay(
-        interval: ActivityInterval,
-        zoneId: ZoneId,
-    ): List<DailyActivitySlice> = splitInstantRange(
+    fun splitActivityIntervalByDay(interval: ActivityInterval, zoneId: ZoneId): List<DailyActivitySlice> = splitInstantRange(
         start = interval.start,
         end = interval.end,
         zoneId = zoneId,
@@ -43,11 +36,7 @@ object SessionSplitter {
         )
     }
 
-    private fun splitInstantRange(
-        start: Instant,
-        end: Instant,
-        zoneId: ZoneId,
-    ): List<RangeSlice> {
+    private fun splitInstantRange(start: Instant, end: Instant, zoneId: ZoneId): List<RangeSlice> {
         require(end > start) { "Range end must be after start." }
 
         val slices = mutableListOf<RangeSlice>()
@@ -67,12 +56,7 @@ object SessionSplitter {
     }
 }
 
-data class DailyDurationSlice(
-    val date: LocalDate,
-    val start: Instant,
-    val end: Instant,
-    val duration: Duration,
-)
+data class DailyDurationSlice(val date: LocalDate, val start: Instant, val end: Instant, val duration: Duration)
 
 data class DailyActivitySlice(
     val date: LocalDate,
@@ -82,10 +66,6 @@ data class DailyActivitySlice(
     val duration: Duration,
 )
 
-private data class RangeSlice(
-    val date: LocalDate,
-    val start: Instant,
-    val end: Instant,
-) {
+private data class RangeSlice(val date: LocalDate, val start: Instant, val end: Instant) {
     val duration: Duration = Duration.between(start, end)
 }

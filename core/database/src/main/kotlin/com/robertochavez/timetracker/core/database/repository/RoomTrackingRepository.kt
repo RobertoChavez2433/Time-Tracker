@@ -74,48 +74,36 @@ class RoomTrackingRepository @Inject constructor(
         }
     }
 
-    override suspend fun updateSessionWindow(
-        sessionId: String,
-        start: Instant,
-        end: Instant?,
-    ): AwaySession? {
+    override suspend fun updateSessionWindow(sessionId: String, start: Instant, end: Instant?): AwaySession? {
         val existing = awaySessionDao.getSession(sessionId)?.toModel() ?: return null
         val updated = ManualCorrectionService.updateSessionWindow(existing, start, end)
         awaySessionDao.upsert(AwaySessionEntity.fromModel(updated))
         return updated
     }
 
-    override suspend fun setCountsTowardTotals(
-        sessionId: String,
-        countsTowardTotals: Boolean,
-    ): AwaySession? {
+    override suspend fun setCountsTowardTotals(sessionId: String, countsTowardTotals: Boolean): AwaySession? {
         val existing = awaySessionDao.getSession(sessionId)?.toModel() ?: return null
         val updated = ManualCorrectionService.setCountsTowardTotals(existing, countsTowardTotals)
         awaySessionDao.upsert(AwaySessionEntity.fromModel(updated))
         return updated
     }
 
-    override suspend fun setDrivenMiles(
-        sessionId: String,
-        drivenMiles: Double,
-    ): AwaySession? {
+    override suspend fun setDrivenMiles(sessionId: String, drivenMiles: Double): AwaySession? {
         val existing = awaySessionDao.getSession(sessionId)?.toModel() ?: return null
         val updated = ManualCorrectionService.setDrivenMiles(existing, drivenMiles)
         awaySessionDao.upsert(AwaySessionEntity.fromModel(updated))
         return updated
     }
 
-    override suspend fun replaceActivityIntervals(
-        sessionId: String,
-        intervals: List<ActivityInterval>,
-    ): AwaySession? = database.withTransaction {
-        val existing = awaySessionDao.getSession(sessionId)?.toModel() ?: return@withTransaction null
-        val (updated, correctedIntervals) = ManualCorrectionService.replaceActivityIntervals(existing, intervals)
-        awaySessionDao.upsert(AwaySessionEntity.fromModel(updated))
-        activityIntervalDao.deleteForSession(sessionId)
-        activityIntervalDao.upsertAll(correctedIntervals.map(ActivityIntervalEntity::fromModel))
-        updated
-    }
+    override suspend fun replaceActivityIntervals(sessionId: String, intervals: List<ActivityInterval>): AwaySession? =
+        database.withTransaction {
+            val existing = awaySessionDao.getSession(sessionId)?.toModel() ?: return@withTransaction null
+            val (updated, correctedIntervals) = ManualCorrectionService.replaceActivityIntervals(existing, intervals)
+            awaySessionDao.upsert(AwaySessionEntity.fromModel(updated))
+            activityIntervalDao.deleteForSession(sessionId)
+            activityIntervalDao.upsertAll(correctedIntervals.map(ActivityIntervalEntity::fromModel))
+            updated
+        }
 
     private suspend fun createSession(at: Instant): AwaySession {
         val session = AwaySession(

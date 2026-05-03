@@ -7,7 +7,7 @@ kotlin {
 }
 
 dependencies {
-    implementation(libs.coroutines.android)
+    implementation(libs.coroutines.core)
     testImplementation(libs.coroutines.test)
     testImplementation(libs.junit)
 }

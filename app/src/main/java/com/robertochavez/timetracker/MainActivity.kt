@@ -100,11 +100,7 @@ private fun TimeTrackerApp() {
     }
 }
 
-private sealed class AppDestination(
-    val route: String,
-    val label: String,
-    val shortLabel: String,
-) {
+private sealed class AppDestination(val route: String, val label: String, val shortLabel: String) {
     data object Home : AppDestination("home", "Home", "H")
     data object Tracking : AppDestination("tracking", "Tracking", "T")
     data object Reports : AppDestination("reports", "Reports", "R")

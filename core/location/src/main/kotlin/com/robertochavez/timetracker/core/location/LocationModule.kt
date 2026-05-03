@@ -16,11 +16,13 @@ import dagger.hilt.components.SingletonComponent
 @InstallIn(SingletonComponent::class)
 object LocationModule {
     @Provides
-    fun provideFusedLocationProviderClient(@ApplicationContext context: Context): FusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(context)
+    fun provideFusedLocationProviderClient(@ApplicationContext context: Context): FusedLocationProviderClient =
+        LocationServices.getFusedLocationProviderClient(context)
 
     @Provides
     fun provideGeofencingClient(@ApplicationContext context: Context): GeofencingClient = LocationServices.getGeofencingClient(context)
 
     @Provides
-    fun provideActivityRecognitionClient(@ApplicationContext context: Context): ActivityRecognitionClient = ActivityRecognition.getClient(context)
+    fun provideActivityRecognitionClient(@ApplicationContext context: Context): ActivityRecognitionClient =
+        ActivityRecognition.getClient(context)
 }

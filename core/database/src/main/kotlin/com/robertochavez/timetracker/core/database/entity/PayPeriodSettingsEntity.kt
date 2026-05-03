@@ -6,10 +6,7 @@ import com.robertochavez.timetracker.core.common.model.PayPeriodSettings
 import java.time.LocalDate
 
 @Entity(tableName = "pay_period_settings")
-data class PayPeriodSettingsEntity(
-    @PrimaryKey val id: String = DEFAULT_ID,
-    val biweeklyAnchorEpochDay: Long,
-) {
+data class PayPeriodSettingsEntity(@PrimaryKey val id: String = DEFAULT_ID, val biweeklyAnchorEpochDay: Long) {
     fun toModel(): PayPeriodSettings = PayPeriodSettings(
         biweeklyAnchorStartDate = LocalDate.ofEpochDay(biweeklyAnchorEpochDay),
     )

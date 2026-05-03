@@ -14,7 +14,10 @@ interface ActivityIntervalDao {
     @Query("SELECT * FROM activity_intervals WHERE sessionId = :sessionId ORDER BY startEpochMillis ASC")
     fun observeIntervalsForSession(sessionId: String): Flow<List<ActivityIntervalEntity>>
 
-    @Query("SELECT * FROM activity_intervals WHERE sessionId = :sessionId AND endEpochMillis IS NULL ORDER BY startEpochMillis DESC LIMIT 1")
+    @Query(
+        "SELECT * FROM activity_intervals WHERE sessionId = :sessionId " +
+            "AND endEpochMillis IS NULL ORDER BY startEpochMillis DESC LIMIT 1",
+    )
     suspend fun getOpenInterval(sessionId: String): ActivityIntervalEntity?
 
     @Upsert

@@ -10,9 +10,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class TrackingNotificationCoordinator @Inject constructor(
-    @ApplicationContext private val context: Context,
-) {
+class TrackingNotificationCoordinator @Inject constructor(@ApplicationContext private val context: Context) {
     fun ensureChannels() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
             return

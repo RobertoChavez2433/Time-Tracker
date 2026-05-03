@@ -13,24 +13,11 @@ interface TrackingRepository : TrackingSessionController {
 
     suspend fun startManualSession(at: Instant? = null): AwaySession
 
-    suspend fun updateSessionWindow(
-        sessionId: String,
-        start: Instant,
-        end: Instant?,
-    ): AwaySession?
+    suspend fun updateSessionWindow(sessionId: String, start: Instant, end: Instant?): AwaySession?
 
-    suspend fun setCountsTowardTotals(
-        sessionId: String,
-        countsTowardTotals: Boolean,
-    ): AwaySession?
+    suspend fun setCountsTowardTotals(sessionId: String, countsTowardTotals: Boolean): AwaySession?
 
-    suspend fun setDrivenMiles(
-        sessionId: String,
-        drivenMiles: Double,
-    ): AwaySession?
+    suspend fun setDrivenMiles(sessionId: String, drivenMiles: Double): AwaySession?
 
-    suspend fun replaceActivityIntervals(
-        sessionId: String,
-        intervals: List<ActivityInterval>,
-    ): AwaySession?
+    suspend fun replaceActivityIntervals(sessionId: String, intervals: List<ActivityInterval>): AwaySession?
 }

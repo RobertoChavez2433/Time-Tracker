@@ -24,9 +24,9 @@ jobs:
       - name: Allow Gradle wrapper execution
         run: chmod +x ./gradlew
 
-      - name: Check module boundaries
+      - name: Check LIMP policies
         shell: pwsh
-        run: ./scripts/quality/check-module-boundaries.ps1
+        run: ./scripts/quality/check-limp-policies.ps1
 
       - name: Verify Android project
         run: ./gradlew spotlessCheck detekt testDebugUnitTest lintDebug assembleDebug --console=plain

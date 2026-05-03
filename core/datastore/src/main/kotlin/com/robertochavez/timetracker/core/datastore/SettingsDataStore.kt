@@ -22,9 +22,7 @@ private val Context.timeTrackerSettingsDataStore: DataStore<Preferences> by pref
 )
 
 @Singleton
-class SettingsDataStore @Inject constructor(
-    @ApplicationContext private val context: Context,
-) : AppSettingsRepository {
+class SettingsDataStore @Inject constructor(@ApplicationContext private val context: Context) : AppSettingsRepository {
     override val settings: Flow<AppSettings> = context.timeTrackerSettingsDataStore.data
         .catch { error ->
             if (error is IOException) {

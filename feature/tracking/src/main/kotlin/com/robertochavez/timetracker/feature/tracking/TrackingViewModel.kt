@@ -16,10 +16,7 @@ import java.time.Instant
 import javax.inject.Inject
 
 @HiltViewModel
-class TrackingViewModel @Inject constructor(
-    private val trackingRepository: TrackingRepository,
-    private val clock: Clock,
-) : ViewModel() {
+class TrackingViewModel @Inject constructor(private val trackingRepository: TrackingRepository, private val clock: Clock) : ViewModel() {
     private val edits = MutableStateFlow<Map<String, SessionEdit>>(emptyMap())
 
     val uiState: StateFlow<TrackingUiState> = combine(
@@ -112,11 +109,7 @@ data class SessionUiModel(
     val editDrivenMiles: String,
 )
 
-private data class SessionEdit(
-    val start: String = "",
-    val end: String = "",
-    val drivenMiles: String = "0.0",
-)
+private data class SessionEdit(val start: String = "", val end: String = "", val drivenMiles: String = "0.0")
 
 private fun AwaySession.title(): String = if (isActive) {
     "Active session"

@@ -26,9 +26,7 @@ class FakeTrackingSessionController : TrackingSessionController {
     }
 }
 
-class FakeHomeLocationSource(
-    private var location: HomeLocation? = null,
-) {
+class FakeHomeLocationSource(private var location: HomeLocation? = null) {
     fun set(location: HomeLocation) {
         this.location = location
     }

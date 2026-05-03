@@ -273,6 +273,27 @@ Review result: aligned in the broad shape, with one boundary tightened during re
 - [x] Consider splitting `:core:location` into API and Play-services implementation modules if location code grows beyond the current small adapter surface.
   - Decision: keep the current single `:core:location` module for now because the adapter surface is small and still isolated behind interfaces. Split it into API/implementation modules only if it grows.
 
+## LIMP Architecture Policies
+
+Policy source: `docs/LIMP_POLICIES.md`.
+
+- [x] Research standard Kotlin/Android structure and quality tooling before adding project-specific checks.
+- [x] Prefer ktlint, Detekt, and Android lint for general Kotlin/Android quality rules.
+- [x] Keep custom LIMP checks broad and small instead of copying Field Guide's custom Dart lint package.
+- [x] Add explicit Kotlin editor configuration for ktlint.
+- [x] Tighten Detekt complexity, method-length, class-length, nesting, and line-length budgets.
+- [x] Add hard file length budgets for production, feature route, and test Kotlin files.
+- [x] Add hard import-count budgets for production, feature route, and test Kotlin files.
+- [x] Enforce Kotlin package-directory alignment under source roots.
+- [x] Enforce that `:core:common` stays plain Kotlin/JVM.
+- [x] Enforce that feature production code does not depend on persistence implementation modules.
+- [x] Enforce that core modules do not depend on feature modules.
+- [x] Enforce that `:core:testing` is not used as a production dependency.
+- [x] Move `:core:common` from `kotlinx-coroutines-android` to `kotlinx-coroutines-core`.
+- [x] Wire LIMP policies into the local pre-commit gate.
+- [x] Wire LIMP policies into GitHub Actions.
+- [x] Keep the old module-boundary script as a compatibility wrapper around the LIMP gate.
+
 ## Remaining Implementation + Verification
 
 - [x] Implement staged Android 11+ background-location permission UX: foreground first, educational UI, then app-settings handoff for "Allow all the time".

@@ -1,14 +1,39 @@
 complexity:
+  CognitiveComplexMethod:
+    active: true
+    threshold: 15
+  ComplexInterface:
+    active: true
+    threshold: 10
+  CyclomaticComplexMethod:
+    active: true
+    threshold: 12
+    ignoreSingleWhenExpression: true
+    ignoreSimpleWhenEntries: true
+  LargeClass:
+    active: true
+    threshold: 180
   LongMethod:
     active: true
-    threshold: 130
+    threshold: 90
+  LongParameterList:
+    active: true
+    functionThreshold: 7
+    constructorThreshold: 8
+    ignoreDefaultParameters: true
+    ignoreDataClasses: true
+  NestedBlockDepth:
+    active: true
+    threshold: 4
   TooManyFunctions:
     active: true
-    thresholdInFiles: 24
-    thresholdInClasses: 16
-    thresholdInInterfaces: 12
-    thresholdInObjects: 16
-    thresholdInEnums: 12
+    thresholdInFiles: 18
+    thresholdInClasses: 14
+    thresholdInInterfaces: 10
+    thresholdInObjects: 12
+    thresholdInEnums: 10
+    ignoreAnnotatedFunctions:
+      - Composable
 
 naming:
   FunctionNaming:
@@ -25,6 +50,7 @@ style:
     active: false
   MaxLineLength:
     active: true
-    maxLineLength: 180
+    maxLineLength: 140
+    excludeImportStatements: true
   UnusedPrivateMember:
     active: true

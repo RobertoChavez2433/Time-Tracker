@@ -10,9 +10,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class RoomHomeLocationRepository @Inject constructor(
-    private val homeLocationDao: HomeLocationDao,
-) : HomeLocationRepository {
+class RoomHomeLocationRepository @Inject constructor(private val homeLocationDao: HomeLocationDao) : HomeLocationRepository {
     override fun observeHomeLocation(): Flow<HomeLocation?> = homeLocationDao.observeHomeLocation().map { it?.toModel() }
 
     override suspend fun getHomeLocation(): HomeLocation? = homeLocationDao.getHomeLocation()?.toModel()

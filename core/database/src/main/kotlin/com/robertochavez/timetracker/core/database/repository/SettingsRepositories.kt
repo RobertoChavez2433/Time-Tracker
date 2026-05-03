@@ -15,9 +15,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class RoomWorkScheduleRepository @Inject constructor(
-    private val workScheduleDao: WorkScheduleDao,
-) : WorkScheduleRepository {
+class RoomWorkScheduleRepository @Inject constructor(private val workScheduleDao: WorkScheduleDao) : WorkScheduleRepository {
     override fun observeWorkSchedule(): Flow<WorkSchedule> = workScheduleDao.observeWorkScheduleDays()
         .map(WorkScheduleEntity::toSchedule)
 
@@ -29,9 +27,8 @@ class RoomWorkScheduleRepository @Inject constructor(
 }
 
 @Singleton
-class RoomPayPeriodSettingsRepository @Inject constructor(
-    private val payPeriodSettingsDao: PayPeriodSettingsDao,
-) : PayPeriodSettingsRepository {
+class RoomPayPeriodSettingsRepository @Inject constructor(private val payPeriodSettingsDao: PayPeriodSettingsDao) :
+    PayPeriodSettingsRepository {
     override fun observeSettings(): Flow<PayPeriodSettings> = payPeriodSettingsDao.observeSettings()
         .map { it?.toModel() ?: defaultSettings() }
 

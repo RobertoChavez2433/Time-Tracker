@@ -89,15 +89,15 @@ Write-Host "Staged Kotlin files: $($stagedKotlin.Count)"
 Write-Host "Staged Android XML files: $($stagedAndroidXml.Count)"
 Write-Host "Staged Gradle/catalog files: $($stagedGradle.Count)"
 
-Write-Section "Running module boundary check"
-$boundaryCheck = Join-Path -Path $repoRoot -ChildPath "scripts/quality/check-module-boundaries.ps1"
-if (-not (Test-Path -LiteralPath $boundaryCheck)) {
-    Fail "Module boundary check not found: $boundaryCheck"
+Write-Section "Running LIMP policy check"
+$limpCheck = Join-Path -Path $repoRoot -ChildPath "scripts/quality/check-limp-policies.ps1"
+if (-not (Test-Path -LiteralPath $limpCheck)) {
+    Fail "LIMP policy check not found: $limpCheck"
 }
 
-& pwsh -ExecutionPolicy Bypass -File $boundaryCheck
+& pwsh -ExecutionPolicy Bypass -File $limpCheck
 if ($LASTEXITCODE -ne 0) {
-    Fail "FAILED: module boundary check failed."
+    Fail "FAILED: LIMP policy check failed."
 }
 
 $gradleCandidates = @(

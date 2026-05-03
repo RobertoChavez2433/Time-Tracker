@@ -61,7 +61,8 @@ class HomeViewModel @Inject constructor(
                 currentHomeLocationProvider.currentPreciseHomeLocation()
             }.onSuccess { home ->
                 if (home == null) {
-                    statusMessage.value = "Precise current location was unavailable. Grant precise location before setting home automatically."
+                    statusMessage.value =
+                        "Precise current location was unavailable. Grant precise location before setting home automatically."
                 } else {
                     statusMessage.value = saveHome(home)
                     editorState.value = HomeEditorState(

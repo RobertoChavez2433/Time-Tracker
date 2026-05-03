@@ -58,9 +58,7 @@ class ReportsViewModel @Inject constructor(
     )
 }
 
-data class ReportsUiState(
-    val reports: List<ReportUiModel> = emptyList(),
-)
+data class ReportsUiState(val reports: List<ReportUiModel> = emptyList())
 
 data class ReportUiModel(
     val title: String,
