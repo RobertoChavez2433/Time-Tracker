@@ -66,37 +66,60 @@ function summary() {
   return { total: entries.length, byCategory, byLevel };
 }
 
+function appendEntry(entry) {
+  entry.id = nextId++;
+  entry.receivedAt = new Date().toISOString();
+  entries.push(entry);
+  if (entries.length > maxEntries) entries = entries.slice(-maxEntries);
+  return entry.id;
+}
+
+function routeKey(req, url) {
+  return `${req.method} ${url.pathname}`;
+}
+
+function handleHealth(req, res) {
+  sendJson(res, 200, { status: 'ok', entries: entries.length });
+}
+
+function handleClear(req, res) {
+  entries = [];
+  sendJson(res, 200, { cleared: true });
+}
+
+function handleLogs(req, res, url) {
+  sendJson(res, 200, filteredEntries(url));
+}
+
+function handleErrors(req, res) {
+  sendJson(res, 200, entries.filter((entry) => entry.level === 'error').map(visibleEntry));
+}
+
+function handleSummary(req, res) {
+  sendJson(res, 200, summary());
+}
+
+async function handleLogPost(req, res) {
+  const body = await readBody(req);
+  const entry = body ? JSON.parse(body) : {};
+  const id = appendEntry(entry);
+  sendJson(res, 200, { accepted: true, id });
+}
+
+const routes = {
+  'GET /health': handleHealth,
+  'POST /clear': handleClear,
+  'GET /logs': handleLogs,
+  'GET /logs/errors': handleErrors,
+  'GET /logs/summary': handleSummary,
+  'POST /log': handleLogPost,
+};
+
 async function handle(req, res) {
   const url = new URL(req.url, `http://${req.headers.host || '127.0.0.1'}`);
-  if (req.method === 'GET' && url.pathname === '/health') {
-    sendJson(res, 200, { status: 'ok', entries: entries.length });
-    return;
-  }
-  if (req.method === 'POST' && url.pathname === '/clear') {
-    entries = [];
-    sendJson(res, 200, { cleared: true });
-    return;
-  }
-  if (req.method === 'GET' && url.pathname === '/logs') {
-    sendJson(res, 200, filteredEntries(url));
-    return;
-  }
-  if (req.method === 'GET' && url.pathname === '/logs/errors') {
-    sendJson(res, 200, entries.filter((entry) => entry.level === 'error').map(visibleEntry));
-    return;
-  }
-  if (req.method === 'GET' && url.pathname === '/logs/summary') {
-    sendJson(res, 200, summary());
-    return;
-  }
-  if (req.method === 'POST' && url.pathname === '/log') {
-    const body = await readBody(req);
-    const entry = body ? JSON.parse(body) : {};
-    entry.id = nextId++;
-    entry.receivedAt = new Date().toISOString();
-    entries.push(entry);
-    if (entries.length > maxEntries) entries = entries.slice(-maxEntries);
-    sendJson(res, 200, { accepted: true, id: entry.id });
+  const route = routes[routeKey(req, url)];
+  if (route) {
+    await route(req, res, url);
     return;
   }
   sendJson(res, 404, { error: 'unknown endpoint' });
