@@ -35,14 +35,21 @@ class FakeHomeLocationRepository(initialHomeLocation: HomeLocation? = null) : Ho
 }
 
 class FakeWorkLocationRepository(initialWorkLocation: WorkLocation? = null) : WorkLocationRepository {
+    val workLocations = MutableStateFlow(listOfNotNull(initialWorkLocation))
     val workLocation = MutableStateFlow(initialWorkLocation)
 
     override fun observeWorkLocation(): Flow<WorkLocation?> = workLocation
 
+    override fun observeWorkLocations(): Flow<List<WorkLocation>> = workLocations
+
     override suspend fun getWorkLocation(): WorkLocation? = workLocation.value
 
+    override suspend fun getWorkLocations(): List<WorkLocation> = workLocations.value
+
     override suspend fun setWorkLocation(workLocation: WorkLocation) {
-        this.workLocation.value = workLocation
+        workLocations.value = workLocations.value
+            .filterNot { it.id == workLocation.id } + workLocation
+        this.workLocation.value = workLocations.value.maxByOrNull { it.updatedAt } ?: workLocation
     }
 }
 

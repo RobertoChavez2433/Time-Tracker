@@ -5,4 +5,8 @@ internal object TimeTrackerGeofenceIds {
     const val WORK = "work"
     const val PENDING_INTENT_REQUEST_CODE = 4100
     const val DWELL_DELAY_MILLIS = 2 * 60 * 1000
+
+    fun workLocation(id: String): String = if (id == WORK) WORK else "$WORK:$id"
+
+    fun isWorkLocation(requestId: String): Boolean = requestId == WORK || requestId.startsWith("$WORK:")
 }

@@ -17,10 +17,19 @@ class RoomWorkLocationRepository @Inject constructor(private val workLocationDao
     WorkLocationRepository {
     override fun observeWorkLocation(): Flow<WorkLocation?> = workLocationDao.observeWorkLocation().map { it?.toModel() }
 
+    override fun observeWorkLocations(): Flow<List<WorkLocation>> =
+        workLocationDao.observeWorkLocations().map { locations -> locations.map { it.toModel() } }
+
     override suspend fun getWorkLocation(): WorkLocation? = workLocationDao.getWorkLocation()?.toModel()
+
+    override suspend fun getWorkLocations(): List<WorkLocation> = workLocationDao.getWorkLocations().map { it.toModel() }
 
     override suspend fun setWorkLocation(workLocation: WorkLocation) {
         workLocationDao.upsert(WorkLocationEntity.fromModel(workLocation))
-        logger.info(LogCategory.LOCATION, "Work location saved", mapOf("radiusMeters" to workLocation.radiusMeters))
+        logger.info(
+            LogCategory.LOCATION,
+            "Work location saved",
+            mapOf("id" to workLocation.id, "label" to workLocation.label, "radiusMeters" to workLocation.radiusMeters),
+        )
     }
 }

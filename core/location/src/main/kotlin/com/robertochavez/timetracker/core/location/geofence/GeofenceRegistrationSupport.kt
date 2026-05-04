@@ -29,13 +29,17 @@ internal suspend fun GeofencingClient.registerTimeTrackerGeofence(
     longitude: Double,
     radiusMeters: Float,
 ) {
+    registerTimeTrackerGeofences(
+        context = context,
+        specs = listOf(TimeTrackerGeofenceSpec(requestId, latitude, longitude, radiusMeters)),
+    )
+}
+
+@SuppressLint("MissingPermission")
+internal suspend fun GeofencingClient.registerTimeTrackerGeofences(context: Context, specs: List<TimeTrackerGeofenceSpec>) {
+    if (specs.isEmpty()) return
     addGeofences(
-        buildTimeTrackerGeofencingRequest(
-            requestId = requestId,
-            latitude = latitude,
-            longitude = longitude,
-            radiusMeters = radiusMeters,
-        ),
+        buildTimeTrackerGeofencingRequest(specs),
         timeTrackerGeofencePendingIntent(context),
     ).awaitTask()
 }
@@ -44,29 +48,29 @@ internal suspend fun GeofencingClient.unregisterTimeTrackerGeofence(requestId: S
     removeGeofences(listOf(requestId)).awaitTask()
 }
 
-private fun buildTimeTrackerGeofencingRequest(
-    requestId: String,
-    latitude: Double,
-    longitude: Double,
-    radiusMeters: Float,
-): GeofencingRequest {
-    val geofence = Geofence.Builder()
-        .setRequestId(requestId)
-        .setCircularRegion(latitude, longitude, radiusMeters)
-        .setExpirationDuration(Geofence.NEVER_EXPIRE)
-        .setLoiteringDelay(TimeTrackerGeofenceIds.DWELL_DELAY_MILLIS)
-        .setTransitionTypes(
-            Geofence.GEOFENCE_TRANSITION_ENTER or
-                Geofence.GEOFENCE_TRANSITION_EXIT or
-                Geofence.GEOFENCE_TRANSITION_DWELL,
-        )
-        .build()
-
-    return GeofencingRequest.Builder()
-        .setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_DWELL)
-        .addGeofence(geofence)
-        .build()
+internal suspend fun GeofencingClient.unregisterTimeTrackerGeofences(requestIds: List<String>) {
+    if (requestIds.isEmpty()) return
+    removeGeofences(requestIds).awaitTask()
 }
+
+internal data class TimeTrackerGeofenceSpec(val requestId: String, val latitude: Double, val longitude: Double, val radiusMeters: Float)
+
+private fun buildTimeTrackerGeofencingRequest(specs: List<TimeTrackerGeofenceSpec>): GeofencingRequest = GeofencingRequest.Builder()
+    .setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_DWELL)
+    .addGeofences(specs.map { it.toGeofence() })
+    .build()
+
+private fun TimeTrackerGeofenceSpec.toGeofence(): Geofence = Geofence.Builder()
+    .setRequestId(requestId)
+    .setCircularRegion(latitude, longitude, radiusMeters)
+    .setExpirationDuration(Geofence.NEVER_EXPIRE)
+    .setLoiteringDelay(TimeTrackerGeofenceIds.DWELL_DELAY_MILLIS)
+    .setTransitionTypes(
+        Geofence.GEOFENCE_TRANSITION_ENTER or
+            Geofence.GEOFENCE_TRANSITION_EXIT or
+            Geofence.GEOFENCE_TRANSITION_DWELL,
+    )
+    .build()
 
 private fun timeTrackerGeofencePendingIntent(context: Context): PendingIntent {
     val flags = PendingIntent.FLAG_UPDATE_CURRENT or

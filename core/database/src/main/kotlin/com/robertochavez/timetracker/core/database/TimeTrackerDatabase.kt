@@ -27,7 +27,7 @@ import com.robertochavez.timetracker.core.database.entity.WorkScheduleEntity
         WorkLocationEntity::class,
         WorkPresenceEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = false,
 )
 abstract class TimeTrackerDatabase : RoomDatabase() {

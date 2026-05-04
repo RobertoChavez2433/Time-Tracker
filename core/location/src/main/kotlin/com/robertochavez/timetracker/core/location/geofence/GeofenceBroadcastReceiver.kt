@@ -55,7 +55,7 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
         if (requestIds.isEmpty() || TimeTrackerGeofenceIds.HOME in requestIds) {
             handleHomeTransition(event.geofenceTransition, now)
         }
-        if (TimeTrackerGeofenceIds.WORK in requestIds) {
+        if (requestIds.any(TimeTrackerGeofenceIds::isWorkLocation)) {
             handleWorkTransition(event.geofenceTransition, now)
         }
     }

@@ -6,7 +6,11 @@ import kotlinx.coroutines.flow.Flow
 interface WorkLocationRepository {
     fun observeWorkLocation(): Flow<WorkLocation?>
 
+    fun observeWorkLocations(): Flow<List<WorkLocation>>
+
     suspend fun getWorkLocation(): WorkLocation?
+
+    suspend fun getWorkLocations(): List<WorkLocation>
 
     suspend fun setWorkLocation(workLocation: WorkLocation)
 }

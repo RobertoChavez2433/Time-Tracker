@@ -37,6 +37,8 @@ class TestingStateMachineTest {
         homeLongitude = if (homeSet) -83.0458 else null,
         homeRadiusMeters = if (homeSet) 150f else null,
         workSet = false,
+        workLocationCount = 0,
+        workLocations = emptyList(),
         workLatitude = null,
         workLongitude = null,
         workRadiusMeters = null,

@@ -26,7 +26,8 @@ class AppStateSnapshotProvider @Inject constructor(
 ) {
     suspend fun build(runId: String, actorId: String): AppStateSnapshot {
         val home = setupSources.homeLocationRepository.getHomeLocation()
-        val work = setupSources.workLocationRepository.getWorkLocation()
+        val workLocations = setupSources.workLocationRepository.getWorkLocations()
+        val work = workLocations.firstOrNull()
         val workPresence = setupSources.workPresenceRepository.getWorkPresence()
         val sessions = trackingRepository.observeSessions().first()
         val intervals = trackingRepository.observeActivityIntervals().first()
@@ -48,6 +49,16 @@ class AppStateSnapshotProvider @Inject constructor(
             homeLongitude = home?.longitude,
             homeRadiusMeters = home?.radiusMeters,
             workSet = work != null,
+            workLocationCount = workLocations.size,
+            workLocations = workLocations.map {
+                mapOf(
+                    "id" to it.id,
+                    "label" to it.label,
+                    "latitude" to it.latitude,
+                    "longitude" to it.longitude,
+                    "radiusMeters" to it.radiusMeters,
+                )
+            },
             workLatitude = work?.latitude,
             workLongitude = work?.longitude,
             workRadiusMeters = work?.radiusMeters,

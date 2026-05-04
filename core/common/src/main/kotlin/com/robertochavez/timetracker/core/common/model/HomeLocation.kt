@@ -10,6 +10,6 @@ data class HomeLocation(val latitude: Double, val longitude: Double, val radiusM
     }
 
     companion object {
-        const val MINIMUM_RADIUS_METERS = 100f
+        const val MINIMUM_RADIUS_METERS = GeofenceRadiusOptions.FIFTY_FEET_METERS
     }
 }

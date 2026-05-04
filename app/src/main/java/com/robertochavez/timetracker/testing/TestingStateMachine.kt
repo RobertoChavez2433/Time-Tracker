@@ -35,6 +35,8 @@ object TestingStateMachine {
                 "homeLatitude" to snapshot.homeLatitude,
                 "homeLongitude" to snapshot.homeLongitude,
                 "workSet" to snapshot.workSet,
+                "workLocationCount" to snapshot.workLocationCount,
+                "workLocations" to snapshot.workLocations,
                 "workLatitude" to snapshot.workLatitude,
                 "workLongitude" to snapshot.workLongitude,
                 "atWork" to snapshot.atWork,

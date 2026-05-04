@@ -52,4 +52,31 @@ class WorkLocationRepositoryTest {
         assertEquals(location, repository.getWorkLocation())
         assertEquals(location, repository.observeWorkLocation().first())
     }
+
+    @Test
+    fun `persists multiple work locations`() = runTest {
+        val first = WorkLocation(
+            latitude = 35.0,
+            longitude = -80.0,
+            radiusMeters = WorkLocation.MAXIMUM_RADIUS_METERS,
+            updatedAt = Instant.parse("2026-05-03T12:00:00Z"),
+            id = "work-1",
+            label = "Work site 1",
+        )
+        val second = WorkLocation(
+            latitude = 36.0,
+            longitude = -81.0,
+            radiusMeters = WorkLocation.MINIMUM_RADIUS_METERS,
+            updatedAt = Instant.parse("2026-05-04T12:00:00Z"),
+            id = "work-2",
+            label = "Work site 2",
+        )
+
+        repository.setWorkLocation(first)
+        repository.setWorkLocation(second)
+
+        assertEquals(second, repository.getWorkLocation())
+        assertEquals(listOf(second, first), repository.getWorkLocations())
+        assertEquals(listOf(second, first), repository.observeWorkLocations().first())
+    }
 }
