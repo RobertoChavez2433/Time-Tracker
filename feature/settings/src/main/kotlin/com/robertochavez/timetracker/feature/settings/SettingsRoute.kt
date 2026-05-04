@@ -157,7 +157,7 @@ private fun AutomationCard(onEnableActivityDetection: () -> Unit, onDisableActiv
             modifier = Modifier.testTag(TimeTrackerTestTags.SETTINGS_ENABLE_ACTIVITY_BUTTON),
         )
         TimeTrackerQuietButton(
-            text = "Disable",
+            text = "Disable Activity Detection",
             onClick = onDisableActivityDetection,
             modifier = Modifier.testTag(TimeTrackerTestTags.SETTINGS_DISABLE_ACTIVITY_BUTTON),
         )
