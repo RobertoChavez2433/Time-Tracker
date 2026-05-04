@@ -10,6 +10,7 @@ import com.robertochavez.timetracker.core.common.repository.TrackingRepository
 import com.robertochavez.timetracker.core.logging.AppLogger
 import kotlinx.coroutines.flow.first
 import java.time.Clock
+import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
@@ -43,8 +44,12 @@ class AppStateSnapshotProvider @Inject constructor(
             actorId = actorId,
             capturedAtEpochMillis = clock.millis(),
             homeSet = home != null,
+            homeLatitude = home?.latitude,
+            homeLongitude = home?.longitude,
             homeRadiusMeters = home?.radiusMeters,
             workSet = work != null,
+            workLatitude = work?.latitude,
+            workLongitude = work?.longitude,
             workRadiusMeters = work?.radiusMeters,
             atWork = workPresence.atWork,
             activeSession = sessions.firstOrNull { it.isActive }?.toSummary(),
@@ -57,6 +62,7 @@ class AppStateSnapshotProvider @Inject constructor(
             trackableToday = schedule.isTrackable(today),
             todayDayOfWeek = today.dayOfWeek.name,
             workdayCount = schedule.trackableDays.size,
+            workdays = DayOfWeek.entries.associate { day -> day.name to (day in schedule.trackableDays) },
             payPeriodAnchorDate = payPeriod.biweeklyAnchorStartDate.toString(),
             privacyDisclosureAccepted = settings.privacyDisclosureAccepted,
             minimalActiveNotificationEnabled = settings.minimalActiveNotificationEnabled,
