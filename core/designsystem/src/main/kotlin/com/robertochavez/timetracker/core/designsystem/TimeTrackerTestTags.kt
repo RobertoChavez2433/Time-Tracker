@@ -3,6 +3,9 @@ package com.robertochavez.timetracker.core.designsystem
 object TimeTrackerTestTags {
     const val APP_ROOT = "time_tracker_app"
     const val BOTTOM_NAV = "bottom_nav"
+    const val STARTUP_SETUP_DIALOG = "startup_setup_dialog"
+    const val STARTUP_ENABLE_BUTTON = "startup_enable_button"
+    const val STARTUP_BACKGROUND_BUTTON = "startup_background_button"
 
     const val HOME_SCREEN = "screen_home"
     const val TRACKING_SCREEN = "screen_tracking"
@@ -14,11 +17,16 @@ object TimeTrackerTestTags {
     const val HOME_LONGITUDE_FIELD = "home_longitude_field"
     const val HOME_RADIUS_FIELD = "home_radius_field"
     const val HOME_SAVE_PIN_BUTTON = "home_save_pin_button"
+    const val HOME_OVERWRITE_CONFIRM_BUTTON = "home_overwrite_confirm_button"
+    const val HOME_OVERWRITE_CANCEL_BUTTON = "home_overwrite_cancel_button"
     const val WORK_USE_CURRENT_BUTTON = "work_use_current_button"
     const val WORK_LATITUDE_FIELD = "work_latitude_field"
     const val WORK_LONGITUDE_FIELD = "work_longitude_field"
     const val WORK_RADIUS_FIELD = "work_radius_field"
     const val WORK_SAVE_PIN_BUTTON = "work_save_pin_button"
+    const val WORK_ADD_LOCATION_BUTTON = "work_add_location_button"
+    const val WORK_REPLACE_LOCATION_BUTTON = "work_replace_location_button"
+    const val WORK_SAVE_CANCEL_BUTTON = "work_save_cancel_button"
 
     const val TRACKING_START_BUTTON = "tracking_start_button"
     const val TRACKING_STOP_BUTTON = "tracking_stop_button"
@@ -44,6 +52,8 @@ object TimeTrackerTestTags {
     const val SETTINGS_DELETE_CONFIRM_BUTTON = "settings_delete_confirm_button"
 
     fun navItem(route: String): String = "nav_$route"
+
+    fun radiusOption(prefix: String, suffix: String): String = "${prefix}_radius_option_$suffix"
 
     fun workdaySwitch(dayName: String): String = "settings_workday_${dayName.lowercase()}_switch"
 

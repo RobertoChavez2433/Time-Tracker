@@ -5,12 +5,12 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 
-internal fun Context.hasFineLocationPermission(): Boolean = hasPermission(Manifest.permission.ACCESS_FINE_LOCATION)
+fun Context.hasFineLocationPermission(): Boolean = hasPermission(Manifest.permission.ACCESS_FINE_LOCATION)
 
-internal fun Context.hasBackgroundLocationPermission(): Boolean = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q ||
+fun Context.hasBackgroundLocationPermission(): Boolean = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q ||
     hasPermission(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
 
-internal fun Context.hasActivityRecognitionPermission(): Boolean {
+fun Context.hasActivityRecognitionPermission(): Boolean {
     val permission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
         Manifest.permission.ACTIVITY_RECOGNITION
     } else {
@@ -18,6 +18,9 @@ internal fun Context.hasActivityRecognitionPermission(): Boolean {
     }
     return hasPermission(permission)
 }
+
+fun Context.hasPostNotificationsPermission(): Boolean = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+    hasPermission(Manifest.permission.POST_NOTIFICATIONS)
 
 private fun Context.hasPermission(permission: String): Boolean = checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
 

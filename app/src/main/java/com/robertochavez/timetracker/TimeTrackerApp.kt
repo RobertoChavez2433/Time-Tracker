@@ -94,4 +94,6 @@ fun TimeTrackerApp() {
             }
         }
     }
+
+    StartupSetupGate()
 }
