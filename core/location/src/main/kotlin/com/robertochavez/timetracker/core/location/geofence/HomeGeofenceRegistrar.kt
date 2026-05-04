@@ -1,17 +1,8 @@
 package com.robertochavez.timetracker.core.location.geofence
 
-import android.annotation.SuppressLint
-import android.app.PendingIntent
 import android.content.Context
-import android.content.Intent
-import android.os.Build
-import com.google.android.gms.location.Geofence
 import com.google.android.gms.location.GeofencingClient
-import com.google.android.gms.location.GeofencingRequest
 import com.robertochavez.timetracker.core.common.model.HomeLocation
-import com.robertochavez.timetracker.core.location.awaitTask
-import com.robertochavez.timetracker.core.location.hasBackgroundLocationPermission
-import com.robertochavez.timetracker.core.location.hasFineLocationPermission
 import com.robertochavez.timetracker.core.logging.AppLogger
 import com.robertochavez.timetracker.core.logging.LogCategory
 import com.robertochavez.timetracker.core.logging.info
@@ -32,34 +23,21 @@ class PlayServicesHomeGeofenceRegistrar @Inject constructor(
     private val geofencingClient: GeofencingClient,
     private val logger: AppLogger,
 ) : HomeGeofenceRegistrar {
-    @SuppressLint("MissingPermission")
     override suspend fun registerHomeGeofence(homeLocation: HomeLocation) {
-        if (!context.hasFineLocationPermission()) {
-            error("Precise location is required to register the home geofence. Approximate location can miss home enter and exit events.")
-        }
-        if (!context.hasBackgroundLocationPermission()) {
-            error("Allow all the time location access before enabling automatic home enter and exit detection.")
-        }
+        context.requireGeofencePermissions(
+            preciseMessage = "Precise location is required to register the home geofence. " +
+                "Approximate location can miss home enter and exit events.",
+            backgroundMessage = "Allow all the time location access before enabling automatic home enter and exit detection.",
+        )
         unregisterHomeGeofence()
-        val geofence = Geofence.Builder()
-            .setRequestId(TimeTrackerGeofenceIds.HOME)
-            .setCircularRegion(homeLocation.latitude, homeLocation.longitude, homeLocation.radiusMeters)
-            .setExpirationDuration(Geofence.NEVER_EXPIRE)
-            .setLoiteringDelay(TimeTrackerGeofenceIds.DWELL_DELAY_MILLIS)
-            .setTransitionTypes(
-                Geofence.GEOFENCE_TRANSITION_ENTER or
-                    Geofence.GEOFENCE_TRANSITION_EXIT or
-                    Geofence.GEOFENCE_TRANSITION_DWELL,
-            )
-            .build()
-
-        val request = GeofencingRequest.Builder()
-            .setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_DWELL)
-            .addGeofence(geofence)
-            .build()
-
         try {
-            geofencingClient.addGeofences(request, pendingIntent()).awaitTask()
+            geofencingClient.registerTimeTrackerGeofence(
+                context = context,
+                requestId = TimeTrackerGeofenceIds.HOME,
+                latitude = homeLocation.latitude,
+                longitude = homeLocation.longitude,
+                radiusMeters = homeLocation.radiusMeters,
+            )
             logger.info(LogCategory.LOCATION, "Home geofence registered", mapOf("radiusMeters" to homeLocation.radiusMeters))
         } catch (error: SecurityException) {
             // Permission can be revoked after the preflight check.
@@ -69,22 +47,11 @@ class PlayServicesHomeGeofenceRegistrar @Inject constructor(
 
     override suspend fun unregisterHomeGeofence() {
         try {
-            geofencingClient.removeGeofences(listOf(TimeTrackerGeofenceIds.HOME)).awaitTask()
+            geofencingClient.unregisterTimeTrackerGeofence(TimeTrackerGeofenceIds.HOME)
             logger.info(LogCategory.LOCATION, "Home geofence unregistered")
         } catch (error: SecurityException) {
             // Permission can be revoked after the preflight check.
             logger.warn(LogCategory.LOCATION, "Home geofence unregister lost permission", error = error)
         }
-    }
-
-    private fun pendingIntent(): PendingIntent {
-        val flags = PendingIntent.FLAG_UPDATE_CURRENT or
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                PendingIntent.FLAG_MUTABLE
-            } else {
-                PendingIntent.FLAG_IMMUTABLE
-            }
-        val intent = Intent(context, GeofenceBroadcastReceiver::class.java)
-        return PendingIntent.getBroadcast(context, TimeTrackerGeofenceIds.PENDING_INTENT_REQUEST_CODE, intent, flags)
     }
 }
