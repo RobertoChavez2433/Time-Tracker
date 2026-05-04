@@ -14,6 +14,7 @@ import com.robertochavez.timetracker.core.logging.LogCategory
 import com.robertochavez.timetracker.core.logging.info
 import com.robertochavez.timetracker.core.logging.warn
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.time.Clock
 import java.time.Instant
 import javax.inject.Inject
@@ -57,20 +58,44 @@ class PlayServicesCurrentGeofenceLocationProvider @Inject constructor(
             return null
         }
 
+        val location = requestCurrentLocation() ?: requestLastKnownLocation()
+        logLocationResult(location)
+        return location
+    }
+
+    private suspend fun requestCurrentLocation(): Location? {
         val request = CurrentLocationRequest.Builder()
             .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
             .setMaxUpdateAgeMillis(MAX_LOCATION_AGE_MILLIS)
             .build()
+        val cancellationTokenSource = CancellationTokenSource()
         val location = try {
-            fusedLocationProviderClient
-                .getCurrentLocation(request, CancellationTokenSource().token)
-                .awaitTask()
+            withTimeoutOrNull(CURRENT_LOCATION_TIMEOUT_MILLIS) {
+                fusedLocationProviderClient
+                    .getCurrentLocation(request, cancellationTokenSource.token)
+                    .awaitTask()
+            }.also {
+                if (it == null) {
+                    cancellationTokenSource.cancel()
+                    logger.warn(LogCategory.LOCATION, "Current location request timed out")
+                }
+            }
         } catch (error: SecurityException) {
             // Permission can be revoked after the preflight check.
             logger.warn(LogCategory.LOCATION, "Current location request lost permission", error = error)
             null
         }
+        return location
+    }
 
+    private suspend fun requestLastKnownLocation(): Location? = try {
+        fusedLocationProviderClient.lastLocation.awaitTask()
+    } catch (error: SecurityException) {
+        logger.warn(LogCategory.LOCATION, "Last known location request lost permission", error = error)
+        null
+    }
+
+    private fun logLocationResult(location: Location?) {
         logger.info(
             LogCategory.LOCATION,
             "Current location result",
@@ -80,10 +105,10 @@ class PlayServicesCurrentGeofenceLocationProvider @Inject constructor(
                 "accuracyMeters" to location?.takeIf { it.hasAccuracy() }?.accuracy,
             ),
         )
-        return location
     }
 
     private companion object {
         const val MAX_LOCATION_AGE_MILLIS = 15_000L
+        const val CURRENT_LOCATION_TIMEOUT_MILLIS = 10_000L
     }
 }
