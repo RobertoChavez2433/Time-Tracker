@@ -138,6 +138,33 @@ function Test-KotlinPackagePath {
     }
 }
 
+function Test-KotlinInitializerLength {
+    param(
+        [string]$RelativePath,
+        [string[]]$Lines
+    )
+
+    for ($index = 0; $index -lt $Lines.Count; $index++) {
+        if ($Lines[$index] -notmatch "\binit\s*\{") {
+            continue
+        }
+
+        $depth = 0
+        for ($end = $index; $end -lt $Lines.Count; $end++) {
+            $depth += ([regex]::Matches($Lines[$end], "\{")).Count
+            $depth -= ([regex]::Matches($Lines[$end], "\}")).Count
+            if ($end -gt $index -and $depth -le 0) {
+                $initializerLength = $end - $index + 1
+                if ($initializerLength -gt 50) {
+                    Add-Violation -Path $RelativePath -LineNumber ($index + 1) `
+                        -Message "init block has ${initializerLength} lines; LIMP initializer limit is 50."
+                }
+                break
+            }
+        }
+    }
+}
+
 function Test-GradleDependencies {
     $gradleFiles = @()
     foreach ($rootName in @("app", "core", "feature")) {
@@ -194,6 +221,7 @@ foreach ($file in $kotlinFiles) {
     }
 
     Test-KotlinPackagePath -RelativePath $relativePath -Lines $lines
+    Test-KotlinInitializerLength -RelativePath $relativePath -Lines $lines
 
     for ($index = 0; $index -lt $lines.Count; $index++) {
         $message = Test-ForbiddenMainImport -RelativePath $relativePath -Line $lines[$index]
