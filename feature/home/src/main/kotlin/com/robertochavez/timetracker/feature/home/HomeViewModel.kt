@@ -17,12 +17,14 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.Clock
 import javax.inject.Inject
 
+@Suppress("LargeClass")
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val homeLocationRepository: HomeLocationRepository,
@@ -37,22 +39,53 @@ class HomeViewModel @Inject constructor(
     private val workEditorState = MutableStateFlow(WorkEditorState())
     private val statusMessage = MutableStateFlow("")
 
+    init {
+        viewModelScope.launch {
+            homeLocationRepository.observeHomeLocation().collect { home ->
+                if (home == null) {
+                    if (!homeEditorState.value.hasCoordinates()) {
+                        homeEditorState.value = HomeEditorState()
+                    }
+                } else if (!homeEditorState.value.hasCoordinates()) {
+                    homeEditorState.value = HomeEditorState.fromLocation(home)
+                }
+            }
+        }
+        viewModelScope.launch {
+            workLocationRepository.observeWorkLocations().collect { workLocations ->
+                val work = workLocations.firstOrNull()
+                if (work == null) {
+                    if (!workEditorState.value.hasCoordinates()) {
+                        workEditorState.value = WorkEditorState()
+                    }
+                } else if (!workEditorState.value.hasCoordinates()) {
+                    workEditorState.value = WorkEditorState.fromLocation(work)
+                }
+            }
+        }
+    }
+
     val uiState: StateFlow<HomeUiState> = combine(
         homeLocationRepository.observeHomeLocation(),
-        workLocationRepository.observeWorkLocation(),
+        workLocationRepository.observeWorkLocations(),
         homeEditorState,
         workEditorState,
         statusMessage,
-    ) { home, work, homeEditor, workEditor, status ->
+    ) { home, workLocations, homeEditor, workEditor, status ->
+        val latestWork = workLocations.firstOrNull()
         HomeUiState(
             homeSummary = home?.summary() ?: "No home location set",
-            workSummary = work?.summary() ?: "No work location set",
+            homeSet = home != null,
+            workSummary = workLocations.summary(),
+            workLocations = workLocations.map { it.summary() },
+            workLocationCount = workLocations.size,
             homeLatitude = homeEditor.latitude,
             homeLongitude = homeEditor.longitude,
             homeRadiusMeters = homeEditor.radiusMeters,
             workLatitude = workEditor.latitude,
             workLongitude = workEditor.longitude,
             workRadiusMeters = workEditor.radiusMeters,
+            latestWorkLocationLabel = latestWork?.label.orEmpty(),
             statusMessage = status,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
@@ -65,8 +98,17 @@ class HomeViewModel @Inject constructor(
         workEditorState.value = workEditorState.value.updated(field, value)
     }
 
+    fun updateHomeRadius(radiusMeters: Float) {
+        homeEditorState.value = homeEditorState.value.copy(radiusMeters = radiusMeters.toString())
+    }
+
+    fun updateWorkRadius(radiusMeters: Float) {
+        workEditorState.value = workEditorState.value.copy(radiusMeters = radiusMeters.toString())
+    }
+
     fun useCurrentHomeLocation() {
         logger.info(LogCategory.UI, "Use current home location requested")
+        statusMessage.value = "Getting current home location..."
         viewModelScope.launch {
             runCatching {
                 currentGeofenceLocationProvider.currentPreciseHomeLocation(homeEditorState.value.radiusInput())
@@ -85,11 +127,14 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    fun useCurrentWorkLocation() {
+    fun useCurrentWorkLocation(replaceLatest: Boolean = false) {
         logger.info(LogCategory.UI, "Use current work location requested")
+        statusMessage.value = "Getting current work location..."
         viewModelScope.launch {
             runCatching {
+                val target = resolveWorkTarget(replaceLatest)
                 currentGeofenceLocationProvider.currentPreciseWorkLocation(workEditorState.value.radiusInput())
+                    ?.copy(id = target.id, label = target.label)
             }.onSuccess { work ->
                 if (work == null) {
                     statusMessage.value =
@@ -120,10 +165,11 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    fun saveWorkPin() {
+    fun saveWorkPin(replaceLatest: Boolean = false) {
         logger.info(LogCategory.UI, "Save work pin requested")
         viewModelScope.launch {
-            workEditorState.value.toWorkLocation(clock).fold(
+            val target = resolveWorkTarget(replaceLatest)
+            workEditorState.value.toWorkLocation(clock, target.id, target.label).fold(
                 onSuccess = { work ->
                     statusMessage.value = saveWork(work)
                 },
@@ -154,11 +200,11 @@ class HomeViewModel @Inject constructor(
     private suspend fun saveWork(workLocation: WorkLocation): String {
         workLocationRepository.setWorkLocation(workLocation)
         return runCatching {
-            workGeofenceRegistrar.registerWorkGeofence(workLocation)
+            workGeofenceRegistrar.registerWorkGeofences(workLocationRepository.getWorkLocations())
         }.fold(
             onSuccess = {
                 logger.info(LogCategory.LOCATION, "Work saved and geofence registered")
-                "Work location saved and geofence registered."
+                "Work location saved and geofences registered."
             },
             onFailure = { error ->
                 logger.warn(LogCategory.LOCATION, "Work saved but geofence registration failed", error = error)
@@ -166,16 +212,42 @@ class HomeViewModel @Inject constructor(
             },
         )
     }
+
+    private suspend fun resolveWorkTarget(replaceLatest: Boolean): WorkTarget {
+        val workLocations = workLocationRepository.getWorkLocations()
+        val latest = workLocations.firstOrNull()
+        return if (replaceLatest && latest != null) {
+            WorkTarget(latest.id, latest.label)
+        } else {
+            val index = workLocations.size + 1
+            WorkTarget(
+                id = if (workLocations.isEmpty()) WorkLocation.DEFAULT_ID else "work-${clock.millis()}-$index",
+                label = if (workLocations.isEmpty()) WorkLocation.DEFAULT_LABEL else "Work site $index",
+            )
+        }
+    }
 }
 
 data class HomeUiState(
     val homeSummary: String = "No home location set",
+    val homeSet: Boolean = false,
     val workSummary: String = "No work location set",
+    val workLocations: List<String> = emptyList(),
+    val workLocationCount: Int = 0,
     val homeLatitude: String = "",
     val homeLongitude: String = "",
-    val homeRadiusMeters: String = HomeLocation.MINIMUM_RADIUS_METERS.toInt().toString(),
+    val homeRadiusMeters: String = HomeLocation.MINIMUM_RADIUS_METERS.toString(),
     val workLatitude: String = "",
     val workLongitude: String = "",
-    val workRadiusMeters: String = WorkLocation.MINIMUM_RADIUS_METERS.toInt().toString(),
+    val workRadiusMeters: String = WorkLocation.MINIMUM_RADIUS_METERS.toString(),
+    val latestWorkLocationLabel: String = "",
     val statusMessage: String = "",
 )
+
+private data class WorkTarget(val id: String, val label: String)
+
+private fun List<WorkLocation>.summary(): String = when (size) {
+    0 -> "No work location set"
+    1 -> first().summary()
+    else -> "$size work locations saved"
+}

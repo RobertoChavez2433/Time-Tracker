@@ -31,6 +31,34 @@ class HomeViewModelTest {
     private val clock = Clock.fixed(Instant.parse("2026-05-04T12:00:00Z"), ZoneOffset.UTC)
 
     @Test
+    fun `saved home location hydrates pin editor fields`() = runTest(mainDispatcherRule.testDispatcher) {
+        val homeLocation = HomeLocation(
+            latitude = 39.7392,
+            longitude = -104.9903,
+            radiusMeters = 150f,
+            updatedAt = Instant.parse("2026-05-04T12:00:00Z"),
+        )
+        val viewModel = HomeViewModel(
+            homeLocationRepository = FakeHomeLocationRepository(initialHomeLocation = homeLocation),
+            workLocationRepository = FakeWorkLocationRepository(),
+            currentGeofenceLocationProvider = StaticCurrentGeofenceLocationProvider(),
+            homeGeofenceRegistrar = RecordingHomeGeofenceRegistrar(),
+            workGeofenceRegistrar = RecordingWorkGeofenceRegistrar(),
+            clock = clock,
+            logger = NoopAppLogger(),
+        )
+
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.uiState.collect()
+        }
+        advanceUntilIdle()
+
+        assertEquals("39.7392", viewModel.uiState.value.homeLatitude)
+        assertEquals("-104.9903", viewModel.uiState.value.homeLongitude)
+        assertEquals("15.24", viewModel.uiState.value.homeRadiusMeters)
+    }
+
+    @Test
     fun `current location saves home and registers geofence`() = runTest(mainDispatcherRule.testDispatcher) {
         val homeLocation = HomeLocation(
             latitude = 39.7392,
@@ -56,6 +84,32 @@ class HomeViewModelTest {
 
         assertEquals(homeLocation, homeRepository.homeLocation.value)
         assertEquals(listOf(homeLocation), geofenceRegistrar.registeredHomes)
+    }
+
+    @Test
+    fun `current home location clamps invalid radius input before requesting location`() = runTest(mainDispatcherRule.testDispatcher) {
+        val homeLocation = HomeLocation(
+            latitude = 39.7392,
+            longitude = -104.9903,
+            radiusMeters = 100f,
+            updatedAt = Instant.parse("2026-05-04T12:00:00Z"),
+        )
+        val currentLocationProvider = StaticCurrentGeofenceLocationProvider(homeLocation = homeLocation)
+        val viewModel = HomeViewModel(
+            homeLocationRepository = FakeHomeLocationRepository(),
+            workLocationRepository = FakeWorkLocationRepository(),
+            currentGeofenceLocationProvider = currentLocationProvider,
+            homeGeofenceRegistrar = RecordingHomeGeofenceRegistrar(),
+            workGeofenceRegistrar = RecordingWorkGeofenceRegistrar(),
+            clock = clock,
+            logger = NoopAppLogger(),
+        )
+
+        viewModel.updateHomeField(LocationField.RADIUS_METERS, "0")
+        viewModel.useCurrentHomeLocation()
+        advanceUntilIdle()
+
+        assertEquals(listOf(HomeLocation.MINIMUM_RADIUS_METERS), currentLocationProvider.homeRadiusRequests)
     }
 
     @Test
@@ -116,7 +170,12 @@ private class StaticCurrentGeofenceLocationProvider(
     private val homeLocation: HomeLocation? = null,
     private val workLocation: WorkLocation? = null,
 ) : CurrentGeofenceLocationProvider {
-    override suspend fun currentPreciseHomeLocation(radiusMeters: Float): HomeLocation? = homeLocation
+    val homeRadiusRequests = mutableListOf<Float>()
+
+    override suspend fun currentPreciseHomeLocation(radiusMeters: Float): HomeLocation? {
+        homeRadiusRequests += radiusMeters
+        return homeLocation
+    }
 
     override suspend fun currentPreciseWorkLocation(radiusMeters: Float): WorkLocation? = workLocation
 }
@@ -133,12 +192,20 @@ private class RecordingHomeGeofenceRegistrar : HomeGeofenceRegistrar {
 
 private class RecordingWorkGeofenceRegistrar : WorkGeofenceRegistrar {
     val registeredWorkLocations = mutableListOf<WorkLocation>()
+    val registeredWorkLocationBatches = mutableListOf<List<WorkLocation>>()
 
     override suspend fun registerWorkGeofence(workLocation: WorkLocation) {
         registeredWorkLocations += workLocation
     }
 
+    override suspend fun registerWorkGeofences(workLocations: List<WorkLocation>) {
+        registeredWorkLocationBatches += workLocations
+        registeredWorkLocations += workLocations
+    }
+
     override suspend fun unregisterWorkGeofence() = Unit
+
+    override suspend fun unregisterWorkGeofences(workLocations: List<WorkLocation>) = Unit
 }
 
 private class FailingHomeGeofenceRegistrar(private val message: String) : HomeGeofenceRegistrar {

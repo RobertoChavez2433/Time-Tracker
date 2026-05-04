@@ -1,31 +1,23 @@
 package com.robertochavez.timetracker.feature.home
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.robertochavez.timetracker.core.designsystem.TimeTrackerMutedText
-import com.robertochavez.timetracker.core.designsystem.TimeTrackerPrimaryButton
 import com.robertochavez.timetracker.core.designsystem.TimeTrackerScreen
 import com.robertochavez.timetracker.core.designsystem.TimeTrackerScreenTitle
-import com.robertochavez.timetracker.core.designsystem.TimeTrackerSecondaryButton
-import com.robertochavez.timetracker.core.designsystem.TimeTrackerSettingSection
 import com.robertochavez.timetracker.core.designsystem.TimeTrackerStatusText
 import com.robertochavez.timetracker.core.designsystem.TimeTrackerTestTags
 
 @Composable
 fun HomeRoute(modifier: Modifier = Modifier, viewModel: HomeViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    var pendingHomeAction by rememberSaveable { mutableStateOf<HomeSaveAction?>(null) }
+    var pendingWorkAction by rememberSaveable { mutableStateOf<WorkSaveAction?>(null) }
 
     TimeTrackerScreen(modifier = modifier, testTag = TimeTrackerTestTags.HOME_SCREEN) {
         item {
@@ -38,10 +30,30 @@ fun HomeRoute(modifier: Modifier = Modifier, viewModel: HomeViewModel = hiltView
             LocationStatusSection(state.homeSummary, state.workSummary)
         }
         item {
-            HomeLocationSection(state, viewModel::useCurrentHomeLocation, viewModel::updateHomeField, viewModel::saveHomePin)
+            HomeLocationSection(
+                state = state,
+                onUseCurrentLocation = {
+                    requestHomeAction(HomeSaveAction.UseCurrent, state, viewModel) { pendingHomeAction = it }
+                },
+                onFieldChange = viewModel::updateHomeField,
+                onRadiusSelected = viewModel::updateHomeRadius,
+                onSave = {
+                    requestHomeAction(HomeSaveAction.SavePin, state, viewModel) { pendingHomeAction = it }
+                },
+            )
         }
         item {
-            WorkLocationSection(state, viewModel::useCurrentWorkLocation, viewModel::updateWorkField, viewModel::saveWorkPin)
+            WorkLocationSection(
+                state = state,
+                onUseCurrentLocation = {
+                    requestWorkAction(WorkSaveAction.UseCurrent, state, viewModel) { pendingWorkAction = it }
+                },
+                onFieldChange = viewModel::updateWorkField,
+                onRadiusSelected = viewModel::updateWorkRadius,
+                onSave = {
+                    requestWorkAction(WorkSaveAction.SavePin, state, viewModel) { pendingWorkAction = it }
+                },
+            )
         }
         if (state.statusMessage.isNotBlank()) {
             item {
@@ -49,124 +61,79 @@ fun HomeRoute(modifier: Modifier = Modifier, viewModel: HomeViewModel = hiltView
             }
         }
     }
-}
 
-@Composable
-private fun LocationStatusSection(homeSummary: String, workSummary: String) {
-    TimeTrackerSettingSection(title = "Setup status") {
-        TimeTrackerMutedText("Home: $homeSummary")
-        TimeTrackerMutedText("Work: $workSummary")
+    pendingHomeAction?.let { action ->
+        PendingHomeActionDialog(action = action, viewModel = viewModel) { pendingHomeAction = null }
+    }
+
+    pendingWorkAction?.let { action ->
+        PendingWorkActionDialog(action = action, state = state, viewModel = viewModel) { pendingWorkAction = null }
     }
 }
 
 @Composable
-private fun HomeLocationSection(
-    state: HomeUiState,
-    onUseCurrentLocation: () -> Unit,
-    onFieldChange: (LocationField, String) -> Unit,
-    onSave: () -> Unit,
-) {
-    TimeTrackerSettingSection(title = "Home geofence", subtitle = "Use current GPS or enter a pin and radius.") {
-        TimeTrackerPrimaryButton(
-            text = "Use Current Home Location",
-            onClick = onUseCurrentLocation,
-            modifier = Modifier.testTag(TimeTrackerTestTags.HOME_USE_CURRENT_BUTTON),
-        )
-        CoordinateRow(
-            latitude = state.homeLatitude,
-            longitude = state.homeLongitude,
-            onLatitudeChange = { onFieldChange(LocationField.LATITUDE, it) },
-            onLongitudeChange = { onFieldChange(LocationField.LONGITUDE, it) },
-            latitudeTag = TimeTrackerTestTags.HOME_LATITUDE_FIELD,
-            longitudeTag = TimeTrackerTestTags.HOME_LONGITUDE_FIELD,
-        )
-        PinNumberField(
-            label = "Radius meters",
-            value = state.homeRadiusMeters,
-            onValueChange = { onFieldChange(LocationField.RADIUS_METERS, it) },
-            modifier = Modifier.fillMaxWidth(),
-            testTag = TimeTrackerTestTags.HOME_RADIUS_FIELD,
-        )
-        TimeTrackerPrimaryButton(
-            text = "Save Home Pin",
-            onClick = onSave,
-            modifier = Modifier.testTag(TimeTrackerTestTags.HOME_SAVE_PIN_BUTTON),
-        )
-    }
-}
-
-@Composable
-private fun WorkLocationSection(
-    state: HomeUiState,
-    onUseCurrentLocation: () -> Unit,
-    onFieldChange: (LocationField, String) -> Unit,
-    onSave: () -> Unit,
-) {
-    TimeTrackerSettingSection(title = "Work / job site", subtitle = "Job-site driving stays out of commute totals.") {
-        TimeTrackerMutedText(state.workSummary)
-        TimeTrackerSecondaryButton(
-            text = "Use Current Work Location",
-            onClick = onUseCurrentLocation,
-            modifier = Modifier.testTag(TimeTrackerTestTags.WORK_USE_CURRENT_BUTTON),
-        )
-        CoordinateRow(
-            latitude = state.workLatitude,
-            longitude = state.workLongitude,
-            onLatitudeChange = { onFieldChange(LocationField.LATITUDE, it) },
-            onLongitudeChange = { onFieldChange(LocationField.LONGITUDE, it) },
-            latitudeTag = TimeTrackerTestTags.WORK_LATITUDE_FIELD,
-            longitudeTag = TimeTrackerTestTags.WORK_LONGITUDE_FIELD,
-        )
-        PinNumberField(
-            label = "Radius meters",
-            value = state.workRadiusMeters,
-            onValueChange = { onFieldChange(LocationField.RADIUS_METERS, it) },
-            modifier = Modifier.fillMaxWidth(),
-            testTag = TimeTrackerTestTags.WORK_RADIUS_FIELD,
-        )
-        TimeTrackerSecondaryButton(
-            text = "Save Work Pin",
-            onClick = onSave,
-            modifier = Modifier.testTag(TimeTrackerTestTags.WORK_SAVE_PIN_BUTTON),
-        )
-    }
-}
-
-@Composable
-private fun CoordinateRow(
-    latitude: String,
-    longitude: String,
-    onLatitudeChange: (String) -> Unit,
-    onLongitudeChange: (String) -> Unit,
-    latitudeTag: String,
-    longitudeTag: String,
-) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        PinNumberField(
-            label = "Latitude",
-            value = latitude,
-            onValueChange = onLatitudeChange,
-            modifier = Modifier.weight(1f),
-            testTag = latitudeTag,
-        )
-        PinNumberField(
-            label = "Longitude",
-            value = longitude,
-            onValueChange = onLongitudeChange,
-            modifier = Modifier.weight(1f),
-            testTag = longitudeTag,
-        )
-    }
-}
-
-@Composable
-private fun PinNumberField(label: String, value: String, onValueChange: (String) -> Unit, modifier: Modifier = Modifier, testTag: String) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        label = { Text(label) },
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-        singleLine = true,
-        modifier = modifier.testTag(testTag),
+private fun PendingHomeActionDialog(action: HomeSaveAction, viewModel: HomeViewModel, clearAction: () -> Unit) {
+    OverwriteHomeDialog(
+        onCancel = clearAction,
+        onConfirm = {
+            clearAction()
+            action.perform(viewModel)
+        },
     )
+}
+
+@Composable
+private fun PendingWorkActionDialog(action: WorkSaveAction, state: HomeUiState, viewModel: HomeViewModel, clearAction: () -> Unit) {
+    WorkLocationSaveDialog(
+        latestLabel = state.latestWorkLocationLabel.ifBlank { "the latest work site" },
+        onCancel = clearAction,
+        onAdd = {
+            clearAction()
+            action.perform(viewModel, replaceLatest = false)
+        },
+        onReplace = {
+            clearAction()
+            action.perform(viewModel, replaceLatest = true)
+        },
+    )
+}
+
+private fun requestHomeAction(
+    action: HomeSaveAction,
+    state: HomeUiState,
+    viewModel: HomeViewModel,
+    setPendingAction: (HomeSaveAction) -> Unit,
+) {
+    if (state.homeSet) {
+        setPendingAction(action)
+    } else {
+        action.perform(viewModel)
+    }
+}
+
+private fun requestWorkAction(
+    action: WorkSaveAction,
+    state: HomeUiState,
+    viewModel: HomeViewModel,
+    setPendingAction: (WorkSaveAction) -> Unit,
+) {
+    if (state.workLocationCount > 0) {
+        setPendingAction(action)
+    } else {
+        action.perform(viewModel, replaceLatest = false)
+    }
+}
+
+private fun HomeSaveAction.perform(viewModel: HomeViewModel) {
+    when (this) {
+        HomeSaveAction.UseCurrent -> viewModel.useCurrentHomeLocation()
+        HomeSaveAction.SavePin -> viewModel.saveHomePin()
+    }
+}
+
+private fun WorkSaveAction.perform(viewModel: HomeViewModel, replaceLatest: Boolean) {
+    when (this) {
+        WorkSaveAction.UseCurrent -> viewModel.useCurrentWorkLocation(replaceLatest)
+        WorkSaveAction.SavePin -> viewModel.saveWorkPin(replaceLatest)
+    }
 }

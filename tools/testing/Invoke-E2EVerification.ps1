@@ -44,6 +44,7 @@ $script:RequiredControlInventory = @(
     @{ id = "nav_tracking"; tagPattern = "^nav_tracking$"; kind = "bottom_navigation"; screen = "app"; requiredMode = "state" },
     @{ id = "nav_reports"; tagPattern = "^nav_reports$"; kind = "bottom_navigation"; screen = "app"; requiredMode = "state" },
     @{ id = "nav_settings"; tagPattern = "^nav_settings$"; kind = "bottom_navigation"; screen = "app"; requiredMode = "state" },
+    @{ id = "startup_enable_button"; tagPattern = "^startup_enable_button$"; kind = "button"; screen = "startup_setup"; requiredMode = "state" },
     @{ id = "settings_request_foreground_button"; tagPattern = "^settings_request_foreground_button$"; kind = "button"; screen = "settings"; requiredMode = "log" },
     @{ id = "settings_enable_background_button"; tagPattern = "^settings_enable_background_button$"; kind = "button"; screen = "settings"; requiredMode = "log" },
     @{ id = "settings_enable_activity_button"; tagPattern = "^settings_enable_activity_button$"; kind = "button"; screen = "settings"; requiredMode = "log" },
@@ -66,13 +67,18 @@ $script:RequiredControlInventory = @(
     @{ id = "home_use_current_button"; tagPattern = "^home_use_current_button$"; kind = "button"; screen = "home"; requiredMode = "state" },
     @{ id = "home_latitude_field"; tagPattern = "^home_latitude_field$"; kind = "text_field"; screen = "home"; requiredMode = "input" },
     @{ id = "home_longitude_field"; tagPattern = "^home_longitude_field$"; kind = "text_field"; screen = "home"; requiredMode = "input" },
-    @{ id = "home_radius_field"; tagPattern = "^home_radius_field$"; kind = "text_field"; screen = "home"; requiredMode = "input" },
+    @{ id = "home_radius_dropdown"; tagPattern = "^home_radius_dropdown$"; kind = "dropdown"; screen = "home"; requiredMode = "state" },
+    @{ id = "home_radius_option_quarter_mile"; tagPattern = "^home_radius_option_quarter_mile$"; kind = "dropdown_option"; screen = "home"; requiredMode = "state" },
+    @{ id = "home_overwrite_confirm_button"; tagPattern = "^home_overwrite_confirm_button$"; kind = "button"; screen = "home_dialog"; requiredMode = "state" },
     @{ id = "home_save_pin_button"; tagPattern = "^home_save_pin_button$"; kind = "button"; screen = "home"; requiredMode = "state" },
     @{ id = "work_use_current_button"; tagPattern = "^work_use_current_button$"; kind = "button"; screen = "home"; requiredMode = "state" },
     @{ id = "work_latitude_field"; tagPattern = "^work_latitude_field$"; kind = "text_field"; screen = "home"; requiredMode = "input" },
     @{ id = "work_longitude_field"; tagPattern = "^work_longitude_field$"; kind = "text_field"; screen = "home"; requiredMode = "input" },
-    @{ id = "work_radius_field"; tagPattern = "^work_radius_field$"; kind = "text_field"; screen = "home"; requiredMode = "input" },
+    @{ id = "work_radius_dropdown"; tagPattern = "^work_radius_dropdown$"; kind = "dropdown"; screen = "home"; requiredMode = "state" },
+    @{ id = "work_radius_option_five_miles"; tagPattern = "^work_radius_option_five_miles$"; kind = "dropdown_option"; screen = "home"; requiredMode = "state" },
     @{ id = "work_save_pin_button"; tagPattern = "^work_save_pin_button$"; kind = "button"; screen = "home"; requiredMode = "state" },
+    @{ id = "work_add_location_button"; tagPattern = "^work_add_location_button$"; kind = "button"; screen = "home_dialog"; requiredMode = "state" },
+    @{ id = "work_replace_location_button"; tagPattern = "^work_replace_location_button$"; kind = "button"; screen = "home_dialog"; requiredMode = "state" },
     @{ id = "tracking_start_button"; tagPattern = "^tracking_start_button$"; kind = "button"; screen = "tracking"; requiredMode = "state" },
     @{ id = "tracking_stop_button"; tagPattern = "^tracking_stop_button$"; kind = "button"; screen = "tracking"; requiredMode = "state" },
     @{ id = "tracking_session_counts_switch"; tagPattern = "^tracking_session_[^_]+_counts_switch$"; kind = "switch"; screen = "tracking"; requiredMode = "state" },
@@ -335,8 +341,11 @@ function Start-DebugInfrastructure {
     Invoke-RestMethod -Uri "http://127.0.0.1:$LogPort/clear" -Method Post -TimeoutSec 10 | Out-Null
     Invoke-AdbShell -Arguments @("pm", "grant", $PackageName, "android.permission.ACCESS_COARSE_LOCATION") -AllowFailure | Out-Null
     Invoke-AdbShell -Arguments @("pm", "grant", $PackageName, "android.permission.ACCESS_FINE_LOCATION") -AllowFailure | Out-Null
+    Invoke-AdbShell -Arguments @("pm", "grant", $PackageName, "android.permission.ACCESS_BACKGROUND_LOCATION") -AllowFailure | Out-Null
     Invoke-AdbShell -Arguments @("pm", "grant", $PackageName, "android.permission.ACTIVITY_RECOGNITION") -AllowFailure | Out-Null
     Invoke-AdbShell -Arguments @("pm", "grant", $PackageName, "android.permission.POST_NOTIFICATIONS") -AllowFailure | Out-Null
+    Invoke-AdbShell -Arguments @("appops", "set", $PackageName, "ACCESS_BACKGROUND_LOCATION", "allow") -AllowFailure | Out-Null
+    Invoke-AdbShell -Arguments @("appops", "set", $PackageName, "android:background_location", "allow") -AllowFailure | Out-Null
     Start-App
 }
 
@@ -356,6 +365,7 @@ function Resume-App {
         "android.intent.action.MAIN",
         "-c",
         "android.intent.category.LAUNCHER",
+        "--activity-clear-top",
         "-n",
         "$PackageName/$ActivityName"
     ) -AllowFailure | Out-Null
@@ -541,6 +551,16 @@ function Select-UiNodeByTag {
     )
 
     $textAlias = switch ($Tag) {
+        "startup_setup_dialog" { "Finish setup" }
+        "startup_enable_button" { "Agree and Enable Tracking" }
+        "startup_background_button" { "Enable Background Location" }
+        "home_radius_option_quarter_mile" { "1/4 mi" }
+        "work_radius_option_five_miles" { "5 mi" }
+        "home_overwrite_confirm_button" { "Overwrite Home" }
+        "home_overwrite_cancel_button" { "Cancel" }
+        "work_add_location_button" { "Add Work Site" }
+        "work_replace_location_button" { "Replace Latest" }
+        "work_save_cancel_button" { "Cancel" }
         "settings_delete_confirm_dialog" { "Delete local data?" }
         "settings_delete_confirm_cancel_button" { "Cancel" }
         "settings_delete_confirm_button" { "Delete" }
@@ -563,10 +583,7 @@ function Select-UiNodeByTag {
             return $node
         }
         if ($textAlias -and $text -eq $textAlias) {
-            if ($Tag -in @("settings_delete_confirm_cancel_button", "settings_delete_confirm_button")) {
-                return Select-ClickableAncestorOrNode -Node $node
-            }
-            return $node
+            return Select-ClickableAncestorOrNode -Node $node
         }
     }
     return $null
@@ -669,6 +686,36 @@ function Tap-Tag {
     Invoke-AdbShell -Arguments @("input", "tap", "$($center.x)", "$($center.y)") | Out-Null
     Start-Sleep -Milliseconds $WaitMs
     return $found
+}
+
+function Test-TagVisibleNow {
+    param([Parameter(Mandatory = $true)][string]$Tag)
+
+    try {
+        Find-UiNodeByTag -Tag $Tag -StepName "visible-now-$Tag" -MaxScrolls 0 | Out-Null
+        return $true
+    } catch {
+        return $false
+    }
+}
+
+function Invoke-StartupSetupIfPresent {
+    param([Parameter(Mandatory = $true)][string]$Flow)
+
+    if (-not (Test-TagVisibleNow -Tag "startup_enable_button")) {
+        return $false
+    }
+
+    Invoke-VerifiedControl -TestTag "startup_enable_button" -Flow $Flow -ActionPerformed "accept startup setup" `
+        -ExpectedStateDelta "privacyDisclosureAccepted becomes true" -PersistenceExpectation "startup setup acceptance persists" -Action {
+            $tap = Tap-Tag -Tag "startup_enable_button" -StepName "startup-enable"
+            Wait-State -Name "startup-after-enable" -Condition {
+                param($candidate)
+                [bool]$candidate.snapshot.privacyDisclosureAccepted
+            } | Out-Null
+            return @{ uiDump = Get-RelativeArtifactPath $tap.dumpPath; state = "startup-after-enable-state.json" }
+        } | Out-Null
+    return $true
 }
 
 function Test-KeyboardShown {
@@ -839,7 +886,7 @@ function Invoke-SystemButtonProbe {
         } | Out-Null
 
     Invoke-VerifiedControl -TestTag "settings_enable_background_button" -Flow "settings_tracking_setup" `
-        -ActionPerformed "open Android background-location settings" -ExpectedStateDelta "system settings handoff opens" `
+        -ActionPerformed "tap Android background-location settings button" -ExpectedStateDelta "system settings handoff opened" `
         -PersistenceExpectation "background permission is device-owned" -Action {
             $tap = Tap-Tag -Tag "settings_enable_background_button" -StepName "probe-background-settings"
             $systemFocus = Wait-FocusedPackage -Package "com.android.settings" -Name "02-background-settings-opened"
@@ -870,15 +917,22 @@ function Invoke-SwitchOnOffOnVerification {
         [Parameter(Mandatory = $true)][string]$StepSlug
     )
 
-    Invoke-VerifiedControl -TestTag $TestTag -Flow $Flow -ActionPerformed "enable $Label" `
-        -ExpectedStateDelta "$SnapshotProperty becomes true" -PersistenceExpectation "temporary on/off verification state" -Action {
-            $tap = Tap-Tag -Tag $TestTag -StepName "$StepSlug-enable"
-            Wait-State -Name "02-after-$StepSlug-enable" -Condition {
-                param($candidate)
-                Get-SnapshotBoolean -State $candidate -PropertyName $SnapshotProperty
+    $beforeEnable = Capture-State -Name "02-before-$StepSlug-enable"
+    if (Get-SnapshotBoolean -State $beforeEnable -PropertyName $SnapshotProperty) {
+        Add-ControlResult -TestTag $TestTag -Flow $Flow -ActionPerformed "verify $Label already enabled" `
+            -ExpectedStateDelta "$SnapshotProperty is already true" -PersistenceExpectation "temporary on/off verification state" `
+            -Result "passed" -ArtifactPaths @{ state = "02-before-$StepSlug-enable-state.json" }
+    } else {
+        Invoke-VerifiedControl -TestTag $TestTag -Flow $Flow -ActionPerformed "enable $Label" `
+            -ExpectedStateDelta "$SnapshotProperty becomes true" -PersistenceExpectation "temporary on/off verification state" -Action {
+                $tap = Tap-Tag -Tag $TestTag -StepName "$StepSlug-enable"
+                Wait-State -Name "02-after-$StepSlug-enable" -Condition {
+                    param($candidate)
+                    Get-SnapshotBoolean -State $candidate -PropertyName $SnapshotProperty
+                } | Out-Null
+                return @{ uiDump = Get-RelativeArtifactPath $tap.dumpPath; state = "02-after-$StepSlug-enable-state.json" }
             } | Out-Null
-            return @{ uiDump = Get-RelativeArtifactPath $tap.dumpPath; state = "02-after-$StepSlug-enable-state.json" }
-        } | Out-Null
+    }
 
     Invoke-VerifiedControl -TestTag $TestTag -Flow $Flow -ActionPerformed "disable $Label" `
         -ExpectedStateDelta "$SnapshotProperty becomes false" -PersistenceExpectation "temporary on/off verification state" -Action {
@@ -899,6 +953,30 @@ function Invoke-SwitchOnOffOnVerification {
             } | Out-Null
             return @{ uiDump = Get-RelativeArtifactPath $tap.dumpPath; state = "02-after-$StepSlug-reenable-state.json" }
         } | Out-Null
+}
+
+function Invoke-PrivacyStartupVerification {
+    param([Parameter(Mandatory = $true)][string]$Flow)
+
+    $beforeDisable = Capture-State -Name "02-before-privacy-startup-prompt"
+    if (-not (Get-SnapshotBoolean -State $beforeDisable -PropertyName "privacyDisclosureAccepted")) {
+        Invoke-StartupSetupIfPresent -Flow $Flow | Out-Null
+    }
+
+    Invoke-VerifiedControl -TestTag "settings_privacy_disclosure_switch" -Flow $Flow -ActionPerformed "disable privacy acceptance" `
+        -ExpectedStateDelta "privacyDisclosureAccepted becomes false and startup setup is required" `
+        -PersistenceExpectation "startup setup must re-accept before app use" -Action {
+            $tap = Tap-Tag -Tag "settings_privacy_disclosure_switch" -StepName "privacy-disclosure-disable"
+            Wait-State -Name "02-after-privacy-disclosure-disable" -Condition {
+                param($candidate)
+                -not [bool]$candidate.snapshot.privacyDisclosureAccepted
+            } | Out-Null
+            Assert-TagVisible -Tag "startup_setup_dialog" -StepName "privacy-startup-dialog" | Out-Null
+            return @{ uiDump = Get-RelativeArtifactPath $tap.dumpPath; state = "02-after-privacy-disclosure-disable-state.json" }
+        } | Out-Null
+
+    Invoke-StartupSetupIfPresent -Flow $Flow | Out-Null
+    Assert-TagVisible -Tag "screen_settings" -StepName "privacy-return-settings" | Out-Null
 }
 
 function Compare-Scalar {
@@ -1031,6 +1109,7 @@ function Invoke-BootstrapReset {
     if (-not [bool]$state.debugHarness.e2eDebugEnabled) {
         throw "E2E debug harness is not enabled. Install with -PtimeTracker.e2eDebug=true or omit -SkipInstall."
     }
+    Invoke-StartupSetupIfPresent -Flow $flow | Out-Null
     Assert-TagVisible -Tag "time_tracker_app" -StepName "preflight-app-root" | Out-Null
     Save-Screenshot -Name "00-preflight" | Out-Null
 
@@ -1063,6 +1142,8 @@ function Invoke-BootstrapReset {
                 state = "$(New-SafeName "01-after-bootstrap-reset")-state.json"
             }
         } | Out-Null
+
+    Invoke-StartupSetupIfPresent -Flow $flow | Out-Null
 
     return @{ posture = [string]$state.stateMachine.posture }
 }
@@ -1099,8 +1180,7 @@ function Invoke-SettingsTrackingSetup {
         -SnapshotProperty "minimalActiveNotificationEnabled" -Label "minimal notification" -StepSlug "minimal-notification"
     Invoke-SwitchOnOffOnVerification -TestTag "settings_live_timer_notification_switch" -Flow $flow `
         -SnapshotProperty "liveTimerNotificationEnabled" -Label "live timer notification" -StepSlug "live-notification"
-    Invoke-SwitchOnOffOnVerification -TestTag "settings_privacy_disclosure_switch" -Flow $flow `
-        -SnapshotProperty "privacyDisclosureAccepted" -Label "privacy disclosure acceptance" -StepSlug "privacy-disclosure"
+    Invoke-PrivacyStartupVerification -Flow $flow
 
     if ($ProbeSystemButtons) {
         Invoke-SystemButtonProbe
@@ -1205,8 +1285,7 @@ function Invoke-HomeLocationControls {
 
     foreach ($entry in @(
             @{ tag = "home_latitude_field"; text = "42.3314"; label = "home latitude" },
-            @{ tag = "home_longitude_field"; text = "83.0458"; label = "home longitude" },
-            @{ tag = "home_radius_field"; text = "180"; label = "home radius" }
+            @{ tag = "home_longitude_field"; text = "-83.0458"; label = "home longitude" }
         )) {
         Invoke-VerifiedControl -TestTag $entry.tag -Flow $flow -ActionPerformed "enter $($entry.label)" `
             -ExpectedStateDelta "home pin editor text changes" -PersistenceExpectation "saved by home pin button" -Action {
@@ -1216,23 +1295,36 @@ function Invoke-HomeLocationControls {
             } | Out-Null
     }
 
+    Invoke-VerifiedControl -TestTag "home_radius_option_quarter_mile" -Flow $flow -ActionPerformed "select home radius" `
+        -ExpectedStateDelta "home radius option is selected" -PersistenceExpectation "saved by home pin button" -Action {
+            Tap-Tag -Tag "home_radius_dropdown" -StepName "home-radius-dropdown-open" | Out-Null
+            $tap = Tap-Tag -Tag "home_radius_option_quarter_mile" -StepName "home-radius-quarter-mile"
+            return @{ uiDump = Get-RelativeArtifactPath $tap.dumpPath }
+        } | Out-Null
+
     Invoke-VerifiedControl -TestTag "home_save_pin_button" -Flow $flow -ActionPerformed "save home pin" `
-        -ExpectedStateDelta "homeSet becomes true and radius persists" -PersistenceExpectation "must survive relaunch" -Action {
+        -ExpectedStateDelta "overwrite confirmation appears" -PersistenceExpectation "no overwrite until confirmed" -Action {
             $tap = Tap-Tag -Tag "home_save_pin_button" -StepName "home-save-pin"
+            Assert-TagVisible -Tag "home_overwrite_confirm_button" -StepName "home-overwrite-dialog" | Out-Null
+            return @{ uiDump = Get-RelativeArtifactPath $tap.dumpPath }
+        } | Out-Null
+
+    Invoke-VerifiedControl -TestTag "home_overwrite_confirm_button" -Flow $flow -ActionPerformed "confirm home overwrite" `
+        -ExpectedStateDelta "homeSet remains true and selected radius persists" -PersistenceExpectation "must survive relaunch" -Action {
+            $tap = Tap-Tag -Tag "home_overwrite_confirm_button" -StepName "home-overwrite-confirm"
             Wait-State -Name "04-after-home-pin" -Condition {
                 param($candidate)
                 [bool]$candidate.snapshot.homeSet -and
                 (Compare-Double $candidate.snapshot.homeLatitude 42.3314 0.0001) -and
-                (Compare-Double $candidate.snapshot.homeLongitude 83.0458 0.0001) -and
-                (Compare-Double $candidate.snapshot.homeRadiusMeters 180 0.01)
+                (Compare-Double $candidate.snapshot.homeLongitude -83.0458 0.0001) -and
+                (Compare-Double $candidate.snapshot.homeRadiusMeters 402.336 0.1)
             } | Out-Null
             return @{ uiDump = Get-RelativeArtifactPath $tap.dumpPath; state = "04-after-home-pin-state.json" }
         } | Out-Null
 
     foreach ($entry in @(
             @{ tag = "work_latitude_field"; text = "42.3320"; label = "work latitude" },
-            @{ tag = "work_longitude_field"; text = "83.0460"; label = "work longitude" },
-            @{ tag = "work_radius_field"; text = "8046"; label = "work radius" }
+            @{ tag = "work_longitude_field"; text = "-83.0460"; label = "work longitude" }
         )) {
         Invoke-VerifiedControl -TestTag $entry.tag -Flow $flow -ActionPerformed "enter $($entry.label)" `
             -ExpectedStateDelta "work pin editor text changes" -PersistenceExpectation "saved by work pin button" -Action {
@@ -1242,21 +1334,48 @@ function Invoke-HomeLocationControls {
             } | Out-Null
     }
 
+    Invoke-VerifiedControl -TestTag "work_radius_option_five_miles" -Flow $flow -ActionPerformed "select work radius" `
+        -ExpectedStateDelta "work radius option is selected" -PersistenceExpectation "saved by work pin button" -Action {
+            Tap-Tag -Tag "work_radius_dropdown" -StepName "work-radius-dropdown-open" | Out-Null
+            $tap = Tap-Tag -Tag "work_radius_option_five_miles" -StepName "work-radius-five-miles"
+            return @{ uiDump = Get-RelativeArtifactPath $tap.dumpPath }
+        } | Out-Null
+
     Invoke-VerifiedControl -TestTag "work_save_pin_button" -Flow $flow -ActionPerformed "save work pin" `
-        -ExpectedStateDelta "workSet becomes true and radius persists" -PersistenceExpectation "must survive relaunch" -Action {
+        -ExpectedStateDelta "work save choice dialog appears" -PersistenceExpectation "no work location changes until a dialog action is chosen" -Action {
             $tap = Tap-Tag -Tag "work_save_pin_button" -StepName "work-save-pin"
+            Assert-TagVisible -Tag "work_replace_location_button" -StepName "work-save-choice-dialog" | Out-Null
+            return @{ uiDump = Get-RelativeArtifactPath $tap.dumpPath }
+        } | Out-Null
+
+    Invoke-VerifiedControl -TestTag "work_replace_location_button" -Flow $flow -ActionPerformed "replace latest work location" `
+        -ExpectedStateDelta "latest work location is overwritten" -PersistenceExpectation "must survive relaunch" -Action {
+            $tap = Tap-Tag -Tag "work_replace_location_button" -StepName "work-replace-location"
             Wait-State -Name "04-after-work-pin" -Condition {
                 param($candidate)
                 [bool]$candidate.snapshot.workSet -and
                 (Compare-Double $candidate.snapshot.workLatitude 42.3320 0.0001) -and
-                (Compare-Double $candidate.snapshot.workLongitude 83.0460 0.0001) -and
-                (Compare-Double $candidate.snapshot.workRadiusMeters 8046 0.01)
+                (Compare-Double $candidate.snapshot.workLongitude -83.0460 0.0001) -and
+                (Compare-Double $candidate.snapshot.workRadiusMeters 8046.72 0.1) -and
+                [int]$candidate.snapshot.workLocationCount -eq 1
             } | Out-Null
             return @{ uiDump = Get-RelativeArtifactPath $tap.dumpPath; state = "04-after-work-pin-state.json" }
         } | Out-Null
 
+    Tap-Tag -Tag "work_save_pin_button" -StepName "work-save-pin-add-open" | Out-Null
+    Invoke-VerifiedControl -TestTag "work_add_location_button" -Flow $flow -ActionPerformed "add another work location" `
+        -ExpectedStateDelta "workLocationCount becomes at least 2" -PersistenceExpectation "multiple work locations must survive relaunch" -Action {
+            $tap = Tap-Tag -Tag "work_add_location_button" -StepName "work-add-location"
+            Wait-State -Name "04-after-work-pin-add" -Condition {
+                param($candidate)
+                [bool]$candidate.snapshot.workSet -and
+                [int]$candidate.snapshot.workLocationCount -ge 2
+            } | Out-Null
+            return @{ uiDump = Get-RelativeArtifactPath $tap.dumpPath; state = "04-after-work-pin-add-state.json" }
+        } | Out-Null
+
     $state = Capture-State -Name "04-location-controls-final"
-    return @{ homeSet = [bool]$state.snapshot.homeSet; workSet = [bool]$state.snapshot.workSet }
+    return @{ homeSet = [bool]$state.snapshot.homeSet; workSet = [bool]$state.snapshot.workSet; workLocationCount = [int]$state.snapshot.workLocationCount }
 }
 
 function Invoke-TrackingSessionCorrection {
