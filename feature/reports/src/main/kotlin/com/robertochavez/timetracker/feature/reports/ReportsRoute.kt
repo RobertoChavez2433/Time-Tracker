@@ -92,7 +92,7 @@ private fun LedgerHeaderRow() {
         LedgerCell("Work", FontWeight.SemiBold, TextAlign.End)
         LedgerCell("Drive", FontWeight.SemiBold, TextAlign.End)
         LedgerCell("Site", FontWeight.SemiBold, TextAlign.End)
-        LedgerCell("Mi", FontWeight.SemiBold, TextAlign.End)
+        LedgerCell("Miles", FontWeight.SemiBold, TextAlign.End)
     }
 }
 

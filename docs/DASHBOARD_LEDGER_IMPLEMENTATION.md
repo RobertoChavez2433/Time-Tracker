@@ -27,7 +27,7 @@ Miles 42          Miles 183         Miles 361
 This Week
 May 4 - May 10
 
-Day   Home   Work   Drive  Site   Mi
+Day   Home   Work   Drive  Site   Miles
 Mon   9h15   7h20   2h10   5h10   42
 Tue   8h40   6h55   1h35   5h20   31
 Wed   9h05   7h10   2h     5h10   39
