@@ -87,12 +87,12 @@ private fun WeeklyLedgerPanel(ledger: WeeklyLedgerUiModel) {
 @Composable
 private fun LedgerHeaderRow() {
     LedgerRow(background = Color.Transparent) {
-        LedgerCell("Day", FontWeight.SemiBold)
-        LedgerCell("Home", FontWeight.SemiBold, TextAlign.End)
-        LedgerCell("Work", FontWeight.SemiBold, TextAlign.End)
-        LedgerCell("Drive", FontWeight.SemiBold, TextAlign.End)
-        LedgerCell("Site", FontWeight.SemiBold, TextAlign.End)
-        LedgerCell("Miles", FontWeight.SemiBold, TextAlign.End)
+        LedgerCell("Day", FontWeight.SemiBold, TextAlign.Center)
+        LedgerCell("Home", FontWeight.SemiBold, TextAlign.Center)
+        LedgerCell("Work", FontWeight.SemiBold, TextAlign.Center)
+        LedgerCell("Drive", FontWeight.SemiBold, TextAlign.Center)
+        LedgerCell("Site", FontWeight.SemiBold, TextAlign.Center)
+        LedgerCell("Miles", FontWeight.SemiBold, TextAlign.Center)
     }
 }
 
@@ -101,12 +101,12 @@ private fun LedgerDayRow(row: WeeklyLedgerRowUiModel, isTotal: Boolean = false) 
     val background = if (row.isToday) TimeTrackerColors.SurfaceTint else Color.Transparent
     val weight = if (row.isToday || isTotal) FontWeight.SemiBold else FontWeight.Normal
     LedgerRow(background = background) {
-        LedgerCell(row.day, weight)
-        LedgerCell(row.home, weight, TextAlign.End)
-        LedgerCell(row.work, weight, TextAlign.End)
-        LedgerCell(row.drive, weight, TextAlign.End)
-        LedgerCell(row.onSite, weight, TextAlign.End)
-        LedgerCell(row.miles, weight, TextAlign.End)
+        LedgerCell(row.day, weight, TextAlign.Center)
+        LedgerCell(row.home, weight, TextAlign.Center)
+        LedgerCell(row.work, weight, TextAlign.Center)
+        LedgerCell(row.drive, weight, TextAlign.Center)
+        LedgerCell(row.onSite, weight, TextAlign.Center)
+        LedgerCell(row.miles, weight, TextAlign.Center)
     }
 }
 
