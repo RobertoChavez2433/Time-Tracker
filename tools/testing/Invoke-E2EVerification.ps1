@@ -42,8 +42,10 @@ $script:RunFailure = $null
 $script:RequiredControlInventory = @(
     @{ id = "nav_home"; tagPattern = "^nav_home$"; kind = "bottom_navigation"; screen = "app"; requiredMode = "state" },
     @{ id = "nav_tracking"; tagPattern = "^nav_tracking$"; kind = "bottom_navigation"; screen = "app"; requiredMode = "state" },
-    @{ id = "nav_reports"; tagPattern = "^nav_reports$"; kind = "bottom_navigation"; screen = "app"; requiredMode = "state" },
+    @{ id = "nav_places"; tagPattern = "^nav_places$"; kind = "bottom_navigation"; screen = "app"; requiredMode = "state" },
     @{ id = "nav_settings"; tagPattern = "^nav_settings$"; kind = "bottom_navigation"; screen = "app"; requiredMode = "state" },
+    @{ id = "dashboard_summary_panel"; tagPattern = "^dashboard_summary_panel$"; kind = "panel"; screen = "dashboard"; requiredMode = "state" },
+    @{ id = "dashboard_weekly_ledger"; tagPattern = "^dashboard_weekly_ledger$"; kind = "panel"; screen = "dashboard"; requiredMode = "state" },
     @{ id = "startup_enable_button"; tagPattern = "^startup_enable_button$"; kind = "button"; screen = "startup_setup"; requiredMode = "state" },
     @{ id = "settings_request_foreground_button"; tagPattern = "^settings_request_foreground_button$"; kind = "button"; screen = "settings"; requiredMode = "log" },
     @{ id = "settings_enable_background_button"; tagPattern = "^settings_enable_background_button$"; kind = "button"; screen = "settings"; requiredMode = "log" },
@@ -64,21 +66,25 @@ $script:RequiredControlInventory = @(
     @{ id = "settings_workday_friday_switch"; tagPattern = "^settings_workday_friday_switch$"; kind = "switch"; screen = "settings"; requiredMode = "state" },
     @{ id = "settings_workday_saturday_switch"; tagPattern = "^settings_workday_saturday_switch$"; kind = "switch"; screen = "settings"; requiredMode = "state" },
     @{ id = "settings_workday_sunday_switch"; tagPattern = "^settings_workday_sunday_switch$"; kind = "switch"; screen = "settings"; requiredMode = "state" },
-    @{ id = "home_use_current_button"; tagPattern = "^home_use_current_button$"; kind = "button"; screen = "home"; requiredMode = "state" },
-    @{ id = "home_latitude_field"; tagPattern = "^home_latitude_field$"; kind = "text_field"; screen = "home"; requiredMode = "input" },
-    @{ id = "home_longitude_field"; tagPattern = "^home_longitude_field$"; kind = "text_field"; screen = "home"; requiredMode = "input" },
-    @{ id = "home_radius_dropdown"; tagPattern = "^home_radius_dropdown$"; kind = "dropdown"; screen = "home"; requiredMode = "state" },
-    @{ id = "home_radius_option_quarter_mile"; tagPattern = "^home_radius_option_quarter_mile$"; kind = "dropdown_option"; screen = "home"; requiredMode = "state" },
-    @{ id = "home_overwrite_confirm_button"; tagPattern = "^home_overwrite_confirm_button$"; kind = "button"; screen = "home_dialog"; requiredMode = "state" },
-    @{ id = "home_save_pin_button"; tagPattern = "^home_save_pin_button$"; kind = "button"; screen = "home"; requiredMode = "state" },
-    @{ id = "work_use_current_button"; tagPattern = "^work_use_current_button$"; kind = "button"; screen = "home"; requiredMode = "state" },
-    @{ id = "work_latitude_field"; tagPattern = "^work_latitude_field$"; kind = "text_field"; screen = "home"; requiredMode = "input" },
-    @{ id = "work_longitude_field"; tagPattern = "^work_longitude_field$"; kind = "text_field"; screen = "home"; requiredMode = "input" },
-    @{ id = "work_radius_dropdown"; tagPattern = "^work_radius_dropdown$"; kind = "dropdown"; screen = "home"; requiredMode = "state" },
-    @{ id = "work_radius_option_five_miles"; tagPattern = "^work_radius_option_five_miles$"; kind = "dropdown_option"; screen = "home"; requiredMode = "state" },
-    @{ id = "work_save_pin_button"; tagPattern = "^work_save_pin_button$"; kind = "button"; screen = "home"; requiredMode = "state" },
-    @{ id = "work_add_location_button"; tagPattern = "^work_add_location_button$"; kind = "button"; screen = "home_dialog"; requiredMode = "state" },
-    @{ id = "work_replace_location_button"; tagPattern = "^work_replace_location_button$"; kind = "button"; screen = "home_dialog"; requiredMode = "state" },
+    @{ id = "home_use_current_button"; tagPattern = "^home_use_current_button$"; kind = "button"; screen = "places"; requiredMode = "state" },
+    @{ id = "home_edit_pin_button"; tagPattern = "^home_edit_pin_button$"; kind = "button"; screen = "places"; requiredMode = "state" },
+    @{ id = "home_cancel_edit_button"; tagPattern = "^home_cancel_edit_button$"; kind = "button"; screen = "places"; requiredMode = "state" },
+    @{ id = "home_latitude_field"; tagPattern = "^home_latitude_field$"; kind = "text_field"; screen = "places"; requiredMode = "input" },
+    @{ id = "home_longitude_field"; tagPattern = "^home_longitude_field$"; kind = "text_field"; screen = "places"; requiredMode = "input" },
+    @{ id = "home_radius_dropdown"; tagPattern = "^home_radius_dropdown$"; kind = "dropdown"; screen = "places"; requiredMode = "state" },
+    @{ id = "home_radius_option_quarter_mile"; tagPattern = "^home_radius_option_quarter_mile$"; kind = "dropdown_option"; screen = "places"; requiredMode = "state" },
+    @{ id = "home_overwrite_confirm_button"; tagPattern = "^home_overwrite_confirm_button$"; kind = "button"; screen = "places_dialog"; requiredMode = "state" },
+    @{ id = "home_save_pin_button"; tagPattern = "^home_save_pin_button$"; kind = "button"; screen = "places"; requiredMode = "state" },
+    @{ id = "work_use_current_button"; tagPattern = "^work_use_current_button$"; kind = "button"; screen = "places"; requiredMode = "state" },
+    @{ id = "work_edit_pin_button"; tagPattern = "^work_edit_pin_button$"; kind = "button"; screen = "places"; requiredMode = "state" },
+    @{ id = "work_cancel_edit_button"; tagPattern = "^work_cancel_edit_button$"; kind = "button"; screen = "places"; requiredMode = "state" },
+    @{ id = "work_latitude_field"; tagPattern = "^work_latitude_field$"; kind = "text_field"; screen = "places"; requiredMode = "input" },
+    @{ id = "work_longitude_field"; tagPattern = "^work_longitude_field$"; kind = "text_field"; screen = "places"; requiredMode = "input" },
+    @{ id = "work_radius_dropdown"; tagPattern = "^work_radius_dropdown$"; kind = "dropdown"; screen = "places"; requiredMode = "state" },
+    @{ id = "work_radius_option_five_miles"; tagPattern = "^work_radius_option_five_miles$"; kind = "dropdown_option"; screen = "places"; requiredMode = "state" },
+    @{ id = "work_save_pin_button"; tagPattern = "^work_save_pin_button$"; kind = "button"; screen = "places"; requiredMode = "state" },
+    @{ id = "work_add_location_button"; tagPattern = "^work_add_location_button$"; kind = "button"; screen = "places_dialog"; requiredMode = "state" },
+    @{ id = "work_replace_location_button"; tagPattern = "^work_replace_location_button$"; kind = "button"; screen = "places_dialog"; requiredMode = "state" },
     @{ id = "tracking_start_button"; tagPattern = "^tracking_start_button$"; kind = "button"; screen = "tracking"; requiredMode = "state" },
     @{ id = "tracking_stop_button"; tagPattern = "^tracking_stop_button$"; kind = "button"; screen = "tracking"; requiredMode = "state" },
     @{ id = "tracking_session_counts_switch"; tagPattern = "^tracking_session_[^_]+_counts_switch$"; kind = "switch"; screen = "tracking"; requiredMode = "state" },
@@ -1261,11 +1267,11 @@ function Invoke-SettingsTimesheetRules {
 }
 
 function Invoke-HomeLocationControls {
-    $flow = "home_location_controls"
-    Invoke-VerifiedControl -TestTag "nav_home" -Flow $flow -ActionPerformed "open home screen" `
-        -ExpectedStateDelta "home screen is visible" -PersistenceExpectation "navigation only" -Action {
-            $tap = Tap-Tag -Tag "nav_home" -StepName "home-nav"
-            Assert-TagVisible -Tag "screen_home" -StepName "home-screen" | Out-Null
+    $flow = "places_location_controls"
+    Invoke-VerifiedControl -TestTag "nav_places" -Flow $flow -ActionPerformed "open places screen" `
+        -ExpectedStateDelta "places screen is visible" -PersistenceExpectation "navigation only" -Action {
+            $tap = Tap-Tag -Tag "nav_places" -StepName "places-nav"
+            Assert-TagVisible -Tag "screen_places" -StepName "places-screen" | Out-Null
             return @{ uiDump = Get-RelativeArtifactPath $tap.dumpPath }
         } | Out-Null
 
@@ -1282,6 +1288,22 @@ function Invoke-HomeLocationControls {
                 return @{ uiDump = Get-RelativeArtifactPath $tap.dumpPath; state = "$(New-SafeName "04-after-$($probe.tag)")-state.json" }
             } | Out-Null
     }
+
+    Invoke-VerifiedControl -TestTag "home_edit_pin_button" -Flow $flow -ActionPerformed "open manual home pin editor" `
+        -ExpectedStateDelta "home coordinate fields become visible" -PersistenceExpectation "editor visibility only" -Action {
+            $tap = Tap-Tag -Tag "home_edit_pin_button" -StepName "home-edit-pin-open"
+            Assert-TagVisible -Tag "home_latitude_field" -StepName "home-editor-visible" | Out-Null
+            return @{ uiDump = Get-RelativeArtifactPath $tap.dumpPath }
+        } | Out-Null
+
+    Invoke-VerifiedControl -TestTag "home_cancel_edit_button" -Flow $flow -ActionPerformed "cancel manual home pin editing" `
+        -ExpectedStateDelta "home current-location action returns" -PersistenceExpectation "editor visibility only" -Action {
+            $tap = Tap-Tag -Tag "home_cancel_edit_button" -StepName "home-edit-pin-cancel"
+            Assert-TagVisible -Tag "home_use_current_button" -StepName "home-current-visible" | Out-Null
+            return @{ uiDump = Get-RelativeArtifactPath $tap.dumpPath }
+        } | Out-Null
+
+    Tap-Tag -Tag "home_edit_pin_button" -StepName "home-edit-pin-reopen" | Out-Null
 
     foreach ($entry in @(
             @{ tag = "home_latitude_field"; text = "42.3314"; label = "home latitude" },
@@ -1321,6 +1343,22 @@ function Invoke-HomeLocationControls {
             } | Out-Null
             return @{ uiDump = Get-RelativeArtifactPath $tap.dumpPath; state = "04-after-home-pin-state.json" }
         } | Out-Null
+
+    Invoke-VerifiedControl -TestTag "work_edit_pin_button" -Flow $flow -ActionPerformed "open manual work pin editor" `
+        -ExpectedStateDelta "work coordinate fields become visible" -PersistenceExpectation "editor visibility only" -Action {
+            $tap = Tap-Tag -Tag "work_edit_pin_button" -StepName "work-edit-pin-open"
+            Assert-TagVisible -Tag "work_latitude_field" -StepName "work-editor-visible" | Out-Null
+            return @{ uiDump = Get-RelativeArtifactPath $tap.dumpPath }
+        } | Out-Null
+
+    Invoke-VerifiedControl -TestTag "work_cancel_edit_button" -Flow $flow -ActionPerformed "cancel manual work pin editing" `
+        -ExpectedStateDelta "work current-location action returns" -PersistenceExpectation "editor visibility only" -Action {
+            $tap = Tap-Tag -Tag "work_cancel_edit_button" -StepName "work-edit-pin-cancel"
+            Assert-TagVisible -Tag "work_use_current_button" -StepName "work-current-visible" | Out-Null
+            return @{ uiDump = Get-RelativeArtifactPath $tap.dumpPath }
+        } | Out-Null
+
+    Tap-Tag -Tag "work_edit_pin_button" -StepName "work-edit-pin-reopen" | Out-Null
 
     foreach ($entry in @(
             @{ tag = "work_latitude_field"; text = "42.3320"; label = "work latitude" },
@@ -1362,6 +1400,7 @@ function Invoke-HomeLocationControls {
             return @{ uiDump = Get-RelativeArtifactPath $tap.dumpPath; state = "04-after-work-pin-state.json" }
         } | Out-Null
 
+    Tap-Tag -Tag "work_edit_pin_button" -StepName "work-edit-pin-add-reopen" | Out-Null
     Tap-Tag -Tag "work_save_pin_button" -StepName "work-save-pin-add-open" | Out-Null
     Invoke-VerifiedControl -TestTag "work_add_location_button" -Flow $flow -ActionPerformed "add another work location" `
         -ExpectedStateDelta "workLocationCount becomes at least 2" -PersistenceExpectation "multiple work locations must survive relaunch" -Action {
@@ -1525,30 +1564,30 @@ function Invoke-JobsiteGeofenceMileagePolicy {
     }
 }
 
-function Invoke-ReportsNavigationAndTotals {
-    $flow = "reports_navigation_and_totals"
-    Invoke-VerifiedControl -TestTag "nav_reports" -Flow $flow -ActionPerformed "open reports screen" `
-        -ExpectedStateDelta "reports screen is visible" -PersistenceExpectation "navigation only" -Action {
-            $tap = Tap-Tag -Tag "nav_reports" -StepName "reports-nav"
-            Assert-TagVisible -Tag "screen_reports" -StepName "reports-screen" | Out-Null
+function Invoke-DashboardNavigationAndTotals {
+    $flow = "dashboard_navigation_and_totals"
+    Invoke-VerifiedControl -TestTag "nav_home" -Flow $flow -ActionPerformed "open dashboard screen" `
+        -ExpectedStateDelta "dashboard screen is visible" -PersistenceExpectation "navigation only" -Action {
+            $tap = Tap-Tag -Tag "nav_home" -StepName "dashboard-nav"
+            Assert-TagVisible -Tag "screen_dashboard" -StepName "dashboard-screen" | Out-Null
             return @{ uiDump = Get-RelativeArtifactPath $tap.dumpPath }
         } | Out-Null
 
-    foreach ($tag in @("reports_today_card", "reports_weekly_card", "reports_biweekly_card", "reports_monthly_card", "reports_yearly_card")) {
-        Invoke-VerifiedControl -TestTag $tag -Flow $flow -ActionPerformed "assert report card visible" `
-            -ExpectedStateDelta "report card is rendered" -PersistenceExpectation "report totals recompute from persisted data" -Action {
+    foreach ($tag in @("dashboard_summary_panel", "dashboard_weekly_ledger")) {
+        Invoke-VerifiedControl -TestTag $tag -Flow $flow -ActionPerformed "assert dashboard panel visible" `
+            -ExpectedStateDelta "dashboard panel is rendered" -PersistenceExpectation "report totals recompute from persisted data" -Action {
                 $found = Assert-TagVisible -Tag $tag -StepName $tag
                 return @{ uiDump = Get-RelativeArtifactPath $found.dumpPath }
             } | Out-Null
     }
 
-    $shot = Save-Screenshot -Name "06-reports-final"
-    $state = Capture-State -Name "06-reports-state"
+    $shot = Save-Screenshot -Name "06-dashboard-final"
+    $state = Capture-State -Name "06-dashboard-state"
     if ([double]$state.snapshot.reportTotals.today.drivenMiles -lt 12.5) {
-        throw "[reports_totals] Today report did not include corrected miles."
+        throw "[dashboard_totals] Today dashboard did not include corrected miles."
     }
     if ([int]$state.snapshot.reportTotals.today.driveMinutes -ne 0) {
-        throw "[reports_totals] Jobsite vehicle time was counted as drive minutes."
+        throw "[dashboard_totals] Jobsite vehicle time was counted as drive minutes."
     }
     return @{
         screenshot = Get-RelativeArtifactPath $shot
@@ -1561,9 +1600,9 @@ function Invoke-ReportsNavigationAndTotals {
 function Invoke-BottomNavSwitching {
     $flow = "bottom_nav_switching"
     foreach ($nav in @(
-            @{ tag = "nav_home"; screen = "screen_home" },
+            @{ tag = "nav_home"; screen = "screen_dashboard" },
             @{ tag = "nav_tracking"; screen = "screen_tracking" },
-            @{ tag = "nav_reports"; screen = "screen_reports" },
+            @{ tag = "nav_places"; screen = "screen_places" },
             @{ tag = "nav_settings"; screen = "screen_settings" }
         )) {
         Invoke-VerifiedControl -TestTag $nav.tag -Flow $flow -ActionPerformed "switch bottom navigation destination" `
@@ -1675,7 +1714,7 @@ try {
     Invoke-E2EFlow -Name "home_location_controls" -Action { Invoke-HomeLocationControls }
     Invoke-E2EFlow -Name "tracking_session_correction" -Action { Invoke-TrackingSessionCorrection }
     Invoke-E2EFlow -Name "jobsite_geofence_mileage_policy" -Action { Invoke-JobsiteGeofenceMileagePolicy }
-    Invoke-E2EFlow -Name "reports_navigation_and_totals" -Action { Invoke-ReportsNavigationAndTotals }
+    Invoke-E2EFlow -Name "dashboard_navigation_and_totals" -Action { Invoke-DashboardNavigationAndTotals }
     Invoke-E2EFlow -Name "bottom_nav_switching" -Action { Invoke-BottomNavSwitching }
     Invoke-E2EFlow -Name "persistence_relaunch" -Action { Run-PersistenceRelaunch }
     Invoke-E2EFlow -Name "destructive_reset_confirmation" -Action { Invoke-DestructiveResetConfirmation }
