@@ -31,7 +31,7 @@ fun TimeTrackerApp() {
     val destinations = listOf(
         AppDestination.Home,
         AppDestination.Tracking,
-        AppDestination.Reports,
+        AppDestination.Places,
         AppDestination.Settings,
     )
     val backStackEntry by navController.currentBackStackEntryAsState()
@@ -81,13 +81,13 @@ fun TimeTrackerApp() {
             modifier = Modifier.padding(padding),
         ) {
             composable(AppDestination.Home.route) {
-                HomeRoute()
+                ReportsRoute()
             }
             composable(AppDestination.Tracking.route) {
                 TrackingRoute()
             }
-            composable(AppDestination.Reports.route) {
-                ReportsRoute()
+            composable(AppDestination.Places.route) {
+                HomeRoute()
             }
             composable(AppDestination.Settings.route) {
                 SettingsRoute()
