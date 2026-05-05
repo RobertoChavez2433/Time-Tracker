@@ -18,42 +18,109 @@ fun HomeRoute(modifier: Modifier = Modifier, viewModel: HomeViewModel = hiltView
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var pendingHomeAction by rememberSaveable { mutableStateOf<HomeSaveAction?>(null) }
     var pendingWorkAction by rememberSaveable { mutableStateOf<WorkSaveAction?>(null) }
+    var editingHomePin by rememberSaveable { mutableStateOf(false) }
+    var editingWorkPin by rememberSaveable { mutableStateOf(false) }
 
+    val homeActions = LocationSectionActions(
+        onUseCurrentLocation = {
+            requestHomeAction(
+                action = HomeSaveAction.UseCurrent,
+                state = state,
+                viewModel = viewModel,
+                setPendingAction = { pendingHomeAction = it },
+                onPerformed = { editingHomePin = false },
+            )
+        },
+        onEditPin = { editingHomePin = true },
+        onCancelEdit = { editingHomePin = false },
+        onFieldChange = viewModel::updateHomeField,
+        onRadiusSelected = viewModel::updateHomeRadius,
+        onSave = {
+            requestHomeAction(
+                action = HomeSaveAction.SavePin,
+                state = state,
+                viewModel = viewModel,
+                setPendingAction = { pendingHomeAction = it },
+                onPerformed = { editingHomePin = false },
+            )
+        },
+    )
+    val workActions = LocationSectionActions(
+        onUseCurrentLocation = {
+            requestWorkAction(
+                action = WorkSaveAction.UseCurrent,
+                state = state,
+                viewModel = viewModel,
+                setPendingAction = { pendingWorkAction = it },
+                onPerformed = { editingWorkPin = false },
+            )
+        },
+        onEditPin = { editingWorkPin = true },
+        onCancelEdit = { editingWorkPin = false },
+        onFieldChange = viewModel::updateWorkField,
+        onRadiusSelected = viewModel::updateWorkRadius,
+        onSave = {
+            requestWorkAction(
+                action = WorkSaveAction.SavePin,
+                state = state,
+                viewModel = viewModel,
+                setPendingAction = { pendingWorkAction = it },
+                onPerformed = { editingWorkPin = false },
+            )
+        },
+    )
+
+    PlacesScreen(
+        modifier = modifier,
+        state = state,
+        editingHomePin = editingHomePin,
+        editingWorkPin = editingWorkPin,
+        homeActions = homeActions,
+        workActions = workActions,
+    )
+
+    pendingHomeAction?.let { action ->
+        PendingHomeActionDialog(action = action, viewModel = viewModel, onPinSaved = { editingHomePin = false }) {
+            pendingHomeAction = null
+        }
+    }
+
+    pendingWorkAction?.let { action ->
+        PendingWorkActionDialog(
+            action = action,
+            state = state,
+            viewModel = viewModel,
+            onPinSaved = { editingWorkPin = false },
+        ) {
+            pendingWorkAction = null
+        }
+    }
+}
+
+@Composable
+private fun PlacesScreen(
+    modifier: Modifier,
+    state: HomeUiState,
+    editingHomePin: Boolean,
+    editingWorkPin: Boolean,
+    homeActions: LocationSectionActions,
+    workActions: LocationSectionActions,
+) {
     TimeTrackerScreen(modifier = modifier, testTag = TimeTrackerTestTags.HOME_SCREEN) {
         item {
             TimeTrackerScreenTitle(
-                title = "Home",
-                subtitle = "Set the places that decide when a work trip starts and stops.",
+                title = "Places",
+                subtitle = "Set the home and work sites used for automatic tracking.",
             )
         }
         item {
             LocationStatusSection(state.homeSummary, state.workSummary)
         }
         item {
-            HomeLocationSection(
-                state = state,
-                onUseCurrentLocation = {
-                    requestHomeAction(HomeSaveAction.UseCurrent, state, viewModel) { pendingHomeAction = it }
-                },
-                onFieldChange = viewModel::updateHomeField,
-                onRadiusSelected = viewModel::updateHomeRadius,
-                onSave = {
-                    requestHomeAction(HomeSaveAction.SavePin, state, viewModel) { pendingHomeAction = it }
-                },
-            )
+            HomeLocationSection(state = state, editingPin = editingHomePin, actions = homeActions)
         }
         item {
-            WorkLocationSection(
-                state = state,
-                onUseCurrentLocation = {
-                    requestWorkAction(WorkSaveAction.UseCurrent, state, viewModel) { pendingWorkAction = it }
-                },
-                onFieldChange = viewModel::updateWorkField,
-                onRadiusSelected = viewModel::updateWorkRadius,
-                onSave = {
-                    requestWorkAction(WorkSaveAction.SavePin, state, viewModel) { pendingWorkAction = it }
-                },
-            )
+            WorkLocationSection(state = state, editingPin = editingWorkPin, actions = workActions)
         }
         if (state.statusMessage.isNotBlank()) {
             item {
@@ -61,39 +128,40 @@ fun HomeRoute(modifier: Modifier = Modifier, viewModel: HomeViewModel = hiltView
             }
         }
     }
-
-    pendingHomeAction?.let { action ->
-        PendingHomeActionDialog(action = action, viewModel = viewModel) { pendingHomeAction = null }
-    }
-
-    pendingWorkAction?.let { action ->
-        PendingWorkActionDialog(action = action, state = state, viewModel = viewModel) { pendingWorkAction = null }
-    }
 }
 
 @Composable
-private fun PendingHomeActionDialog(action: HomeSaveAction, viewModel: HomeViewModel, clearAction: () -> Unit) {
+private fun PendingHomeActionDialog(action: HomeSaveAction, viewModel: HomeViewModel, onPinSaved: () -> Unit, clearAction: () -> Unit) {
     OverwriteHomeDialog(
         onCancel = clearAction,
         onConfirm = {
             clearAction()
             action.perform(viewModel)
+            onPinSaved()
         },
     )
 }
 
 @Composable
-private fun PendingWorkActionDialog(action: WorkSaveAction, state: HomeUiState, viewModel: HomeViewModel, clearAction: () -> Unit) {
+private fun PendingWorkActionDialog(
+    action: WorkSaveAction,
+    state: HomeUiState,
+    viewModel: HomeViewModel,
+    onPinSaved: () -> Unit,
+    clearAction: () -> Unit,
+) {
     WorkLocationSaveDialog(
         latestLabel = state.latestWorkLocationLabel.ifBlank { "the latest work site" },
         onCancel = clearAction,
         onAdd = {
             clearAction()
             action.perform(viewModel, replaceLatest = false)
+            onPinSaved()
         },
         onReplace = {
             clearAction()
             action.perform(viewModel, replaceLatest = true)
+            onPinSaved()
         },
     )
 }
@@ -103,11 +171,13 @@ private fun requestHomeAction(
     state: HomeUiState,
     viewModel: HomeViewModel,
     setPendingAction: (HomeSaveAction) -> Unit,
+    onPerformed: () -> Unit,
 ) {
     if (state.homeSet) {
         setPendingAction(action)
     } else {
         action.perform(viewModel)
+        onPerformed()
     }
 }
 
@@ -116,11 +186,13 @@ private fun requestWorkAction(
     state: HomeUiState,
     viewModel: HomeViewModel,
     setPendingAction: (WorkSaveAction) -> Unit,
+    onPerformed: () -> Unit,
 ) {
     if (state.workLocationCount > 0) {
         setPendingAction(action)
     } else {
         action.perform(viewModel, replaceLatest = false)
+        onPerformed()
     }
 }
 

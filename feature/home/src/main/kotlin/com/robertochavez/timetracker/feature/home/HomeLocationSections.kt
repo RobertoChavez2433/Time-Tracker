@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import com.robertochavez.timetracker.core.common.model.GeofenceRadiusOptions
 import com.robertochavez.timetracker.core.designsystem.TimeTrackerMutedText
 import com.robertochavez.timetracker.core.designsystem.TimeTrackerPrimaryButton
+import com.robertochavez.timetracker.core.designsystem.TimeTrackerQuietButton
 import com.robertochavez.timetracker.core.designsystem.TimeTrackerSecondaryButton
 import com.robertochavez.timetracker.core.designsystem.TimeTrackerSettingRow
 import com.robertochavez.timetracker.core.designsystem.TimeTrackerSettingSection
@@ -34,80 +35,109 @@ internal fun LocationStatusSection(homeSummary: String, workSummary: String) {
 }
 
 @Composable
-internal fun HomeLocationSection(
-    state: HomeUiState,
-    onUseCurrentLocation: () -> Unit,
-    onFieldChange: (LocationField, String) -> Unit,
-    onRadiusSelected: (Float) -> Unit,
-    onSave: () -> Unit,
-) {
-    TimeTrackerSettingSection(title = "Home geofence", subtitle = "Use current GPS or enter a pin and radius.") {
-        TimeTrackerPrimaryButton(
-            text = "Use Current Home Location",
-            onClick = onUseCurrentLocation,
-            modifier = Modifier.testTag(TimeTrackerTestTags.HOME_USE_CURRENT_BUTTON),
-        )
-        CoordinateRow(
-            latitude = state.homeLatitude,
-            longitude = state.homeLongitude,
-            onLatitudeChange = { onFieldChange(LocationField.LATITUDE, it) },
-            onLongitudeChange = { onFieldChange(LocationField.LONGITUDE, it) },
-            latitudeTag = TimeTrackerTestTags.HOME_LATITUDE_FIELD,
-            longitudeTag = TimeTrackerTestTags.HOME_LONGITUDE_FIELD,
-        )
-        RadiusSelector(
-            title = "Home radius",
-            selectedRadiusMeters = state.homeRadiusMeters,
-            tagPrefix = "home",
-            onRadiusSelected = onRadiusSelected,
-        )
-        TimeTrackerPrimaryButton(
-            text = "Save Home Pin",
-            onClick = onSave,
-            modifier = Modifier.testTag(TimeTrackerTestTags.HOME_SAVE_PIN_BUTTON),
-        )
+internal fun HomeLocationSection(state: HomeUiState, editingPin: Boolean, actions: LocationSectionActions) {
+    TimeTrackerSettingSection(title = "Home", subtitle = state.homeSummary) {
+        if (editingPin) {
+            CoordinateRow(
+                latitude = state.homeLatitude,
+                longitude = state.homeLongitude,
+                onLatitudeChange = { actions.onFieldChange(LocationField.LATITUDE, it) },
+                onLongitudeChange = { actions.onFieldChange(LocationField.LONGITUDE, it) },
+                latitudeTag = TimeTrackerTestTags.HOME_LATITUDE_FIELD,
+                longitudeTag = TimeTrackerTestTags.HOME_LONGITUDE_FIELD,
+            )
+            RadiusSelector(
+                title = "Home radius",
+                selectedRadiusMeters = state.homeRadiusMeters,
+                tagPrefix = "home",
+                onRadiusSelected = actions.onRadiusSelected,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TimeTrackerQuietButton(
+                    text = "Cancel",
+                    onClick = actions.onCancelEdit,
+                    modifier = Modifier.testTag(TimeTrackerTestTags.HOME_CANCEL_EDIT_BUTTON),
+                )
+                TimeTrackerPrimaryButton(
+                    text = "Save Pin",
+                    onClick = actions.onSave,
+                    modifier = Modifier.testTag(TimeTrackerTestTags.HOME_SAVE_PIN_BUTTON),
+                )
+            }
+        } else {
+            TimeTrackerPrimaryButton(
+                text = "Use Current Location",
+                onClick = actions.onUseCurrentLocation,
+                modifier = Modifier.testTag(TimeTrackerTestTags.HOME_USE_CURRENT_BUTTON),
+            )
+            TimeTrackerSecondaryButton(
+                text = "Edit Pin",
+                onClick = actions.onEditPin,
+                modifier = Modifier.testTag(TimeTrackerTestTags.HOME_EDIT_PIN_BUTTON),
+            )
+        }
     }
 }
 
 @Composable
-internal fun WorkLocationSection(
-    state: HomeUiState,
-    onUseCurrentLocation: () -> Unit,
-    onFieldChange: (LocationField, String) -> Unit,
-    onRadiusSelected: (Float) -> Unit,
-    onSave: () -> Unit,
-) {
-    TimeTrackerSettingSection(title = "Work / job site", subtitle = "Job-site driving stays out of commute totals.") {
-        TimeTrackerMutedText(state.workSummary)
+internal fun WorkLocationSection(state: HomeUiState, editingPin: Boolean, actions: LocationSectionActions) {
+    TimeTrackerSettingSection(title = "Work sites", subtitle = "Job-site driving stays out of commute totals.") {
         state.workLocations.forEach { summary ->
             TimeTrackerMutedText(summary)
         }
-        TimeTrackerSecondaryButton(
-            text = "Use Current Work Location",
-            onClick = onUseCurrentLocation,
-            modifier = Modifier.testTag(TimeTrackerTestTags.WORK_USE_CURRENT_BUTTON),
-        )
-        CoordinateRow(
-            latitude = state.workLatitude,
-            longitude = state.workLongitude,
-            onLatitudeChange = { onFieldChange(LocationField.LATITUDE, it) },
-            onLongitudeChange = { onFieldChange(LocationField.LONGITUDE, it) },
-            latitudeTag = TimeTrackerTestTags.WORK_LATITUDE_FIELD,
-            longitudeTag = TimeTrackerTestTags.WORK_LONGITUDE_FIELD,
-        )
-        RadiusSelector(
-            title = "Work radius",
-            selectedRadiusMeters = state.workRadiusMeters,
-            tagPrefix = "work",
-            onRadiusSelected = onRadiusSelected,
-        )
-        TimeTrackerSecondaryButton(
-            text = "Save Work Pin",
-            onClick = onSave,
-            modifier = Modifier.testTag(TimeTrackerTestTags.WORK_SAVE_PIN_BUTTON),
-        )
+        if (state.workLocations.isEmpty()) {
+            TimeTrackerMutedText("No work location set")
+        }
+        if (editingPin) {
+            CoordinateRow(
+                latitude = state.workLatitude,
+                longitude = state.workLongitude,
+                onLatitudeChange = { actions.onFieldChange(LocationField.LATITUDE, it) },
+                onLongitudeChange = { actions.onFieldChange(LocationField.LONGITUDE, it) },
+                latitudeTag = TimeTrackerTestTags.WORK_LATITUDE_FIELD,
+                longitudeTag = TimeTrackerTestTags.WORK_LONGITUDE_FIELD,
+            )
+            RadiusSelector(
+                title = "Work radius",
+                selectedRadiusMeters = state.workRadiusMeters,
+                tagPrefix = "work",
+                onRadiusSelected = actions.onRadiusSelected,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TimeTrackerQuietButton(
+                    text = "Cancel",
+                    onClick = actions.onCancelEdit,
+                    modifier = Modifier.testTag(TimeTrackerTestTags.WORK_CANCEL_EDIT_BUTTON),
+                )
+                TimeTrackerSecondaryButton(
+                    text = "Save Pin",
+                    onClick = actions.onSave,
+                    modifier = Modifier.testTag(TimeTrackerTestTags.WORK_SAVE_PIN_BUTTON),
+                )
+            }
+        } else {
+            TimeTrackerPrimaryButton(
+                text = "Use Current Location",
+                onClick = actions.onUseCurrentLocation,
+                modifier = Modifier.testTag(TimeTrackerTestTags.WORK_USE_CURRENT_BUTTON),
+            )
+            TimeTrackerSecondaryButton(
+                text = "Add Manual Site",
+                onClick = actions.onEditPin,
+                modifier = Modifier.testTag(TimeTrackerTestTags.WORK_EDIT_PIN_BUTTON),
+            )
+        }
     }
 }
+
+internal data class LocationSectionActions(
+    val onUseCurrentLocation: () -> Unit,
+    val onEditPin: () -> Unit,
+    val onCancelEdit: () -> Unit,
+    val onFieldChange: (LocationField, String) -> Unit,
+    val onRadiusSelected: (Float) -> Unit,
+    val onSave: () -> Unit,
+)
 
 @Composable
 private fun CoordinateRow(
