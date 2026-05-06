@@ -35,6 +35,7 @@ fun HomeRoute(modifier: Modifier = Modifier, viewModel: HomeViewModel = hiltView
         onCancelEdit = { editingHomePin = false },
         onFieldChange = viewModel::updateHomeField,
         onRadiusSelected = viewModel::updateHomeRadius,
+        onSaveRadius = viewModel::saveHomePin,
         onSave = {
             requestHomeAction(
                 action = HomeSaveAction.SavePin,
@@ -59,6 +60,7 @@ fun HomeRoute(modifier: Modifier = Modifier, viewModel: HomeViewModel = hiltView
         onCancelEdit = { editingWorkPin = false },
         onFieldChange = viewModel::updateWorkField,
         onRadiusSelected = viewModel::updateWorkRadius,
+        onSaveRadius = { viewModel.saveWorkPin(replaceLatest = true) },
         onSave = {
             requestWorkAction(
                 action = WorkSaveAction.SavePin,

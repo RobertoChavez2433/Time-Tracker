@@ -24,6 +24,7 @@ import java.time.Instant
 import java.time.ZoneOffset
 
 @OptIn(ExperimentalCoroutinesApi::class)
+@Suppress("LargeClass")
 class HomeViewModelTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
@@ -113,6 +114,39 @@ class HomeViewModelTest {
     }
 
     @Test
+    fun `saved home radius can be changed without editing coordinates`() = runTest(mainDispatcherRule.testDispatcher) {
+        val homeRepository = FakeHomeLocationRepository(
+            HomeLocation(
+                latitude = 39.7392,
+                longitude = -104.9903,
+                radiusMeters = HomeLocation.MINIMUM_RADIUS_METERS,
+                updatedAt = Instant.parse("2026-05-04T12:00:00Z"),
+            ),
+        )
+        val geofenceRegistrar = RecordingHomeGeofenceRegistrar()
+        val viewModel = HomeViewModel(
+            homeLocationRepository = homeRepository,
+            workLocationRepository = FakeWorkLocationRepository(),
+            currentGeofenceLocationProvider = StaticCurrentGeofenceLocationProvider(),
+            homeGeofenceRegistrar = geofenceRegistrar,
+            workGeofenceRegistrar = RecordingWorkGeofenceRegistrar(),
+            clock = clock,
+            logger = NoopAppLogger(),
+        )
+
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.uiState.collect()
+        }
+        advanceUntilIdle()
+        viewModel.updateHomeRadius(402.336f)
+        viewModel.saveHomePin()
+        advanceUntilIdle()
+
+        assertEquals(402.336f, homeRepository.homeLocation.value?.radiusMeters ?: 0f, 0.001f)
+        assertEquals(402.336f, geofenceRegistrar.registeredHomes.last().radiusMeters, 0.001f)
+    }
+
+    @Test
     fun `current location saves work location`() = runTest(mainDispatcherRule.testDispatcher) {
         val workLocation = WorkLocation(
             latitude = 39.7292,
@@ -137,6 +171,44 @@ class HomeViewModelTest {
 
         assertEquals(workLocation, workRepository.workLocation.value)
         assertEquals(listOf(workLocation), workGeofenceRegistrar.registeredWorkLocations)
+    }
+
+    @Test
+    fun `saved latest work radius can be changed without adding another site`() = runTest(mainDispatcherRule.testDispatcher) {
+        val workRepository = FakeWorkLocationRepository(
+            WorkLocation(
+                id = "existing-work",
+                label = "Existing work",
+                latitude = 39.7292,
+                longitude = -104.9803,
+                radiusMeters = WorkLocation.MINIMUM_RADIUS_METERS,
+                updatedAt = Instant.parse("2026-05-04T12:00:00Z"),
+            ),
+        )
+        val workGeofenceRegistrar = RecordingWorkGeofenceRegistrar()
+        val viewModel = HomeViewModel(
+            homeLocationRepository = FakeHomeLocationRepository(),
+            workLocationRepository = workRepository,
+            currentGeofenceLocationProvider = StaticCurrentGeofenceLocationProvider(),
+            homeGeofenceRegistrar = RecordingHomeGeofenceRegistrar(),
+            workGeofenceRegistrar = workGeofenceRegistrar,
+            clock = clock,
+            logger = NoopAppLogger(),
+        )
+
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.uiState.collect()
+        }
+        advanceUntilIdle()
+        viewModel.updateWorkRadius(804.672f)
+        viewModel.saveWorkPin(replaceLatest = true)
+        advanceUntilIdle()
+
+        val savedWork = workRepository.workLocations.value.single()
+        assertEquals("existing-work", savedWork.id)
+        assertEquals("Existing work", savedWork.label)
+        assertEquals(804.672f, savedWork.radiusMeters, 0.001f)
+        assertEquals(listOf(savedWork), workGeofenceRegistrar.registeredWorkLocationBatches.last())
     }
 
     @Test
