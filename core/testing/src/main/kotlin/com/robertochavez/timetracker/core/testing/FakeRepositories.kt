@@ -9,6 +9,7 @@ import com.robertochavez.timetracker.core.common.model.PayPeriodSettings
 import com.robertochavez.timetracker.core.common.model.WorkLocation
 import com.robertochavez.timetracker.core.common.model.WorkPresence
 import com.robertochavez.timetracker.core.common.model.WorkSchedule
+import com.robertochavez.timetracker.core.common.model.WorkSiteSession
 import com.robertochavez.timetracker.core.common.repository.AppSettingsRepository
 import com.robertochavez.timetracker.core.common.repository.HomeLocationRepository
 import com.robertochavez.timetracker.core.common.repository.LocalDataResetter
@@ -17,6 +18,7 @@ import com.robertochavez.timetracker.core.common.repository.TrackingRepository
 import com.robertochavez.timetracker.core.common.repository.WorkLocationRepository
 import com.robertochavez.timetracker.core.common.repository.WorkPresenceRepository
 import com.robertochavez.timetracker.core.common.repository.WorkScheduleRepository
+import com.robertochavez.timetracker.core.common.repository.WorkSiteSessionRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import java.time.Instant
@@ -62,6 +64,43 @@ class FakeWorkPresenceRepository(initialWorkPresence: WorkPresence = WorkPresenc
 
     override suspend fun setAtWork(atWork: Boolean, updatedAt: Instant) {
         workPresence.value = WorkPresence(atWork = atWork, updatedAt = updatedAt)
+    }
+}
+
+class FakeWorkSiteSessionRepository(initialSessions: List<WorkSiteSession> = emptyList()) : WorkSiteSessionRepository {
+    val sessions = MutableStateFlow(initialSessions)
+
+    override fun observeWorkSiteSessions(): Flow<List<WorkSiteSession>> = sessions
+
+    override suspend fun startWorkSiteSession(workLocationId: String, at: Instant): WorkSiteSession {
+        val active = sessions.value.firstOrNull { it.workLocationId == workLocationId && it.isActive }
+        if (active != null) return active
+        val session = WorkSiteSession(
+            id = "site-${sessions.value.size + 1}",
+            workLocationId = workLocationId,
+            start = at,
+            end = null,
+        )
+        sessions.value = sessions.value + session
+        return session
+    }
+
+    override suspend fun stopActiveWorkSiteSession(workLocationId: String?, at: Instant): WorkSiteSession? {
+        val active = sessions.value.firstOrNull { session ->
+            session.isActive && (workLocationId == null || session.workLocationId == workLocationId)
+        }
+        return when {
+            active == null -> null
+            !at.isAfter(active.start) -> {
+                sessions.value = sessions.value.filterNot { it.id == active.id }
+                null
+            }
+            else -> {
+                val stopped = active.copy(end = at)
+                sessions.value = sessions.value.map { if (it.id == active.id) stopped else it }
+                stopped
+            }
+        }
     }
 }
 

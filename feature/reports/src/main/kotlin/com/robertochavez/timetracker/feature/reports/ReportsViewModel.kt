@@ -3,13 +3,13 @@ package com.robertochavez.timetracker.feature.reports
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.robertochavez.timetracker.core.common.domain.ReportCalculator
-import com.robertochavez.timetracker.core.common.model.ActivityBucket
 import com.robertochavez.timetracker.core.common.model.DailyReport
 import com.robertochavez.timetracker.core.common.model.PeriodReport
 import com.robertochavez.timetracker.core.common.model.WorkSchedule
 import com.robertochavez.timetracker.core.common.repository.PayPeriodSettingsRepository
 import com.robertochavez.timetracker.core.common.repository.TrackingRepository
 import com.robertochavez.timetracker.core.common.repository.WorkScheduleRepository
+import com.robertochavez.timetracker.core.common.repository.WorkSiteSessionRepository
 import com.robertochavez.timetracker.core.logging.AppLogger
 import com.robertochavez.timetracker.core.logging.LogCategory
 import com.robertochavez.timetracker.core.logging.info
@@ -22,6 +22,7 @@ import java.time.Clock
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
@@ -33,33 +34,39 @@ class ReportsViewModel @Inject constructor(
     trackingRepository: TrackingRepository,
     workScheduleRepository: WorkScheduleRepository,
     payPeriodSettingsRepository: PayPeriodSettingsRepository,
+    workSiteSessionRepository: WorkSiteSessionRepository,
     private val clock: Clock,
     private val logger: AppLogger,
 ) : ViewModel() {
     val uiState: StateFlow<ReportsUiState> = combine(
         trackingRepository.observeSessions(),
         trackingRepository.observeActivityIntervals(),
+        workSiteSessionRepository.observeWorkSiteSessions(),
         workScheduleRepository.observeWorkSchedule(),
         payPeriodSettingsRepository.observeSettings(),
-    ) { sessions, intervals, schedule, payPeriod ->
+    ) { sessions, intervals, workSiteSessions, schedule, payPeriod ->
         val today = LocalDate.now(clock)
         val now = Instant.now(clock)
         val calculator = ReportCalculator(clock.zone, schedule, payPeriod)
-        val daily = calculator.daily(today, sessions, intervals, now)
-        val weekly = calculator.weekly(today, sessions, intervals, now)
-        val biweekly = calculator.biweekly(today, sessions, intervals, now)
+        val daily = calculator.daily(today, sessions, intervals, now, workSiteSessions)
+        val weekly = calculator.weekly(today, sessions, intervals, now, workSiteSessions)
+        val biweekly = calculator.biweekly(today, sessions, intervals, now, workSiteSessions)
         logger.info(
             LogCategory.REPORTS,
             "Reports recalculated",
-            mapOf("sessionCount" to sessions.size, "activityIntervalCount" to intervals.size),
+            mapOf(
+                "sessionCount" to sessions.size,
+                "activityIntervalCount" to intervals.size,
+                "workSiteSessionCount" to workSiteSessions.size,
+            ),
         )
         ReportsUiState(
             summaries = listOf(
-                daily.toSummary("Today"),
-                weekly.toSummary("Week"),
-                biweekly.toSummary("Pay Period"),
+                daily.toSummary("Today", now, clock.zone),
+                weekly.toSummary("Week", now, clock.zone),
+                biweekly.toSummary("Pay Period", now, clock.zone),
             ),
-            weeklyLedger = weekly.toWeeklyLedger(today, schedule),
+            weeklyLedger = weekly.toWeeklyLedger(today, schedule, now, clock.zone),
         )
     }.stateIn(
         scope = viewModelScope,
@@ -73,7 +80,7 @@ data class ReportsUiState(
     val weeklyLedger: WeeklyLedgerUiModel = WeeklyLedgerUiModel(),
 )
 
-data class DashboardSummaryUiModel(val title: String, val home: String, val work: String, val miles: String)
+data class DashboardSummaryUiModel(val title: String, val home: String, val work: String, val drive: String, val miles: String)
 
 data class WeeklyLedgerUiModel(
     val title: String = "This Week",
@@ -85,7 +92,8 @@ data class WeeklyLedgerUiModel(
         home = "-",
         work = "-",
         drive = "-",
-        onSite = "-",
+        site = "-",
+        idle = "-",
         miles = "-",
     ),
 )
@@ -96,26 +104,29 @@ data class WeeklyLedgerRowUiModel(
     val home: String,
     val work: String,
     val drive: String,
-    val onSite: String,
+    val site: String,
+    val idle: String,
     val miles: String,
     val isToday: Boolean = false,
 )
 
-private fun DailyReport.toSummary(title: String): DashboardSummaryUiModel = DashboardSummaryUiModel(
+private fun DailyReport.toSummary(title: String, now: Instant, zoneId: ZoneId): DashboardSummaryUiModel = DashboardSummaryUiModel(
     title = title,
-    home = totalAway.formatHours(),
-    work = workDuration.formatHours(),
+    home = homeDuration(now, zoneId).formatHours(),
+    work = totalAway.formatHours(),
+    drive = drive.formatHours(),
     miles = drivenMiles.formatWholeMiles(),
 )
 
-private fun PeriodReport.toSummary(title: String): DashboardSummaryUiModel = DashboardSummaryUiModel(
+private fun PeriodReport.toSummary(title: String, now: Instant, zoneId: ZoneId): DashboardSummaryUiModel = DashboardSummaryUiModel(
     title = title,
-    home = totalAway.formatHours(),
-    work = workDuration.formatHours(),
+    home = homeDuration(now, zoneId).formatHours(),
+    work = totalAway.formatHours(),
+    drive = drive.formatHours(),
     miles = drivenMiles.formatWholeMiles(),
 )
 
-private fun PeriodReport.toWeeklyLedger(today: LocalDate, schedule: WorkSchedule): WeeklyLedgerUiModel {
+private fun PeriodReport.toWeeklyLedger(today: LocalDate, schedule: WorkSchedule, now: Instant, zoneId: ZoneId): WeeklyLedgerUiModel {
     val rows = dailyReports.map { report ->
         val isWorkday = schedule.isTrackable(report.date)
         val hasData = report.hasDashboardData()
@@ -124,12 +135,13 @@ private fun PeriodReport.toWeeklyLedger(today: LocalDate, schedule: WorkSchedule
             date = report.date.format(DAY_DATE_FORMATTER),
             home = when {
                 !isWorkday -> "Off"
-                hasData -> report.totalAway.formatCompactHours()
+                hasData -> report.homeDuration(now, zoneId).formatCompactHours()
                 else -> "-"
             },
-            work = report.workDuration.formatLedgerValue(hasData),
+            work = report.totalAway.formatLedgerValue(hasData),
             drive = report.drive.formatLedgerValue(hasData),
-            onSite = report.idle.formatLedgerValue(hasData),
+            site = report.site.formatLedgerValue(hasData),
+            idle = displayIdleDuration(report.totalAway, report.drive, report.site).formatLedgerValue(hasData),
             miles = report.drivenMiles.formatLedgerMiles(hasData),
             isToday = report.date == today,
         )
@@ -141,24 +153,41 @@ private fun PeriodReport.toWeeklyLedger(today: LocalDate, schedule: WorkSchedule
         total = WeeklyLedgerRowUiModel(
             day = "Total",
             date = "",
-            home = totalAway.formatHours(),
-            work = workDuration.formatHours(),
-            drive = driveDuration.formatHours(),
-            onSite = onSiteDuration.formatHours(),
+            home = homeDuration(now, zoneId).formatHours(),
+            work = totalAway.formatHours(),
+            drive = drive.formatHours(),
+            site = site.formatHours(),
+            idle = displayIdleDuration(totalAway, drive, site).formatHours(),
             miles = drivenMiles.formatWholeMiles(),
         ),
     )
 }
 
-private val DailyReport.workDuration: Duration get() = drive.plus(idle)
+private fun PeriodReport.homeDuration(now: Instant, zoneId: ZoneId): Duration = dailyReports
+    .filter(DailyReport::hasDashboardData)
+    .fold(Duration.ZERO) { total, report -> total.plus(report.homeDuration(now, zoneId)) }
 
-private val PeriodReport.driveDuration: Duration get() = bucketTotals.getValue(ActivityBucket.DRIVE)
+private fun DailyReport.homeDuration(now: Instant, zoneId: ZoneId): Duration {
+    val currentDate = now.atZone(zoneId).toLocalDate()
+    if (date.isAfter(currentDate)) return Duration.ZERO
 
-private val PeriodReport.onSiteDuration: Duration get() = bucketTotals.getValue(ActivityBucket.IDLE)
+    val dayStart = date.atStartOfDay(zoneId).toInstant()
+    val dayEnd = if (date == currentDate) {
+        now
+    } else {
+        date.plusDays(1).atStartOfDay(zoneId).toInstant()
+    }
+    return Duration.between(dayStart, dayEnd).minus(totalAway).coerceNonNegative()
+}
 
-private val PeriodReport.workDuration: Duration get() = driveDuration.plus(onSiteDuration)
+private fun DailyReport.hasDashboardData(): Boolean = !totalAway.isZero || drivenMiles > 0.0
 
-private fun DailyReport.hasDashboardData(): Boolean = !totalAway.isZero || !drive.isZero || !idle.isZero || drivenMiles > 0.0
+private fun Duration.coerceNonNegative(): Duration = if (isNegative) Duration.ZERO else this
+
+private fun displayIdleDuration(work: Duration, drive: Duration, site: Duration): Duration {
+    val visibleIdleMinutes = work.toMinutes() - drive.toMinutes() - site.toMinutes()
+    return Duration.ofMinutes(visibleIdleMinutes.coerceAtLeast(0))
+}
 
 private fun Duration.formatHours(): String {
     val totalMinutes = toMinutes()

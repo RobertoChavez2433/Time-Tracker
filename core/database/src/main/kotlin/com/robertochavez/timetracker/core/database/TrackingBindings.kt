@@ -7,12 +7,14 @@ import com.robertochavez.timetracker.core.common.repository.TrackingRepository
 import com.robertochavez.timetracker.core.common.repository.WorkLocationRepository
 import com.robertochavez.timetracker.core.common.repository.WorkPresenceRepository
 import com.robertochavez.timetracker.core.common.repository.WorkScheduleRepository
+import com.robertochavez.timetracker.core.common.repository.WorkSiteSessionRepository
 import com.robertochavez.timetracker.core.database.repository.RoomHomeLocationRepository
 import com.robertochavez.timetracker.core.database.repository.RoomPayPeriodSettingsRepository
 import com.robertochavez.timetracker.core.database.repository.RoomTrackingRepository
 import com.robertochavez.timetracker.core.database.repository.RoomWorkLocationRepository
 import com.robertochavez.timetracker.core.database.repository.RoomWorkPresenceRepository
 import com.robertochavez.timetracker.core.database.repository.RoomWorkScheduleRepository
+import com.robertochavez.timetracker.core.database.repository.RoomWorkSiteSessionRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -33,6 +35,10 @@ abstract class TrackingBindings {
     @Binds
     @Singleton
     abstract fun bindWorkPresenceRepository(repository: RoomWorkPresenceRepository): WorkPresenceRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindWorkSiteSessionRepository(repository: RoomWorkSiteSessionRepository): WorkSiteSessionRepository
 
     @Binds
     @Singleton

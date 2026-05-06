@@ -9,4 +9,10 @@ internal object TimeTrackerGeofenceIds {
     fun workLocation(id: String): String = if (id == WORK) WORK else "$WORK:$id"
 
     fun isWorkLocation(requestId: String): Boolean = requestId == WORK || requestId.startsWith("$WORK:")
+
+    fun workLocationId(requestId: String): String? = when {
+        requestId == WORK -> WORK
+        requestId.startsWith("$WORK:") -> requestId.removePrefix("$WORK:")
+        else -> null
+    }
 }

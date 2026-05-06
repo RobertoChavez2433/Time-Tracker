@@ -64,6 +64,7 @@ private fun SummaryColumn(summary: DashboardSummaryUiModel, modifier: Modifier =
         Text(summary.title, color = TimeTrackerColors.PrimaryOliveDark, style = MaterialTheme.typography.titleSmall)
         TimeTrackerMutedText("Home ${summary.home}")
         TimeTrackerMutedText("Work ${summary.work}")
+        TimeTrackerMutedText("Drive ${summary.drive}")
         TimeTrackerMutedText("Miles ${summary.miles}")
     }
 }
@@ -92,6 +93,7 @@ private fun LedgerHeaderRow() {
         LedgerCell("Work", FontWeight.SemiBold, TextAlign.Center)
         LedgerCell("Drive", FontWeight.SemiBold, TextAlign.Center)
         LedgerCell("Site", FontWeight.SemiBold, TextAlign.Center)
+        LedgerCell("Idle", FontWeight.SemiBold, TextAlign.Center)
         LedgerCell("Miles", FontWeight.SemiBold, TextAlign.Center)
     }
 }
@@ -105,7 +107,8 @@ private fun LedgerDayRow(row: WeeklyLedgerRowUiModel, isTotal: Boolean = false) 
         LedgerCell(row.home, weight, TextAlign.Center)
         LedgerCell(row.work, weight, TextAlign.Center)
         LedgerCell(row.drive, weight, TextAlign.Center)
-        LedgerCell(row.onSite, weight, TextAlign.Center)
+        LedgerCell(row.site, weight, TextAlign.Center)
+        LedgerCell(row.idle, weight, TextAlign.Center)
         LedgerCell(row.miles, weight, TextAlign.Center)
     }
 }

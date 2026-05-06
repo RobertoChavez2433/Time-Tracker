@@ -7,6 +7,7 @@ import com.google.android.gms.location.Geofence
 import com.google.android.gms.location.GeofencingEvent
 import com.robertochavez.timetracker.core.common.model.TrackingSessionController
 import com.robertochavez.timetracker.core.common.repository.WorkPresenceRepository
+import com.robertochavez.timetracker.core.common.repository.WorkSiteSessionRepository
 import com.robertochavez.timetracker.core.logging.AppLogger
 import com.robertochavez.timetracker.core.logging.LogCategory
 import com.robertochavez.timetracker.core.logging.info
@@ -25,6 +26,8 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
     @Inject lateinit var trackingSessionController: TrackingSessionController
 
     @Inject lateinit var workPresenceRepository: WorkPresenceRepository
+
+    @Inject lateinit var workSiteSessionRepository: WorkSiteSessionRepository
 
     @Inject lateinit var clock: Clock
 
@@ -55,8 +58,9 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
         if (requestIds.isEmpty() || TimeTrackerGeofenceIds.HOME in requestIds) {
             handleHomeTransition(event.geofenceTransition, now)
         }
-        if (requestIds.any(TimeTrackerGeofenceIds::isWorkLocation)) {
-            handleWorkTransition(event.geofenceTransition, now)
+        val workLocationIds = requestIds.mapNotNull(TimeTrackerGeofenceIds::workLocationId)
+        if (workLocationIds.isNotEmpty()) {
+            handleWorkTransition(event.geofenceTransition, workLocationIds, now)
         }
     }
 
@@ -71,20 +75,27 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
             -> {
                 logger.info(LogCategory.LOCATION, "Home geofence enter or dwell received")
                 trackingSessionController.stopActiveAwaySession(at)
+                workSiteSessionRepository.stopActiveWorkSiteSession(at = at)
             }
         }
     }
 
-    private suspend fun handleWorkTransition(transition: Int, at: Instant) {
+    private suspend fun handleWorkTransition(transition: Int, workLocationIds: List<String>, at: Instant) {
         when (transition) {
             Geofence.GEOFENCE_TRANSITION_EXIT -> {
                 logger.info(LogCategory.LOCATION, "Work geofence exit received")
+                workLocationIds.forEach { workLocationId ->
+                    workSiteSessionRepository.stopActiveWorkSiteSession(workLocationId, at)
+                }
                 workPresenceRepository.setAtWork(atWork = false, updatedAt = at)
             }
             Geofence.GEOFENCE_TRANSITION_ENTER,
             Geofence.GEOFENCE_TRANSITION_DWELL,
             -> {
                 logger.info(LogCategory.LOCATION, "Work geofence enter or dwell received")
+                workLocationIds.forEach { workLocationId ->
+                    workSiteSessionRepository.startWorkSiteSession(workLocationId, at)
+                }
                 workPresenceRepository.setAtWork(atWork = true, updatedAt = at)
             }
         }

@@ -6,6 +6,7 @@ import com.robertochavez.timetracker.core.common.model.ActivityInterval
 import com.robertochavez.timetracker.core.common.model.AwaySession
 import com.robertochavez.timetracker.core.common.model.DailyReport
 import com.robertochavez.timetracker.core.common.model.PeriodReport
+import com.robertochavez.timetracker.core.common.model.WorkSiteSession
 import com.robertochavez.timetracker.core.common.repository.TrackingRepository
 import com.robertochavez.timetracker.core.logging.AppLogger
 import kotlinx.coroutines.flow.first
@@ -29,6 +30,7 @@ class AppStateSnapshotProvider @Inject constructor(
         val workLocations = setupSources.workLocationRepository.getWorkLocations()
         val work = workLocations.firstOrNull()
         val workPresence = setupSources.workPresenceRepository.getWorkPresence()
+        val workSiteSessions = setupSources.workSiteSessionRepository.observeWorkSiteSessions().first()
         val sessions = trackingRepository.observeSessions().first()
         val intervals = trackingRepository.observeActivityIntervals().first()
         val schedule = setupSources.workScheduleRepository.getWorkSchedule()
@@ -63,6 +65,7 @@ class AppStateSnapshotProvider @Inject constructor(
             workLongitude = work?.longitude,
             workRadiusMeters = work?.radiusMeters,
             atWork = workPresence.atWork,
+            workSiteSessionCount = workSiteSessions.size,
             activeSession = sessions.firstOrNull { it.isActive }?.toSummary(),
             latestSession = latestSession?.toSummary(),
             sessionCount = sessions.size,
@@ -78,7 +81,7 @@ class AppStateSnapshotProvider @Inject constructor(
             privacyDisclosureAccepted = settings.privacyDisclosureAccepted,
             minimalActiveNotificationEnabled = settings.minimalActiveNotificationEnabled,
             liveTimerNotificationEnabled = settings.liveTimerNotificationEnabled,
-            reportTotals = reportSnapshots(reportCalculator, today, sessions, intervals, now),
+            reportTotals = reportSnapshots(reportCalculator, today, sessions, intervals, workSiteSessions, now),
             recentLogCount = recentLogs.size,
         )
     }
@@ -88,19 +91,21 @@ class AppStateSnapshotProvider @Inject constructor(
         today: LocalDate,
         sessions: List<AwaySession>,
         intervals: List<ActivityInterval>,
+        workSiteSessions: List<WorkSiteSession>,
         now: Instant,
     ): Map<String, ReportSnapshot> = mapOf(
-        "today" to calculator.daily(today, sessions, intervals, now).toSnapshot(),
-        "weekly" to calculator.weekly(today, sessions, intervals, now).toSnapshot(),
-        "biweekly" to calculator.biweekly(today, sessions, intervals, now).toSnapshot(),
-        "monthly" to calculator.monthly(YearMonth.from(today), sessions, intervals, now).toSnapshot(),
-        "yearly" to calculator.yearly(today.year, sessions, intervals, now).toSnapshot(),
+        "today" to calculator.daily(today, sessions, intervals, now, workSiteSessions).toSnapshot(),
+        "weekly" to calculator.weekly(today, sessions, intervals, now, workSiteSessions).toSnapshot(),
+        "biweekly" to calculator.biweekly(today, sessions, intervals, now, workSiteSessions).toSnapshot(),
+        "monthly" to calculator.monthly(YearMonth.from(today), sessions, intervals, now, workSiteSessions).toSnapshot(),
+        "yearly" to calculator.yearly(today.year, sessions, intervals, now, workSiteSessions).toSnapshot(),
     )
 
     private fun DailyReport.toSnapshot(): ReportSnapshot = ReportSnapshot(
         awayMinutes = totalAway.toMinutes(),
         drivenMiles = drivenMiles,
         driveMinutes = drive.toMinutes(),
+        siteMinutes = site.toMinutes(),
         idleMinutes = idle.toMinutes(),
         unclassifiedMinutes = unclassified.toMinutes(),
     )
@@ -108,8 +113,9 @@ class AppStateSnapshotProvider @Inject constructor(
     private fun PeriodReport.toSnapshot(): ReportSnapshot = ReportSnapshot(
         awayMinutes = totalAway.toMinutes(),
         drivenMiles = drivenMiles,
-        driveMinutes = bucketTotals.getValue(ActivityBucket.DRIVE).toMinutes(),
-        idleMinutes = bucketTotals.getValue(ActivityBucket.IDLE).toMinutes(),
+        driveMinutes = drive.toMinutes(),
+        siteMinutes = site.toMinutes(),
+        idleMinutes = idle.toMinutes(),
         unclassifiedMinutes = bucketTotals.getValue(ActivityBucket.UNCLASSIFIED).toMinutes(),
     )
 }

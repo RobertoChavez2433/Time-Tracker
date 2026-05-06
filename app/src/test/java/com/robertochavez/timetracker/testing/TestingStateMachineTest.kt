@@ -43,6 +43,7 @@ class TestingStateMachineTest {
         workLongitude = null,
         workRadiusMeters = null,
         atWork = false,
+        workSiteSessionCount = 0,
         activeSession = activeSession,
         latestSession = activeSession,
         sessionCount = if (activeSession == null) 0 else 1,

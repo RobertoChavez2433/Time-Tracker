@@ -5,6 +5,7 @@ import com.robertochavez.timetracker.core.common.model.ActivityInterval
 import com.robertochavez.timetracker.core.common.model.AwaySession
 import com.robertochavez.timetracker.core.common.model.PayPeriodSettings
 import com.robertochavez.timetracker.core.common.model.WorkSchedule
+import com.robertochavez.timetracker.core.common.model.WorkSiteSession
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import java.time.DayOfWeek
@@ -14,6 +15,7 @@ import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
 
+@Suppress("LargeClass")
 class ReportCalculatorTest {
     private val zone = ZoneId.of("America/New_York")
     private val schedule = WorkSchedule(DayOfWeek.entries.toSet())
@@ -170,6 +172,52 @@ class ReportCalculatorTest {
         assertEquals(6.75, report.drivenMiles, 0.001)
         assertEquals(Duration.ZERO, report.drive)
         assertEquals(Duration.ofMinutes(30), report.unclassified)
+    }
+
+    @Test
+    fun `daily report partitions work into drive site and idle`() {
+        val session = AwaySession(
+            id = "session",
+            start = Instant.parse("2026-05-01T13:00:00Z"),
+            end = Instant.parse("2026-05-01T17:00:00Z"),
+        )
+        val intervals = listOf(
+            ActivityInterval(
+                id = "drive",
+                sessionId = session.id,
+                bucket = ActivityBucket.DRIVE,
+                start = Instant.parse("2026-05-01T13:00:00Z"),
+                end = Instant.parse("2026-05-01T14:00:00Z"),
+            ),
+            ActivityInterval(
+                id = "site-drive",
+                sessionId = session.id,
+                bucket = ActivityBucket.DRIVE,
+                start = Instant.parse("2026-05-01T15:00:00Z"),
+                end = Instant.parse("2026-05-01T15:30:00Z"),
+            ),
+        )
+        val siteSessions = listOf(
+            WorkSiteSession(
+                id = "site",
+                workLocationId = "work",
+                start = Instant.parse("2026-05-01T14:00:00Z"),
+                end = Instant.parse("2026-05-01T16:00:00Z"),
+            ),
+        )
+
+        val report = calculator.daily(
+            date = LocalDate.of(2026, 5, 1),
+            sessions = listOf(session),
+            intervals = intervals,
+            now = Instant.parse("2026-05-01T18:00:00Z"),
+            workSiteSessions = siteSessions,
+        )
+
+        assertEquals(Duration.ofHours(4), report.totalAway)
+        assertEquals(Duration.ofHours(1), report.drive)
+        assertEquals(Duration.ofHours(2), report.site)
+        assertEquals(Duration.ofHours(1), report.idle)
     }
 
     @Test

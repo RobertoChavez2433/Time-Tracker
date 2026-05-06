@@ -34,12 +34,12 @@ class TimeTrackerMigrationsTest {
     }
 
     @Test
-    fun `schema one has three upgrade migrations`() {
-        assertEquals(3, TimeTrackerMigrations.ALL.size)
+    fun `schema one has four upgrade migrations`() {
+        assertEquals(4, TimeTrackerMigrations.ALL.size)
     }
 
     @Test
-    fun `migrations add work location and presence tables`() {
+    fun `migrations add work location presence and site session tables`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val database = helper.createDatabase(context.getDatabasePath(TEST_DATABASE).absolutePath, 1)
 
@@ -47,8 +47,10 @@ class TimeTrackerMigrationsTest {
             TimeTrackerMigrations.MIGRATION_1_2.migrate(database)
             TimeTrackerMigrations.MIGRATION_2_3.migrate(database)
             TimeTrackerMigrations.MIGRATION_3_4.migrate(database)
+            TimeTrackerMigrations.MIGRATION_4_5.migrate(database)
             database.query("SELECT id, label, latitude, longitude, radiusMeters, updatedAtEpochMillis FROM work_locations").close()
             database.query("SELECT id, atWork, updatedAtEpochMillis FROM work_presence").close()
+            database.query("SELECT id, workLocationId, startEpochMillis, endEpochMillis FROM work_site_sessions").close()
         } finally {
             database.close()
         }

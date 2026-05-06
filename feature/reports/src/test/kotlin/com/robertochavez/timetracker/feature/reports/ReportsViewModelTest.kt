@@ -3,10 +3,12 @@ package com.robertochavez.timetracker.feature.reports
 import com.robertochavez.timetracker.core.common.model.ActivityBucket
 import com.robertochavez.timetracker.core.common.model.ActivityInterval
 import com.robertochavez.timetracker.core.common.model.AwaySession
+import com.robertochavez.timetracker.core.common.model.WorkSiteSession
 import com.robertochavez.timetracker.core.logging.NoopAppLogger
 import com.robertochavez.timetracker.core.testing.FakePayPeriodSettingsRepository
 import com.robertochavez.timetracker.core.testing.FakeTrackingRepository
 import com.robertochavez.timetracker.core.testing.FakeWorkScheduleRepository
+import com.robertochavez.timetracker.core.testing.FakeWorkSiteSessionRepository
 import com.robertochavez.timetracker.core.testing.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.collect
@@ -31,7 +33,7 @@ class ReportsViewModelTest {
     private val clock = Clock.fixed(now, zone)
 
     @Test
-    fun `dashboard includes weekly ledger with rounded miles`() = runTest(mainDispatcherRule.testDispatcher) {
+    fun `dashboard partitions outside home time into drive site and idle buckets`() = runTest(mainDispatcherRule.testDispatcher) {
         val session = AwaySession(
             id = "session",
             start = Instant.parse("2026-05-04T13:00:00Z"),
@@ -54,10 +56,19 @@ class ReportsViewModelTest {
                 end = Instant.parse("2026-05-04T15:00:00Z"),
             ),
         )
+        val siteSessions = listOf(
+            WorkSiteSession(
+                id = "site",
+                workLocationId = "work",
+                start = Instant.parse("2026-05-04T14:00:00Z"),
+                end = Instant.parse("2026-05-04T14:30:00Z"),
+            ),
+        )
         val viewModel = ReportsViewModel(
             trackingRepository = FakeTrackingRepository(initialSessions = listOf(session), initialIntervals = intervals),
             workScheduleRepository = FakeWorkScheduleRepository(),
             payPeriodSettingsRepository = FakePayPeriodSettingsRepository(),
+            workSiteSessionRepository = FakeWorkSiteSessionRepository(siteSessions),
             clock = clock,
             logger = NoopAppLogger(),
         )
@@ -68,17 +79,19 @@ class ReportsViewModelTest {
         advanceUntilIdle()
 
         val today = viewModel.uiState.value.summaries.first()
-        assertEquals("2h", today.home)
+        assertEquals("10h", today.home)
         assertEquals("2h", today.work)
+        assertEquals("1h", today.drive)
         assertEquals("23", today.miles)
 
         val monday = viewModel.uiState.value.weeklyLedger.rows.first()
         assertEquals("Mon", monday.day)
         assertEquals("5/4", monday.date)
-        assertEquals("2h", monday.home)
+        assertEquals("10h", monday.home)
         assertEquals("2h", monday.work)
         assertEquals("1h", monday.drive)
-        assertEquals("1h", monday.onSite)
+        assertEquals("30m", monday.site)
+        assertEquals("30m", monday.idle)
         assertEquals("23", monday.miles)
     }
 }

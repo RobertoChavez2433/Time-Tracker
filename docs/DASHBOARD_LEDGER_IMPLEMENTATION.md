@@ -41,9 +41,10 @@ Total 27h    21h25  5h45   15h40  112
 
 ## Terminology
 
-- Home: away/home-hours total.
-- Work: Drive plus On-site.
+- Home: time inside the home geofence during days that have tracking data.
+- Work: time outside the home geofence.
 - Drive: driving time.
 - On-site: idle/job-site time.
+- Drive and On-site are sub-buckets of Work, not the full Work total.
 - Miles: rounded whole miles.
 - Unclassified: hidden from the normal dashboard.

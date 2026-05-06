@@ -17,6 +17,7 @@ data class AppStateSnapshot(
     val workLongitude: Double?,
     val workRadiusMeters: Float?,
     val atWork: Boolean,
+    val workSiteSessionCount: Int,
     val activeSession: AwaySessionSummary?,
     val latestSession: AwaySessionSummary?,
     val sessionCount: Int,
@@ -50,6 +51,7 @@ data class AppStateSnapshot(
         "workLongitude" to workLongitude,
         "workRadiusMeters" to workRadiusMeters,
         "atWork" to atWork,
+        "workSiteSessionCount" to workSiteSessionCount,
         "activeSession" to activeSession?.toMap(),
         "latestSession" to latestSession?.toMap(),
         "sessionCount" to sessionCount,
@@ -83,6 +85,7 @@ data class ReportSnapshot(
     val awayMinutes: Long,
     val drivenMiles: Double,
     val driveMinutes: Long,
+    val siteMinutes: Long,
     val idleMinutes: Long,
     val unclassifiedMinutes: Long,
 ) {
@@ -90,6 +93,7 @@ data class ReportSnapshot(
         "awayMinutes" to awayMinutes,
         "drivenMiles" to drivenMiles,
         "driveMinutes" to driveMinutes,
+        "siteMinutes" to siteMinutes,
         "idleMinutes" to idleMinutes,
         "unclassifiedMinutes" to unclassifiedMinutes,
     )

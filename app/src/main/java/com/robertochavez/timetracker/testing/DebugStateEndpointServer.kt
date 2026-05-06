@@ -128,10 +128,12 @@ class DebugStateEndpointServer @Inject constructor(
         )
 
         setupSources.workPresenceRepository.setAtWork(atWork = true, updatedAt = sessionStart)
+        setupSources.workSiteSessionRepository.startWorkSiteSession("work", sessionStart)
         val session = trackingRepository.startManualSession(sessionStart)
         trackingRepository.recordActivityTransition(atWorkVehicleBucket, drivingStart)
         trackingRepository.stopActiveAwaySession(drivingEnd)
         trackingRepository.setDrivenMiles(session.id, JOBSITE_DRIVE_MILES)
+        setupSources.workSiteSessionRepository.stopActiveWorkSiteSession("work", drivingEnd)
         setupSources.workPresenceRepository.setAtWork(atWork = false, updatedAt = drivingEnd)
 
         val snapshot = snapshotProvider.build(runId = runId, actorId = actorId)
@@ -144,6 +146,8 @@ class DebugStateEndpointServer @Inject constructor(
             "seededJobsiteDriveMinutes" to JOBSITE_DRIVE_MINUTES,
             "todayDrivenMiles" to todayReport.drivenMiles,
             "todayDriveMinutes" to todayReport.driveMinutes,
+            "todaySiteMinutes" to todayReport.siteMinutes,
+            "todayIdleMinutes" to todayReport.idleMinutes,
             "todayUnclassifiedMinutes" to todayReport.unclassifiedMinutes,
         )
         logger.info(LogCategory.TESTING, "Jobsite drive policy scenario seeded", proof)

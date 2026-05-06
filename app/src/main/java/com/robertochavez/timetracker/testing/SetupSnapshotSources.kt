@@ -6,12 +6,14 @@ import com.robertochavez.timetracker.core.common.repository.PayPeriodSettingsRep
 import com.robertochavez.timetracker.core.common.repository.WorkLocationRepository
 import com.robertochavez.timetracker.core.common.repository.WorkPresenceRepository
 import com.robertochavez.timetracker.core.common.repository.WorkScheduleRepository
+import com.robertochavez.timetracker.core.common.repository.WorkSiteSessionRepository
 import javax.inject.Inject
 
 class SetupSnapshotSources @Inject constructor(
     val homeLocationRepository: HomeLocationRepository,
     val workLocationRepository: WorkLocationRepository,
     val workPresenceRepository: WorkPresenceRepository,
+    val workSiteSessionRepository: WorkSiteSessionRepository,
     val workScheduleRepository: WorkScheduleRepository,
     val payPeriodSettingsRepository: PayPeriodSettingsRepository,
     val appSettingsRepository: AppSettingsRepository,
