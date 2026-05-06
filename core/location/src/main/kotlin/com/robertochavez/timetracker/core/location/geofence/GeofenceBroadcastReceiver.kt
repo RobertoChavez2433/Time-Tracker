@@ -8,6 +8,7 @@ import com.google.android.gms.location.GeofencingEvent
 import com.robertochavez.timetracker.core.common.model.TrackingSessionController
 import com.robertochavez.timetracker.core.common.repository.WorkPresenceRepository
 import com.robertochavez.timetracker.core.common.repository.WorkSiteSessionRepository
+import com.robertochavez.timetracker.core.location.mileage.DriveMileageTracker
 import com.robertochavez.timetracker.core.logging.AppLogger
 import com.robertochavez.timetracker.core.logging.LogCategory
 import com.robertochavez.timetracker.core.logging.info
@@ -28,6 +29,8 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
     @Inject lateinit var workPresenceRepository: WorkPresenceRepository
 
     @Inject lateinit var workSiteSessionRepository: WorkSiteSessionRepository
+
+    @Inject lateinit var driveMileageTracker: DriveMileageTracker
 
     @Inject lateinit var clock: Clock
 
@@ -68,13 +71,17 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
         when (transition) {
             Geofence.GEOFENCE_TRANSITION_EXIT -> {
                 logger.info(LogCategory.LOCATION, "Home geofence exit received")
-                trackingSessionController.startAwaySessionIfTrackable(at)
+                val started = trackingSessionController.startAwaySessionIfTrackable(at)
+                if (started != null) {
+                    driveMileageTracker.clearBaseline()
+                }
             }
             Geofence.GEOFENCE_TRANSITION_ENTER,
             Geofence.GEOFENCE_TRANSITION_DWELL,
             -> {
                 logger.info(LogCategory.LOCATION, "Home geofence enter or dwell received")
                 trackingSessionController.stopActiveAwaySession(at)
+                driveMileageTracker.stopTracking()
                 workSiteSessionRepository.stopActiveWorkSiteSession(at = at)
             }
         }

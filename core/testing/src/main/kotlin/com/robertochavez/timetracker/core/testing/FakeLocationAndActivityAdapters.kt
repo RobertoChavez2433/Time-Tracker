@@ -10,6 +10,7 @@ class FakeTrackingSessionController : TrackingSessionController {
     val startedAt = mutableListOf<Instant>()
     val stoppedAt = mutableListOf<Instant>()
     val activityTransitions = mutableListOf<Pair<ActivityBucket, Instant>>()
+    val drivenDistanceUpdates = mutableListOf<Double>()
 
     override suspend fun startAwaySessionIfTrackable(at: Instant): AwaySession {
         startedAt += at
@@ -23,6 +24,11 @@ class FakeTrackingSessionController : TrackingSessionController {
 
     override suspend fun recordActivityTransition(bucket: ActivityBucket, at: Instant) {
         activityTransitions += bucket to at
+    }
+
+    override suspend fun addDrivenDistanceToActiveSession(distanceMeters: Double, at: Instant): AwaySession? {
+        drivenDistanceUpdates += distanceMeters
+        return null
     }
 }
 

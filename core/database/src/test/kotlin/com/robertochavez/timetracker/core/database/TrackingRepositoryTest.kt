@@ -67,4 +67,17 @@ class TrackingRepositoryTest {
         assertEquals(started.id, stopped?.id)
         assertEquals(Instant.parse("2026-05-04T14:00:00Z"), stopped?.end)
     }
+
+    @Test
+    fun `adds driven distance to active away session miles`() = runTest {
+        val started = repository.startManualSession(Instant.parse("2026-05-04T12:00:00Z"))
+
+        val updated = repository.addDrivenDistanceToActiveSession(
+            distanceMeters = 1_609.344,
+            at = Instant.parse("2026-05-04T12:05:00Z"),
+        )
+
+        assertEquals(started.id, updated?.id)
+        assertEquals(1.0, updated?.drivenMiles ?: 0.0, 0.001)
+    }
 }

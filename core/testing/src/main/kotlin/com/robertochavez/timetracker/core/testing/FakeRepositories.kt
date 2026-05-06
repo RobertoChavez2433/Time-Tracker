@@ -111,6 +111,7 @@ class FakeTrackingRepository(initialSessions: List<AwaySession> = emptyList(), i
     val manualStarts = mutableListOf<Instant>()
     val activeStops = mutableListOf<Instant>()
     val activityTransitions = mutableListOf<Pair<ActivityBucket, Instant>>()
+    val drivenDistanceUpdates = mutableListOf<Double>()
 
     override fun observeSessions(): Flow<List<AwaySession>> = sessions
 
@@ -136,6 +137,14 @@ class FakeTrackingRepository(initialSessions: List<AwaySession> = emptyList(), i
 
     override suspend fun recordActivityTransition(bucket: ActivityBucket, at: Instant) {
         activityTransitions += bucket to at
+    }
+
+    override suspend fun addDrivenDistanceToActiveSession(distanceMeters: Double, at: Instant): AwaySession? {
+        drivenDistanceUpdates += distanceMeters
+        val active = sessions.value.firstOrNull { it.isActive } ?: return null
+        val updated = active.copy(drivenMiles = active.drivenMiles + distanceMeters / METERS_PER_MILE)
+        sessions.value = sessions.value.map { if (it.id == active.id) updated else it }
+        return updated
     }
 
     override suspend fun updateSessionWindow(sessionId: String, start: Instant, end: Instant?): AwaySession? =
@@ -164,6 +173,8 @@ class FakeTrackingRepository(initialSessions: List<AwaySession> = emptyList(), i
         return updated
     }
 }
+
+private const val METERS_PER_MILE = 1_609.344
 
 class FakeWorkScheduleRepository(initialSchedule: WorkSchedule = WorkSchedule()) : WorkScheduleRepository {
     val schedule = MutableStateFlow(initialSchedule)

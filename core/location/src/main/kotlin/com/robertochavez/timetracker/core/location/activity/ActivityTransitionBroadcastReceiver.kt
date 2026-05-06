@@ -11,6 +11,7 @@ import com.robertochavez.timetracker.core.common.domain.MotionActivity
 import com.robertochavez.timetracker.core.common.domain.MotionTransition
 import com.robertochavez.timetracker.core.common.model.TrackingSessionController
 import com.robertochavez.timetracker.core.common.repository.WorkPresenceRepository
+import com.robertochavez.timetracker.core.location.mileage.DriveMileageTracker
 import com.robertochavez.timetracker.core.logging.AppLogger
 import com.robertochavez.timetracker.core.logging.LogCategory
 import com.robertochavez.timetracker.core.logging.info
@@ -29,6 +30,8 @@ class ActivityTransitionBroadcastReceiver : BroadcastReceiver() {
 
     @Inject lateinit var workPresenceRepository: WorkPresenceRepository
 
+    @Inject lateinit var driveMileageTracker: DriveMileageTracker
+
     @Inject lateinit var clock: Clock
 
     @Inject lateinit var logger: AppLogger
@@ -45,17 +48,28 @@ class ActivityTransitionBroadcastReceiver : BroadcastReceiver() {
                 val result = ActivityTransitionResult.extractResult(intent) ?: return@launch
                 val atWork = workPresenceRepository.getWorkPresence().atWork
                 result.transitionEvents.forEach { event ->
+                    val activity = event.activityType.toMotionActivity()
+                    val transition = event.transitionType.toMotionTransition()
                     val bucket = ActivityBucketPolicy.classify(
-                        activity = event.activityType.toMotionActivity(),
-                        transition = event.transitionType.toMotionTransition(),
+                        activity = activity,
+                        transition = transition,
                         atWork = atWork,
                     )
                     logger.info(LogCategory.ACTIVITY, "Activity transition received", mapOf("bucket" to bucket.name, "atWork" to atWork))
                     trackingSessionController.recordActivityTransition(bucket, Instant.now(clock))
+                    handleMileageTracking(activity, transition)
                 }
             } finally {
                 pendingResult.finish()
             }
+        }
+    }
+
+    private suspend fun handleMileageTracking(activity: MotionActivity, transition: MotionTransition) {
+        when {
+            activity == MotionActivity.IN_VEHICLE && transition == MotionTransition.ENTER -> driveMileageTracker.startTracking()
+            activity == MotionActivity.IN_VEHICLE && transition == MotionTransition.EXIT -> driveMileageTracker.stopTracking()
+            activity == MotionActivity.STILL && transition == MotionTransition.ENTER -> driveMileageTracker.stopTracking()
         }
     }
 }

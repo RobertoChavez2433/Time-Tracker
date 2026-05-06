@@ -85,6 +85,25 @@ class RoomTrackingRepository @Inject constructor(
         }
     }
 
+    override suspend fun addDrivenDistanceToActiveSession(distanceMeters: Double, at: Instant): AwaySession? = database.withTransaction {
+        if (distanceMeters <= 0.0) return@withTransaction awaySessionDao.getActiveSession()?.toModel()
+
+        val active = awaySessionDao.getActiveSession() ?: return@withTransaction null
+        val updated = active.toModel().copy(drivenMiles = active.drivenMiles + distanceMeters / METERS_PER_MILE)
+        awaySessionDao.upsert(AwaySessionEntity.fromModel(updated))
+        logger.info(
+            LogCategory.TRACKING,
+            "Session miles automatically updated",
+            mapOf(
+                "session" to active.id.safePrefix(),
+                "distanceMeters" to distanceMeters,
+                "totalMiles" to updated.drivenMiles,
+                "atEpochMillis" to at.toEpochMilli(),
+            ),
+        )
+        updated
+    }
+
     override suspend fun updateSessionWindow(sessionId: String, start: Instant, end: Instant?): AwaySession? {
         val existing = awaySessionDao.getSession(sessionId)?.toModel() ?: return null
         val updated = ManualCorrectionService.updateSessionWindow(existing, start, end)
@@ -155,5 +174,7 @@ class RoomTrackingRepository @Inject constructor(
         }
     }
 }
+
+private const val METERS_PER_MILE = 1_609.344
 
 private fun String.safePrefix(): String = take(8)

@@ -24,6 +24,9 @@
         <receiver
             android:name="com.robertochavez.timetracker.core.location.activity.ActivityTransitionBroadcastReceiver"
             android:exported="false" />
+        <receiver
+            android:name="com.robertochavez.timetracker.core.location.mileage.DriveLocationBroadcastReceiver"
+            android:exported="false" />
 
         <activity
             android:name=".MainActivity"

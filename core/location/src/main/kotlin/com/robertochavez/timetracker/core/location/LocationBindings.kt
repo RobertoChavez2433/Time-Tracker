@@ -6,6 +6,8 @@ import com.robertochavez.timetracker.core.location.geofence.HomeGeofenceRegistra
 import com.robertochavez.timetracker.core.location.geofence.PlayServicesHomeGeofenceRegistrar
 import com.robertochavez.timetracker.core.location.geofence.PlayServicesWorkGeofenceRegistrar
 import com.robertochavez.timetracker.core.location.geofence.WorkGeofenceRegistrar
+import com.robertochavez.timetracker.core.location.mileage.DriveMileageTracker
+import com.robertochavez.timetracker.core.location.mileage.PlayServicesDriveMileageTracker
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -32,4 +34,8 @@ abstract class LocationBindings {
     @Binds
     @Singleton
     abstract fun bindActivityTransitionRegistrar(registrar: PlayServicesActivityTransitionRegistrar): ActivityTransitionRegistrar
+
+    @Binds
+    @Singleton
+    abstract fun bindDriveMileageTracker(tracker: PlayServicesDriveMileageTracker): DriveMileageTracker
 }
