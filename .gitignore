@@ -3,6 +3,7 @@
 .kotlin/
 build/
 **/build/
+**/bin/
 
 # Local machine configuration
 local.properties
