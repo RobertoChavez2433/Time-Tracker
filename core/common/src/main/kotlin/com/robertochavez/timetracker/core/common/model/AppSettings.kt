@@ -4,4 +4,5 @@ data class AppSettings(
     val minimalActiveNotificationEnabled: Boolean,
     val liveTimerNotificationEnabled: Boolean,
     val privacyDisclosureAccepted: Boolean,
+    val activityDetectionEnabled: Boolean,
 )

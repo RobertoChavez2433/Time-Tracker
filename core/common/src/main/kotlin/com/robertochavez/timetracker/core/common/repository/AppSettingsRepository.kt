@@ -12,5 +12,7 @@ interface AppSettingsRepository {
 
     suspend fun setPrivacyDisclosureAccepted(accepted: Boolean)
 
+    suspend fun setActivityDetectionEnabled(enabled: Boolean)
+
     suspend fun resetSettings()
 }

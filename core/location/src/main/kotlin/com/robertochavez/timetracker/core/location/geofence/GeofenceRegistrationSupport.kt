@@ -56,7 +56,11 @@ internal suspend fun GeofencingClient.unregisterTimeTrackerGeofences(requestIds:
 internal data class TimeTrackerGeofenceSpec(val requestId: String, val latitude: Double, val longitude: Double, val radiusMeters: Float)
 
 private fun buildTimeTrackerGeofencingRequest(specs: List<TimeTrackerGeofenceSpec>): GeofencingRequest = GeofencingRequest.Builder()
-    .setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_DWELL)
+    .setInitialTrigger(
+        GeofencingRequest.INITIAL_TRIGGER_ENTER or
+            GeofencingRequest.INITIAL_TRIGGER_EXIT or
+            GeofencingRequest.INITIAL_TRIGGER_DWELL,
+    )
     .addGeofences(specs.map { it.toGeofence() })
     .build()
 

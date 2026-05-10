@@ -206,6 +206,7 @@ class FakeAppSettingsRepository(
         minimalActiveNotificationEnabled = false,
         liveTimerNotificationEnabled = false,
         privacyDisclosureAccepted = false,
+        activityDetectionEnabled = false,
     ),
 ) : AppSettingsRepository {
     override val settings = MutableStateFlow(initialSettings)
@@ -222,11 +223,16 @@ class FakeAppSettingsRepository(
         settings.value = settings.value.copy(privacyDisclosureAccepted = accepted)
     }
 
+    override suspend fun setActivityDetectionEnabled(enabled: Boolean) {
+        settings.value = settings.value.copy(activityDetectionEnabled = enabled)
+    }
+
     override suspend fun resetSettings() {
         settings.value = AppSettings(
             minimalActiveNotificationEnabled = false,
             liveTimerNotificationEnabled = false,
             privacyDisclosureAccepted = false,
+            activityDetectionEnabled = false,
         )
     }
 }

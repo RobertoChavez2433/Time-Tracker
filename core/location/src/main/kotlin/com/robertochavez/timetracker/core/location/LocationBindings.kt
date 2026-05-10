@@ -38,4 +38,10 @@ abstract class LocationBindings {
     @Binds
     @Singleton
     abstract fun bindDriveMileageTracker(tracker: PlayServicesDriveMileageTracker): DriveMileageTracker
+
+    @Binds
+    @Singleton
+    abstract fun bindTrackingRegistrationSynchronizer(
+        synchronizer: PlayServicesTrackingRegistrationSynchronizer,
+    ): TrackingRegistrationSynchronizer
 }

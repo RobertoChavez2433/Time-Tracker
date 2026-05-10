@@ -112,6 +112,7 @@ class SettingsViewModel @Inject constructor(
             runCatching {
                 activityTransitionRegistrar.registerDriveAndIdleTransitions()
             }.onSuccess {
+                appSettingsRepository.setActivityDetectionEnabled(true)
                 statusMessage.value = "Activity detection enabled."
                 logger.info(LogCategory.ACTIVITY, "Activity detection enabled from settings")
             }.onFailure { error ->
@@ -126,6 +127,7 @@ class SettingsViewModel @Inject constructor(
             runCatching {
                 activityTransitionRegistrar.unregisterDriveAndIdleTransitions()
             }.onSuccess {
+                appSettingsRepository.setActivityDetectionEnabled(false)
                 statusMessage.value = "Activity detection disabled."
                 logger.info(LogCategory.ACTIVITY, "Activity detection disabled from settings")
             }

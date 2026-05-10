@@ -40,6 +40,9 @@ class SettingsDataStore @Inject constructor(@ApplicationContext private val cont
                 minimalActiveNotificationEnabled = preferences[MINIMAL_ACTIVE_NOTIFICATION] ?: false,
                 liveTimerNotificationEnabled = preferences[LIVE_TIMER_NOTIFICATION] ?: false,
                 privacyDisclosureAccepted = preferences[PRIVACY_DISCLOSURE_ACCEPTED] ?: false,
+                activityDetectionEnabled = preferences[ACTIVITY_DETECTION_ENABLED]
+                    ?: preferences[PRIVACY_DISCLOSURE_ACCEPTED]
+                    ?: false,
             )
         }
 
@@ -58,6 +61,11 @@ class SettingsDataStore @Inject constructor(@ApplicationContext private val cont
         logger.info(LogCategory.SETTINGS, "Privacy disclosure setting changed", mapOf("accepted" to accepted))
     }
 
+    override suspend fun setActivityDetectionEnabled(enabled: Boolean) {
+        context.timeTrackerSettingsDataStore.edit { it[ACTIVITY_DETECTION_ENABLED] = enabled }
+        logger.info(LogCategory.SETTINGS, "Activity detection setting changed", mapOf("enabled" to enabled))
+    }
+
     override suspend fun resetSettings() {
         context.timeTrackerSettingsDataStore.edit { it.clear() }
         logger.info(LogCategory.SETTINGS, "App settings reset")
@@ -67,5 +75,6 @@ class SettingsDataStore @Inject constructor(@ApplicationContext private val cont
         val MINIMAL_ACTIVE_NOTIFICATION = booleanPreferencesKey("minimal_active_notification")
         val LIVE_TIMER_NOTIFICATION = booleanPreferencesKey("live_timer_notification")
         val PRIVACY_DISCLOSURE_ACCEPTED = booleanPreferencesKey("privacy_disclosure_accepted")
+        val ACTIVITY_DETECTION_ENABLED = booleanPreferencesKey("activity_detection_enabled")
     }
 }

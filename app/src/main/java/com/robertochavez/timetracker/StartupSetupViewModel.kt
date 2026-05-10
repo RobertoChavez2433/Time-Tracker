@@ -44,6 +44,7 @@ class StartupSetupViewModel @Inject constructor(
             runCatching {
                 activityTransitionRegistrar.registerDriveAndIdleTransitions()
             }.onSuccess {
+                appSettingsRepository.setActivityDetectionEnabled(true)
                 logger.info(LogCategory.ACTIVITY, "Activity detection enabled from startup setup")
             }.onFailure { error ->
                 logger.warn(LogCategory.ACTIVITY, "Startup activity detection enable failed", error = error)

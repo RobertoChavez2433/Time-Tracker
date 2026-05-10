@@ -30,4 +30,6 @@ dependencies {
     implementation(libs.hilt.android)
     implementation(libs.play.services.location)
     ksp(libs.hilt.compiler)
+
+    testImplementation(project(":core:testing"))
 }
