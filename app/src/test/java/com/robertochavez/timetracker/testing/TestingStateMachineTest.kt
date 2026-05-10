@@ -57,6 +57,7 @@ class TestingStateMachineTest {
         workdays = emptyMap(),
         payPeriodAnchorDate = "2026-05-03",
         privacyDisclosureAccepted = privacyAccepted,
+        activityDetectionEnabled = true,
         minimalActiveNotificationEnabled = false,
         liveTimerNotificationEnabled = false,
         recentLogCount = 0,

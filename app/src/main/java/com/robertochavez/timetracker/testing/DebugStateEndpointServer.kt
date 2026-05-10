@@ -35,6 +35,7 @@ class DebugStateEndpointServer @Inject constructor(
     private val snapshotProvider: AppStateSnapshotProvider,
     private val setupSources: SetupSnapshotSources,
     private val trackingRepository: TrackingRepository,
+    private val mockDriveSimulator: MockDriveSimulator,
     private val logger: AppLogger,
     private val clock: Clock,
 ) {
@@ -86,9 +87,18 @@ class DebugStateEndpointServer @Inject constructor(
             val payload = when (uri.path) {
                 STATE_PATH -> statePayload(runId = runId, actorId = actorId)
                 SEED_JOBSITE_DRIVE_PATH -> seedJobsiteDrivePayload(runId = runId, actorId = actorId)
+                PREPARE_MOCK_DRIVE_PATH -> mockDriveSimulator.prepare(query.mockDriveConfig(), runId, actorId)
+                INJECT_MOCK_DRIVE_PATH -> mockDriveSimulator.inject(query.mockDriveConfig(), runId, actorId)
+                FINISH_MOCK_DRIVE_PATH -> mockDriveSimulator.finish(runId, actorId)
                 else -> mapOf(
                     "error" to "Unknown endpoint",
-                    "endpoints" to listOf(STATE_PATH, SEED_JOBSITE_DRIVE_PATH),
+                    "endpoints" to listOf(
+                        STATE_PATH,
+                        SEED_JOBSITE_DRIVE_PATH,
+                        PREPARE_MOCK_DRIVE_PATH,
+                        INJECT_MOCK_DRIVE_PATH,
+                        FINISH_MOCK_DRIVE_PATH,
+                    ),
                 )
             }
             if (payload.containsKey("error")) {
@@ -184,13 +194,37 @@ class DebugStateEndpointServer @Inject constructor(
 
     private fun decode(value: String): String = URLDecoder.decode(value, Charsets.UTF_8.name())
 
+    private fun Map<String, String>.mockDriveConfig(): MockDriveConfig = MockDriveConfig(
+        startLatitude = doubleValue("startLat", DEFAULT_MOCK_START_LATITUDE),
+        startLongitude = doubleValue("startLng", DEFAULT_MOCK_START_LONGITUDE),
+        homeRadiusMeters = doubleValue("homeRadiusMeters", DEFAULT_MOCK_HOME_RADIUS_METERS.toDouble()).toFloat(),
+        distanceMeters = doubleValue("distanceMeters", DEFAULT_MOCK_DISTANCE_METERS),
+        durationSeconds = longValue("durationSeconds", DEFAULT_MOCK_DURATION_SECONDS),
+        pointCount = longValue("pointCount", DEFAULT_MOCK_POINT_COUNT.toLong()).toInt(),
+        accuracyMeters = doubleValue("accuracyMeters", DEFAULT_MOCK_ACCURACY_METERS.toDouble()).toFloat(),
+    )
+
+    private fun Map<String, String>.doubleValue(name: String, defaultValue: Double): Double = this[name]?.toDoubleOrNull() ?: defaultValue
+
+    private fun Map<String, String>.longValue(name: String, defaultValue: Long): Long = this[name]?.toLongOrNull() ?: defaultValue
+
     companion object {
         const val DEFAULT_PORT = 4948
         const val STATE_PATH = "/testing/state"
         const val SEED_JOBSITE_DRIVE_PATH = "/testing/seed-jobsite-drive"
+        const val PREPARE_MOCK_DRIVE_PATH = "/testing/prepare-mock-drive"
+        const val INJECT_MOCK_DRIVE_PATH = "/testing/inject-mock-drive"
+        const val FINISH_MOCK_DRIVE_PATH = "/testing/finish-mock-drive"
         private const val LOOPBACK = "127.0.0.1"
         private const val RECENT_LOG_LIMIT = 25
         private const val JOBSITE_DRIVE_MILES = 6.75
         private const val JOBSITE_DRIVE_MINUTES = 30L
+        private const val DEFAULT_MOCK_START_LATITUDE = 42.64517
+        private const val DEFAULT_MOCK_START_LONGITUDE = -85.27639
+        private const val DEFAULT_MOCK_HOME_RADIUS_METERS = 120f
+        private const val DEFAULT_MOCK_DISTANCE_METERS = 3_218.688
+        private const val DEFAULT_MOCK_DURATION_SECONDS = 240L
+        private const val DEFAULT_MOCK_POINT_COUNT = 8
+        private const val DEFAULT_MOCK_ACCURACY_METERS = 5f
     }
 }

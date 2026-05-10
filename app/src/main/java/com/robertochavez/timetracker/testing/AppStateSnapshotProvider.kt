@@ -79,6 +79,7 @@ class AppStateSnapshotProvider @Inject constructor(
             workdays = DayOfWeek.entries.associate { day -> day.name to (day in schedule.trackableDays) },
             payPeriodAnchorDate = payPeriod.biweeklyAnchorStartDate.toString(),
             privacyDisclosureAccepted = settings.privacyDisclosureAccepted,
+            activityDetectionEnabled = settings.activityDetectionEnabled,
             minimalActiveNotificationEnabled = settings.minimalActiveNotificationEnabled,
             liveTimerNotificationEnabled = settings.liveTimerNotificationEnabled,
             reportTotals = reportSnapshots(reportCalculator, today, sessions, intervals, workSiteSessions, now),
