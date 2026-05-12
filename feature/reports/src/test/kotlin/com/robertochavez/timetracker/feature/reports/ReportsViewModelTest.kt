@@ -22,6 +22,7 @@ import org.junit.Test
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneId
+import java.time.ZoneOffset
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ReportsViewModelTest {
@@ -94,4 +95,78 @@ class ReportsViewModelTest {
         assertEquals("30m", monday.idle)
         assertEquals("23", monday.miles)
     }
+
+    @Test
+    fun `pull to refresh recomputes active totals without repository changes`() = runTest(mainDispatcherRule.testDispatcher) {
+        val mutableClock = MutableClock(
+            instant = Instant.parse("2026-05-04T16:00:00Z"),
+            zone = ZoneOffset.UTC,
+        )
+        val session = AwaySession(
+            id = "active",
+            start = Instant.parse("2026-05-04T15:30:00Z"),
+            end = null,
+        )
+        val viewModel = ReportsViewModel(
+            trackingRepository = FakeTrackingRepository(initialSessions = listOf(session)),
+            workScheduleRepository = FakeWorkScheduleRepository(),
+            payPeriodSettingsRepository = FakePayPeriodSettingsRepository(),
+            workSiteSessionRepository = FakeWorkSiteSessionRepository(),
+            clock = mutableClock,
+            logger = NoopAppLogger(),
+        )
+
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.uiState.collect()
+        }
+        advanceUntilIdle()
+        assertEquals("30m", viewModel.uiState.value.summaries.first().work)
+
+        mutableClock.instant = Instant.parse("2026-05-04T17:00:00Z")
+        viewModel.refreshDashboard()
+        advanceUntilIdle()
+
+        assertEquals("1h 30m", viewModel.uiState.value.summaries.first().work)
+    }
+
+    @Test
+    fun `resume recomputes active totals without repository changes`() = runTest(mainDispatcherRule.testDispatcher) {
+        val mutableClock = MutableClock(
+            instant = Instant.parse("2026-05-04T16:00:00Z"),
+            zone = ZoneOffset.UTC,
+        )
+        val session = AwaySession(
+            id = "active",
+            start = Instant.parse("2026-05-04T15:30:00Z"),
+            end = null,
+        )
+        val viewModel = ReportsViewModel(
+            trackingRepository = FakeTrackingRepository(initialSessions = listOf(session)),
+            workScheduleRepository = FakeWorkScheduleRepository(),
+            payPeriodSettingsRepository = FakePayPeriodSettingsRepository(),
+            workSiteSessionRepository = FakeWorkSiteSessionRepository(),
+            clock = mutableClock,
+            logger = NoopAppLogger(),
+        )
+
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.uiState.collect()
+        }
+        advanceUntilIdle()
+        assertEquals("30m", viewModel.uiState.value.summaries.first().work)
+
+        mutableClock.instant = Instant.parse("2026-05-04T17:00:00Z")
+        viewModel.refreshForResume()
+        advanceUntilIdle()
+
+        assertEquals("1h 30m", viewModel.uiState.value.summaries.first().work)
+    }
+}
+
+private class MutableClock(var instant: Instant, private val zone: ZoneId) : Clock() {
+    override fun getZone(): ZoneId = zone
+
+    override fun withZone(zone: ZoneId): Clock = MutableClock(instant, zone)
+
+    override fun instant(): Instant = instant
 }
