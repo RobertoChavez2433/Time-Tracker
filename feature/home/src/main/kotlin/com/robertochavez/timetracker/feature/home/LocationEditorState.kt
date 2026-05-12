@@ -7,6 +7,7 @@ import java.time.Clock
 import java.time.Instant
 
 enum class LocationField {
+    LABEL,
     LATITUDE,
     LONGITUDE,
     RADIUS_METERS,
@@ -29,6 +30,7 @@ internal data class HomeEditorState(
 internal fun HomeEditorState.hasCoordinates(): Boolean = latitude.isNotBlank() || longitude.isNotBlank()
 
 internal fun HomeEditorState.updated(field: LocationField, value: String): HomeEditorState = when (field) {
+    LocationField.LABEL -> this
     LocationField.LATITUDE -> copy(latitude = value)
     LocationField.LONGITUDE -> copy(longitude = value)
     LocationField.RADIUS_METERS -> copy(radiusMeters = value)
@@ -47,12 +49,14 @@ internal fun HomeEditorState.radiusInput(): Float = (radiusMeters.toFloatOrNull(
     .coerceAtLeast(HomeLocation.MINIMUM_RADIUS_METERS)
 
 internal data class WorkEditorState(
+    val label: String = WorkLocation.DEFAULT_LABEL,
     val latitude: String = "",
     val longitude: String = "",
     val radiusMeters: String = GeofenceRadiusOptions.default.meters.toString(),
 ) {
     companion object {
         fun fromLocation(workLocation: WorkLocation): WorkEditorState = WorkEditorState(
+            label = workLocation.label,
             latitude = workLocation.latitude.toString(),
             longitude = workLocation.longitude.toString(),
             radiusMeters = GeofenceRadiusOptions.nearest(workLocation.radiusMeters).meters.toString(),
@@ -63,6 +67,7 @@ internal data class WorkEditorState(
 internal fun WorkEditorState.hasCoordinates(): Boolean = latitude.isNotBlank() || longitude.isNotBlank()
 
 internal fun WorkEditorState.updated(field: LocationField, value: String): WorkEditorState = when (field) {
+    LocationField.LABEL -> copy(label = value)
     LocationField.LATITUDE -> copy(latitude = value)
     LocationField.LONGITUDE -> copy(longitude = value)
     LocationField.RADIUS_METERS -> copy(radiusMeters = value)
@@ -75,7 +80,7 @@ internal fun WorkEditorState.toWorkLocation(clock: Clock, id: String, label: Str
         radiusMeters = requireNotNull(radiusMeters.toFloatOrNull()) { "Enter valid work latitude, longitude, and radius." },
         updatedAt = Instant.now(clock),
         id = id,
-        label = label,
+        label = label.trim(),
     )
 }
 

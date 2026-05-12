@@ -20,6 +20,9 @@ interface WorkLocationDao {
     @Query("SELECT * FROM work_locations ORDER BY updatedAtEpochMillis DESC")
     suspend fun getWorkLocations(): List<WorkLocationEntity>
 
+    @Query("SELECT * FROM work_locations WHERE id = :id LIMIT 1")
+    suspend fun getWorkLocationById(id: String): WorkLocationEntity?
+
     @Upsert
     suspend fun upsert(entity: WorkLocationEntity)
 }

@@ -5,6 +5,7 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.robertochavez.timetracker.core.common.model.WorkLocation
 import com.robertochavez.timetracker.core.database.repository.RoomWorkLocationRepository
+import com.robertochavez.timetracker.core.database.repository.RoomWorkSiteSessionRepository
 import com.robertochavez.timetracker.core.logging.NoopAppLogger
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -78,5 +79,49 @@ class WorkLocationRepositoryTest {
         assertEquals(second, repository.getWorkLocation())
         assertEquals(listOf(second, first), repository.getWorkLocations())
         assertEquals(listOf(second, first), repository.observeWorkLocations().first())
+    }
+
+    @Test
+    fun `renames work location`() = runTest {
+        val location = WorkLocation(
+            latitude = 35.0,
+            longitude = -80.0,
+            radiusMeters = WorkLocation.MAXIMUM_RADIUS_METERS,
+            updatedAt = Instant.parse("2026-05-03T12:00:00Z"),
+            id = "site",
+            label = "Original Site",
+        )
+        repository.setWorkLocation(location)
+
+        val renamed = repository.renameWorkLocation("site", "Warehouse")
+
+        assertEquals("Warehouse", renamed?.label)
+        assertEquals("Warehouse", repository.getWorkLocation("site")?.label)
+    }
+
+    @Test
+    fun `work site session keeps label snapshot after location rename`() = runTest {
+        val site = WorkLocation(
+            latitude = 35.0,
+            longitude = -80.0,
+            radiusMeters = WorkLocation.MAXIMUM_RADIUS_METERS,
+            updatedAt = Instant.parse("2026-05-03T12:00:00Z"),
+            id = "site",
+            label = "Original Site",
+        )
+        val sessionRepository = RoomWorkSiteSessionRepository(
+            database = database,
+            workSiteSessionDao = database.workSiteSessionDao(),
+            workLocationDao = database.workLocationDao(),
+            logger = NoopAppLogger(),
+        )
+        repository.setWorkLocation(site)
+
+        val session = sessionRepository.startWorkSiteSession("site", Instant.parse("2026-05-03T13:00:00Z"))
+        repository.renameWorkLocation("site", "Renamed Site")
+        val stored = sessionRepository.observeWorkSiteSessions().first().single()
+
+        assertEquals("Original Site", session.workLocationLabelSnapshot)
+        assertEquals("Original Site", stored.workLocationLabelSnapshot)
     }
 }

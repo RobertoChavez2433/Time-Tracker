@@ -1,9 +1,11 @@
 package com.robertochavez.timetracker.core.database.repository
 
 import androidx.room.withTransaction
+import com.robertochavez.timetracker.core.common.model.WorkLocation
 import com.robertochavez.timetracker.core.common.model.WorkSiteSession
 import com.robertochavez.timetracker.core.common.repository.WorkSiteSessionRepository
 import com.robertochavez.timetracker.core.database.TimeTrackerDatabase
+import com.robertochavez.timetracker.core.database.dao.WorkLocationDao
 import com.robertochavez.timetracker.core.database.dao.WorkSiteSessionDao
 import com.robertochavez.timetracker.core.database.entity.WorkSiteSessionEntity
 import com.robertochavez.timetracker.core.logging.AppLogger
@@ -20,6 +22,7 @@ import javax.inject.Singleton
 class RoomWorkSiteSessionRepository @Inject constructor(
     private val database: TimeTrackerDatabase,
     private val workSiteSessionDao: WorkSiteSessionDao,
+    private val workLocationDao: WorkLocationDao,
     private val logger: AppLogger,
 ) : WorkSiteSessionRepository {
     override fun observeWorkSiteSessions(): Flow<List<WorkSiteSession>> =
@@ -34,6 +37,7 @@ class RoomWorkSiteSessionRepository @Inject constructor(
             workLocationId = workLocationId,
             start = at,
             end = null,
+            workLocationLabelSnapshot = workLocationDao.getWorkLocationById(workLocationId)?.label ?: WorkLocation.DEFAULT_LABEL,
         ).also { session ->
             workSiteSessionDao.upsert(WorkSiteSessionEntity.fromModel(session))
             logger.info(

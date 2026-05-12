@@ -23,6 +23,7 @@ object TimeTrackerTestTags {
     const val HOME_OVERWRITE_CONFIRM_BUTTON = "home_overwrite_confirm_button"
     const val HOME_OVERWRITE_CANCEL_BUTTON = "home_overwrite_cancel_button"
     const val WORK_USE_CURRENT_BUTTON = "work_use_current_button"
+    const val WORK_LABEL_FIELD = "work_label_field"
     const val WORK_LATITUDE_FIELD = "work_latitude_field"
     const val WORK_LONGITUDE_FIELD = "work_longitude_field"
     const val WORK_RADIUS_FIELD = "work_radius_field"
@@ -63,6 +64,10 @@ object TimeTrackerTestTags {
     fun trackingSessionCard(idPrefix: String): String = "tracking_session_${idPrefix}_card"
 
     fun trackingSessionCountsSwitch(idPrefix: String): String = "tracking_session_${idPrefix}_counts_switch"
+
+    fun trackingSessionEditButton(idPrefix: String): String = "tracking_session_${idPrefix}_edit_button"
+
+    fun trackingSessionCancelEditButton(idPrefix: String): String = "tracking_session_${idPrefix}_cancel_edit_button"
 
     fun trackingSessionStartField(idPrefix: String): String = "tracking_session_${idPrefix}_start_field"
 

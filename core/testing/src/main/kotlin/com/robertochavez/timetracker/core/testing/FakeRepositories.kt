@@ -46,12 +46,21 @@ class FakeWorkLocationRepository(initialWorkLocation: WorkLocation? = null) : Wo
 
     override suspend fun getWorkLocation(): WorkLocation? = workLocation.value
 
+    override suspend fun getWorkLocation(id: String): WorkLocation? = workLocations.value.firstOrNull { it.id == id }
+
     override suspend fun getWorkLocations(): List<WorkLocation> = workLocations.value
 
     override suspend fun setWorkLocation(workLocation: WorkLocation) {
         workLocations.value = workLocations.value
             .filterNot { it.id == workLocation.id } + workLocation
         this.workLocation.value = workLocations.value.maxByOrNull { it.updatedAt } ?: workLocation
+    }
+
+    override suspend fun renameWorkLocation(id: String, label: String): WorkLocation? {
+        val existing = workLocations.value.firstOrNull { it.id == id } ?: return null
+        val renamed = existing.copy(label = label.trim())
+        setWorkLocation(renamed)
+        return renamed
     }
 }
 
@@ -67,7 +76,10 @@ class FakeWorkPresenceRepository(initialWorkPresence: WorkPresence = WorkPresenc
     }
 }
 
-class FakeWorkSiteSessionRepository(initialSessions: List<WorkSiteSession> = emptyList()) : WorkSiteSessionRepository {
+class FakeWorkSiteSessionRepository(
+    initialSessions: List<WorkSiteSession> = emptyList(),
+    private val labelsByWorkLocationId: Map<String, String> = emptyMap(),
+) : WorkSiteSessionRepository {
     val sessions = MutableStateFlow(initialSessions)
 
     override fun observeWorkSiteSessions(): Flow<List<WorkSiteSession>> = sessions
@@ -80,6 +92,7 @@ class FakeWorkSiteSessionRepository(initialSessions: List<WorkSiteSession> = emp
             workLocationId = workLocationId,
             start = at,
             end = null,
+            workLocationLabelSnapshot = labelsByWorkLocationId[workLocationId] ?: WorkLocation.DEFAULT_LABEL,
         )
         sessions.value = sessions.value + session
         return session

@@ -174,6 +174,64 @@ class HomeViewModelTest {
     }
 
     @Test
+    fun `manual work site save uses custom name`() = runTest(mainDispatcherRule.testDispatcher) {
+        val workRepository = FakeWorkLocationRepository()
+        val viewModel = HomeViewModel(
+            homeLocationRepository = FakeHomeLocationRepository(),
+            workLocationRepository = workRepository,
+            currentGeofenceLocationProvider = StaticCurrentGeofenceLocationProvider(),
+            homeGeofenceRegistrar = RecordingHomeGeofenceRegistrar(),
+            workGeofenceRegistrar = RecordingWorkGeofenceRegistrar(),
+            clock = clock,
+            logger = NoopAppLogger(),
+        )
+
+        viewModel.updateWorkField(LocationField.LABEL, "North Yard")
+        viewModel.updateWorkField(LocationField.LATITUDE, "39.7292")
+        viewModel.updateWorkField(LocationField.LONGITUDE, "-104.9803")
+        viewModel.updateWorkField(LocationField.RADIUS_METERS, "150")
+        viewModel.saveWorkPin()
+        advanceUntilIdle()
+
+        assertEquals("North Yard", workRepository.workLocation.value?.label)
+    }
+
+    @Test
+    fun `latest work site can be renamed while saving changes`() = runTest(mainDispatcherRule.testDispatcher) {
+        val workRepository = FakeWorkLocationRepository(
+            WorkLocation(
+                id = "existing-work",
+                label = "Existing work",
+                latitude = 39.7292,
+                longitude = -104.9803,
+                radiusMeters = WorkLocation.MINIMUM_RADIUS_METERS,
+                updatedAt = Instant.parse("2026-05-04T12:00:00Z"),
+            ),
+        )
+        val viewModel = HomeViewModel(
+            homeLocationRepository = FakeHomeLocationRepository(),
+            workLocationRepository = workRepository,
+            currentGeofenceLocationProvider = StaticCurrentGeofenceLocationProvider(),
+            homeGeofenceRegistrar = RecordingHomeGeofenceRegistrar(),
+            workGeofenceRegistrar = RecordingWorkGeofenceRegistrar(),
+            clock = clock,
+            logger = NoopAppLogger(),
+        )
+
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.uiState.collect()
+        }
+        advanceUntilIdle()
+        viewModel.updateWorkField(LocationField.LABEL, "Renamed work")
+        viewModel.saveWorkPin(replaceLatest = true)
+        advanceUntilIdle()
+
+        val savedWork = workRepository.workLocations.value.single()
+        assertEquals("existing-work", savedWork.id)
+        assertEquals("Renamed work", savedWork.label)
+    }
+
+    @Test
     fun `saved latest work radius can be changed without adding another site`() = runTest(mainDispatcherRule.testDispatcher) {
         val workRepository = FakeWorkLocationRepository(
             WorkLocation(

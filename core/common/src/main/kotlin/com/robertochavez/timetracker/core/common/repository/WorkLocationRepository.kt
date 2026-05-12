@@ -10,7 +10,11 @@ interface WorkLocationRepository {
 
     suspend fun getWorkLocation(): WorkLocation?
 
+    suspend fun getWorkLocation(id: String): WorkLocation?
+
     suspend fun getWorkLocations(): List<WorkLocation>
 
     suspend fun setWorkLocation(workLocation: WorkLocation)
+
+    suspend fun renameWorkLocation(id: String, label: String): WorkLocation?
 }

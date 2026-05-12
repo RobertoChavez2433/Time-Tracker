@@ -22,6 +22,8 @@ class RoomWorkLocationRepository @Inject constructor(private val workLocationDao
 
     override suspend fun getWorkLocation(): WorkLocation? = workLocationDao.getWorkLocation()?.toModel()
 
+    override suspend fun getWorkLocation(id: String): WorkLocation? = workLocationDao.getWorkLocationById(id)?.toModel()
+
     override suspend fun getWorkLocations(): List<WorkLocation> = workLocationDao.getWorkLocations().map { it.toModel() }
 
     override suspend fun setWorkLocation(workLocation: WorkLocation) {
@@ -31,5 +33,14 @@ class RoomWorkLocationRepository @Inject constructor(private val workLocationDao
             "Work location saved",
             mapOf("id" to workLocation.id, "label" to workLocation.label, "radiusMeters" to workLocation.radiusMeters),
         )
+    }
+
+    override suspend fun renameWorkLocation(id: String, label: String): WorkLocation? {
+        val trimmedLabel = label.trim()
+        val existing = getWorkLocation(id) ?: return null
+        val renamed = existing.copy(label = trimmedLabel)
+        workLocationDao.upsert(WorkLocationEntity.fromModel(renamed))
+        logger.info(LogCategory.LOCATION, "Work location renamed", mapOf("id" to id, "label" to trimmedLabel))
+        return renamed
     }
 }

@@ -85,6 +85,7 @@ class HomeViewModel @Inject constructor(
             workLatitude = workEditor.latitude,
             workLongitude = workEditor.longitude,
             workRadiusMeters = workEditor.radiusMeters,
+            workLabel = workEditor.label,
             latestWorkLocationLabel = latestWork?.label.orEmpty(),
             statusMessage = status,
         )
@@ -216,13 +217,18 @@ class HomeViewModel @Inject constructor(
     private suspend fun resolveWorkTarget(replaceLatest: Boolean): WorkTarget {
         val workLocations = workLocationRepository.getWorkLocations()
         val latest = workLocations.firstOrNull()
+        val requestedLabel = workEditorState.value.label.trim()
         return if (replaceLatest && latest != null) {
-            WorkTarget(latest.id, latest.label)
+            WorkTarget(latest.id, requestedLabel.ifBlank { latest.label })
         } else {
             val index = workLocations.size + 1
+            val defaultLabel = if (workLocations.isEmpty()) WorkLocation.DEFAULT_LABEL else "Work site $index"
+            val label = requestedLabel
+                .takeUnless { it.isBlank() || (latest != null && it == latest.label) }
+                ?: defaultLabel
             WorkTarget(
                 id = if (workLocations.isEmpty()) WorkLocation.DEFAULT_ID else "work-${clock.millis()}-$index",
-                label = if (workLocations.isEmpty()) WorkLocation.DEFAULT_LABEL else "Work site $index",
+                label = label,
             )
         }
     }
@@ -240,6 +246,7 @@ data class HomeUiState(
     val workLatitude: String = "",
     val workLongitude: String = "",
     val workRadiusMeters: String = WorkLocation.MINIMUM_RADIUS_METERS.toString(),
+    val workLabel: String = WorkLocation.DEFAULT_LABEL,
     val latestWorkLocationLabel: String = "",
     val statusMessage: String = "",
 )

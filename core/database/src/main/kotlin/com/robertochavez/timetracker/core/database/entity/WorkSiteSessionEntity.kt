@@ -13,6 +13,7 @@ import java.time.Instant
 data class WorkSiteSessionEntity(
     @PrimaryKey val id: String,
     val workLocationId: String,
+    val workLocationLabelSnapshot: String,
     val startEpochMillis: Long,
     val endEpochMillis: Long?,
 ) {
@@ -21,12 +22,14 @@ data class WorkSiteSessionEntity(
         workLocationId = workLocationId,
         start = Instant.ofEpochMilli(startEpochMillis),
         end = endEpochMillis?.let(Instant::ofEpochMilli),
+        workLocationLabelSnapshot = workLocationLabelSnapshot,
     )
 
     companion object {
         fun fromModel(session: WorkSiteSession): WorkSiteSessionEntity = WorkSiteSessionEntity(
             id = session.id,
             workLocationId = session.workLocationId,
+            workLocationLabelSnapshot = session.workLocationLabelSnapshot,
             startEpochMillis = session.start.toEpochMilli(),
             endEpochMillis = session.end?.toEpochMilli(),
         )
