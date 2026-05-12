@@ -209,7 +209,7 @@ class DebugStateEndpointServer @Inject constructor(
     private fun Map<String, String>.longValue(name: String, defaultValue: Long): Long = this[name]?.toLongOrNull() ?: defaultValue
 
     companion object {
-        const val DEFAULT_PORT = 4948
+        const val DEFAULT_PORT = 4958
         const val STATE_PATH = "/testing/state"
         const val SEED_JOBSITE_DRIVE_PATH = "/testing/seed-jobsite-drive"
         const val PREPARE_MOCK_DRIVE_PATH = "/testing/prepare-mock-drive"

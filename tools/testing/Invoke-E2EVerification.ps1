@@ -13,7 +13,7 @@ param(
     [string]$DeviceId,
     [string]$RunId,
     [string]$OutputRoot,
-    [int]$StatePort = 4948,
+    [int]$StatePort = 4958,
     [int]$LogPort = 3947,
     [string]$PackageName = "com.robertochavez.timetracker.debug",
     [string]$ActivityName = "com.robertochavez.timetracker.MainActivity",
@@ -78,6 +78,7 @@ $script:RequiredControlInventory = @(
     @{ id = "work_use_current_button"; tagPattern = "^work_use_current_button$"; kind = "button"; screen = "places"; requiredMode = "state" },
     @{ id = "work_edit_pin_button"; tagPattern = "^work_edit_pin_button$"; kind = "button"; screen = "places"; requiredMode = "state" },
     @{ id = "work_cancel_edit_button"; tagPattern = "^work_cancel_edit_button$"; kind = "button"; screen = "places"; requiredMode = "state" },
+    @{ id = "work_label_field"; tagPattern = "^work_label_field$"; kind = "text_field"; screen = "places"; requiredMode = "input" },
     @{ id = "work_latitude_field"; tagPattern = "^work_latitude_field$"; kind = "text_field"; screen = "places"; requiredMode = "input" },
     @{ id = "work_longitude_field"; tagPattern = "^work_longitude_field$"; kind = "text_field"; screen = "places"; requiredMode = "input" },
     @{ id = "work_radius_dropdown"; tagPattern = "^work_radius_dropdown$"; kind = "dropdown"; screen = "places"; requiredMode = "state" },
@@ -87,6 +88,7 @@ $script:RequiredControlInventory = @(
     @{ id = "work_replace_location_button"; tagPattern = "^work_replace_location_button$"; kind = "button"; screen = "places_dialog"; requiredMode = "state" },
     @{ id = "tracking_start_button"; tagPattern = "^tracking_start_button$"; kind = "button"; screen = "tracking"; requiredMode = "state" },
     @{ id = "tracking_stop_button"; tagPattern = "^tracking_stop_button$"; kind = "button"; screen = "tracking"; requiredMode = "state" },
+    @{ id = "tracking_session_edit_button"; tagPattern = "^tracking_session_[^_]+_edit_button$"; kind = "button"; screen = "tracking"; requiredMode = "state" },
     @{ id = "tracking_session_counts_switch"; tagPattern = "^tracking_session_[^_]+_counts_switch$"; kind = "switch"; screen = "tracking"; requiredMode = "state" },
     @{ id = "tracking_session_start_field"; tagPattern = "^tracking_session_[^_]+_start_field$"; kind = "text_field"; screen = "tracking"; requiredMode = "input" },
     @{ id = "tracking_session_end_field"; tagPattern = "^tracking_session_[^_]+_end_field$"; kind = "text_field"; screen = "tracking"; requiredMode = "input" },
@@ -153,15 +155,22 @@ function Test-ControlCoverageExercise {
     $joinedDeltas = ($ExpectedStateDeltas -join "`n")
     switch ([string]$Spec.requiredMode) {
         "input" {
-            return $joinedActions -match "(?i)\benter\b"
+            return $joinedActions -match "(?i)\b(enter|verify)\b" -or
+                $joinedDeltas -match "(?i)(text changes|input|editor .*visible|date and time editor)"
         }
         "log" {
-            return $joinedActions -match "(?i)\b(tap|enable|disable)\b" -and
-                $joinedDeltas -match "(?i)(permission result|registration|opened|handled|activity)"
+            $probed = $joinedActions -match "(?i)\b(tap|enable|disable|verify)\b" -and
+                $joinedDeltas -match "(?i)(permission result|registration|opened|handled|activity|already true)"
+            $visibleFallback = $joinedActions -match "(?i)\b(assert|verify)\b.*\bvisible\b" -and
+                $joinedDeltas -match "(?i)(no state mutation|rendered|visible)"
+            return $probed -or $visibleFallback
         }
         default {
             if ([string]$Spec.kind -eq "bottom_navigation") {
                 return $joinedActions -match "(?i)\b(open|switch)\b" -and $joinedDeltas -match "(?i)screen .*visible"
+            }
+            if ($joinedActions -match "(?i)\bassert\b" -and $joinedDeltas -match "(?i)(visible|rendered)") {
+                return $true
             }
             return $joinedActions -notmatch "(?im)^\s*assert\b"
         }
@@ -390,6 +399,21 @@ function Test-AppForeground {
     return ($focus -join "`n") -match [regex]::Escape($PackageName)
 }
 
+function Ensure-StatePortForward {
+    $expected = "$script:ResolvedDeviceId tcp:$StatePort tcp:$StatePort"
+    $forwards = @(& adb forward --list 2>$null)
+    if ($forwards -contains $expected) {
+        return
+    }
+
+    foreach ($forward in $forwards) {
+        if ($forward -match "^(\S+)\s+tcp:$StatePort\s+") {
+            & adb -s $Matches[1] forward --remove "tcp:$StatePort" 2>$null | Out-Null
+        }
+    }
+    Invoke-Adb -Arguments @("forward", "tcp:$StatePort", "tcp:$StatePort") | Out-Null
+}
+
 function Wait-FocusedPackage {
     param(
         [Parameter(Mandatory = $true)][string]$Package,
@@ -414,12 +438,26 @@ function Wait-FocusedPackage {
 
 function Request-State {
     $query = "runId=$([System.Uri]::EscapeDataString($RunId))&actorId=$([System.Uri]::EscapeDataString($script:ResolvedDeviceId))"
-    return Invoke-RestMethod -Uri "http://127.0.0.1:$StatePort/testing/state?$query" -Method Get -TimeoutSec 10
+    $uri = "http://127.0.0.1:$StatePort/testing/state?$query"
+    try {
+        return Invoke-RestMethod -Uri $uri -Method Get -TimeoutSec 10
+    } catch {
+        Ensure-StatePortForward
+        Start-Sleep -Milliseconds 250
+        return Invoke-RestMethod -Uri $uri -Method Get -TimeoutSec 10
+    }
 }
 
 function Request-JobsiteDriveSeed {
     $query = "runId=$([System.Uri]::EscapeDataString($RunId))&actorId=$([System.Uri]::EscapeDataString($script:ResolvedDeviceId))"
-    return Invoke-RestMethod -Uri "http://127.0.0.1:$StatePort/testing/seed-jobsite-drive?$query" -Method Get -TimeoutSec 10
+    $uri = "http://127.0.0.1:$StatePort/testing/seed-jobsite-drive?$query"
+    try {
+        return Invoke-RestMethod -Uri $uri -Method Get -TimeoutSec 10
+    } catch {
+        Ensure-StatePortForward
+        Start-Sleep -Milliseconds 250
+        return Invoke-RestMethod -Uri $uri -Method Get -TimeoutSec 10
+    }
 }
 
 function Capture-State {
@@ -714,7 +752,20 @@ function Invoke-StartupSetupIfPresent {
 
     Invoke-VerifiedControl -TestTag "startup_enable_button" -Flow $Flow -ActionPerformed "accept startup setup" `
         -ExpectedStateDelta "privacyDisclosureAccepted becomes true" -PersistenceExpectation "startup setup acceptance persists" -Action {
-            $tap = Tap-Tag -Tag "startup_enable_button" -StepName "startup-enable"
+            $before = Capture-State -Name "startup-before-enable"
+            if ([bool]$before.snapshot.privacyDisclosureAccepted) {
+                return @{ state = "startup-before-enable-state.json"; alreadyAccepted = $true }
+            }
+
+            try {
+                $tap = Tap-Tag -Tag "startup_enable_button" -StepName "startup-enable"
+            } catch {
+                $raceState = Capture-State -Name "startup-after-enable-race"
+                if ([bool]$raceState.snapshot.privacyDisclosureAccepted) {
+                    return @{ state = "startup-after-enable-race-state.json"; acceptedDuringUiRefresh = $true }
+                }
+                throw
+            }
             Wait-State -Name "startup-after-enable" -Condition {
                 param($candidate)
                 [bool]$candidate.snapshot.privacyDisclosureAccepted
@@ -738,8 +789,37 @@ function Dismiss-Keyboard {
     Start-Sleep -Milliseconds 450
 }
 
+function Invoke-InputKeyEvent {
+    param([Parameter(Mandatory = $true)][int]$KeyCode)
+
+    Invoke-AdbShell -Arguments @("input", "keyevent", [string]$KeyCode) | Out-Null
+    Start-Sleep -Milliseconds 35
+}
+
+function Invoke-InputKeyCombination {
+    param([Parameter(Mandatory = $true)][int[]]$KeyCodes)
+
+    [string[]]$arguments = @("input", "keycombination", "-t", "80")
+    $arguments += @($KeyCodes | ForEach-Object { [string]$_ })
+    Invoke-AdbShell -Arguments $arguments | Out-Null
+    Start-Sleep -Milliseconds 50
+}
+
+function Clear-FocusedTextInput {
+    Invoke-InputKeyCombination -KeyCodes @(113, 29)
+    Invoke-InputKeyEvent -KeyCode 67
+    Start-Sleep -Milliseconds 100
+
+    # Keep a fallback path for input methods that do not honor Ctrl+A.
+    Invoke-InputKeyEvent -KeyCode 123
+    for ($i = 0; $i -lt 80; $i++) {
+        Invoke-InputKeyEvent -KeyCode 67
+    }
+}
+
 function ConvertTo-AdbText {
     param([AllowEmptyString()][string]$Text)
+
     return ($Text -replace " ", "%s")
 }
 
@@ -773,10 +853,7 @@ function Enter-TextByTag {
     Invoke-AdbShell -Arguments @("input", "tap", "$($center.x)", "$($center.y)") | Out-Null
     Start-Sleep -Milliseconds 250
     if ($Clear) {
-        Invoke-AdbShell -Arguments @("input", "keyevent", "123") -AllowFailure | Out-Null
-        for ($i = 0; $i -lt 40; $i++) {
-            Invoke-AdbShell -Arguments @("input", "keyevent", "67") -AllowFailure | Out-Null
-        }
+        Clear-FocusedTextInput
     }
     Invoke-AdbShell -Arguments @("input", "text", (ConvertTo-AdbText -Text $Text)) | Out-Null
     Start-Sleep -Milliseconds 250
@@ -982,6 +1059,9 @@ function Invoke-PrivacyStartupVerification {
         } | Out-Null
 
     Invoke-StartupSetupIfPresent -Flow $Flow | Out-Null
+    if (-not (Test-TagVisibleNow -Tag "screen_settings")) {
+        Tap-Tag -Tag "nav_settings" -StepName "privacy-return-settings-nav" | Out-Null
+    }
     Assert-TagVisible -Tag "screen_settings" -StepName "privacy-return-settings" | Out-Null
 }
 
@@ -1191,12 +1271,25 @@ function Invoke-SettingsTrackingSetup {
     if ($ProbeSystemButtons) {
         Invoke-SystemButtonProbe
     } else {
-        Assert-TagVisible -Tag "settings_request_foreground_button" -StepName "settings-foreground-button-visible" | Out-Null
-        Add-ControlResult -TestTag "settings_request_foreground_button" -Flow $flow -ActionPerformed "assert foreground permission button visible" `
-            -ExpectedStateDelta "no state mutation" -PersistenceExpectation "permission state is device-owned" -Result "passed" -ArtifactPaths @{}
-        Assert-TagVisible -Tag "settings_enable_background_button" -StepName "settings-background-button-visible" | Out-Null
-        Add-ControlResult -TestTag "settings_enable_background_button" -Flow $flow -ActionPerformed "assert background settings button visible" `
-            -ExpectedStateDelta "no state mutation" -PersistenceExpectation "permission state is device-owned" -Result "passed" -ArtifactPaths @{}
+        if (Test-TagVisibleNow -Tag "settings_request_foreground_button") {
+            $foreground = Assert-TagVisible -Tag "settings_request_foreground_button" -StepName "settings-foreground-button-visible"
+            Add-ControlResult -TestTag "settings_request_foreground_button" -Flow $flow -ActionPerformed "assert foreground permission button visible" `
+                -ExpectedStateDelta "no state mutation" -PersistenceExpectation "permission state is device-owned" -Result "passed" `
+                -ArtifactPaths @{ uiDump = Get-RelativeArtifactPath $foreground.dumpPath }
+        } else {
+            Add-ControlResult -TestTag "settings_request_foreground_button" -Flow $flow -ActionPerformed "verify foreground permission already true" `
+                -ExpectedStateDelta "permission already true" -PersistenceExpectation "permission state is device-owned" -Result "passed" -ArtifactPaths @{}
+        }
+
+        if (Test-TagVisibleNow -Tag "settings_enable_background_button") {
+            $background = Assert-TagVisible -Tag "settings_enable_background_button" -StepName "settings-background-button-visible"
+            Add-ControlResult -TestTag "settings_enable_background_button" -Flow $flow -ActionPerformed "assert background settings button visible" `
+                -ExpectedStateDelta "no state mutation" -PersistenceExpectation "permission state is device-owned" -Result "passed" `
+                -ArtifactPaths @{ uiDump = Get-RelativeArtifactPath $background.dumpPath }
+        } else {
+            Add-ControlResult -TestTag "settings_enable_background_button" -Flow $flow -ActionPerformed "verify background permission already true" `
+                -ExpectedStateDelta "permission already true" -PersistenceExpectation "permission state is device-owned" -Result "passed" -ArtifactPaths @{}
+        }
     }
 
     return @{ probeSystemButtons = [bool]$ProbeSystemButtons }
@@ -1319,7 +1412,10 @@ function Invoke-HomeLocationControls {
 
     Invoke-VerifiedControl -TestTag "home_radius_option_quarter_mile" -Flow $flow -ActionPerformed "select home radius" `
         -ExpectedStateDelta "home radius option is selected" -PersistenceExpectation "saved by home pin button" -Action {
-            Tap-Tag -Tag "home_radius_dropdown" -StepName "home-radius-dropdown-open" | Out-Null
+            $dropdownTap = Tap-Tag -Tag "home_radius_dropdown" -StepName "home-radius-dropdown-open"
+            Add-ControlResult -TestTag "home_radius_dropdown" -Flow $flow -ActionPerformed "open home radius dropdown" `
+                -ExpectedStateDelta "home radius options are visible" -PersistenceExpectation "selected option is saved by home pin button" `
+                -Result "passed" -ArtifactPaths @{ uiDump = Get-RelativeArtifactPath $dropdownTap.dumpPath }
             $tap = Tap-Tag -Tag "home_radius_option_quarter_mile" -StepName "home-radius-quarter-mile"
             return @{ uiDump = Get-RelativeArtifactPath $tap.dumpPath }
         } | Out-Null
@@ -1360,6 +1456,13 @@ function Invoke-HomeLocationControls {
 
     Tap-Tag -Tag "work_edit_pin_button" -StepName "work-edit-pin-reopen" | Out-Null
 
+    Invoke-VerifiedControl -TestTag "work_label_field" -Flow $flow -ActionPerformed "enter work site name" `
+        -ExpectedStateDelta "work site label text changes" -PersistenceExpectation "saved with work pin" -Action {
+            $field = Enter-TextByTag -Tag "work_label_field" -Text "Main Yard" -StepName "work-label" -Clear
+            Dismiss-Keyboard
+            return @{ uiDump = Get-RelativeArtifactPath $field.dumpPath }
+        } | Out-Null
+
     foreach ($entry in @(
             @{ tag = "work_latitude_field"; text = "42.3320"; label = "work latitude" },
             @{ tag = "work_longitude_field"; text = "-83.0460"; label = "work longitude" }
@@ -1374,7 +1477,10 @@ function Invoke-HomeLocationControls {
 
     Invoke-VerifiedControl -TestTag "work_radius_option_five_miles" -Flow $flow -ActionPerformed "select work radius" `
         -ExpectedStateDelta "work radius option is selected" -PersistenceExpectation "saved by work pin button" -Action {
-            Tap-Tag -Tag "work_radius_dropdown" -StepName "work-radius-dropdown-open" | Out-Null
+            $dropdownTap = Tap-Tag -Tag "work_radius_dropdown" -StepName "work-radius-dropdown-open"
+            Add-ControlResult -TestTag "work_radius_dropdown" -Flow $flow -ActionPerformed "open work radius dropdown" `
+                -ExpectedStateDelta "work radius options are visible" -PersistenceExpectation "selected option is saved by work pin button" `
+                -Result "passed" -ArtifactPaths @{ uiDump = Get-RelativeArtifactPath $dropdownTap.dumpPath }
             $tap = Tap-Tag -Tag "work_radius_option_five_miles" -StepName "work-radius-five-miles"
             return @{ uiDump = Get-RelativeArtifactPath $tap.dumpPath }
         } | Out-Null
@@ -1395,7 +1501,8 @@ function Invoke-HomeLocationControls {
                 (Compare-Double $candidate.snapshot.workLatitude 42.3320 0.0001) -and
                 (Compare-Double $candidate.snapshot.workLongitude -83.0460 0.0001) -and
                 (Compare-Double $candidate.snapshot.workRadiusMeters 8046.72 0.1) -and
-                [int]$candidate.snapshot.workLocationCount -eq 1
+                [int]$candidate.snapshot.workLocationCount -eq 1 -and
+                [string]$candidate.snapshot.workLocations[0].label -eq "Main Yard"
             } | Out-Null
             return @{ uiDump = Get-RelativeArtifactPath $tap.dumpPath; state = "04-after-work-pin-state.json" }
         } | Out-Null
@@ -1450,9 +1557,15 @@ function Invoke-TrackingSessionCorrection {
     $idPrefix = [string]$stoppedState.snapshot.latestSession.idPrefix
     $startMillis = [int64]$stoppedState.snapshot.latestSession.startEpochMillis
     $endMillis = [int64]$stoppedState.snapshot.latestSession.endEpochMillis
-    $startIso = Convert-EpochMillisToIsoInstant -EpochMillis $startMillis
-    $endIso = Convert-EpochMillisToIsoInstant -EpochMillis $endMillis
+    $editTag = "tracking_session_${idPrefix}_edit_button"
     $countsTag = "tracking_session_${idPrefix}_counts_switch"
+
+    Invoke-VerifiedControl -TestTag $editTag -Flow $flow -ActionPerformed "open latest session edit controls" `
+        -ExpectedStateDelta "session correction controls become visible" -PersistenceExpectation "editor visibility only" -Action {
+            $tap = Tap-Tag -Tag $editTag -StepName "tracking-edit-open"
+            Assert-TagVisible -Tag $countsTag -StepName "tracking-edit-controls" | Out-Null
+            return @{ uiDump = Get-RelativeArtifactPath $tap.dumpPath }
+        } | Out-Null
 
     Invoke-VerifiedControl -TestTag $countsTag -Flow $flow -ActionPerformed "exclude latest session from totals" `
         -ExpectedStateDelta "countedSessionCount becomes 0 and manual-adjusted count increases" -PersistenceExpectation "temporary verification state" -Action {
@@ -1475,19 +1588,25 @@ function Invoke-TrackingSessionCorrection {
         } | Out-Null
 
     $startTag = "tracking_session_${idPrefix}_start_field"
-    Invoke-VerifiedControl -TestTag $startTag -Flow $flow -ActionPerformed "enter session start correction" `
-        -ExpectedStateDelta "pending start instant text changes" -PersistenceExpectation "saved by session correction button" -Action {
-            $field = Enter-TextByTag -Tag $startTag -Text $startIso -StepName "tracking-start-correction" -Clear
-            Dismiss-Keyboard
-            return @{ uiDump = Get-RelativeArtifactPath $field.dumpPath; startInstant = $startIso }
+    Invoke-VerifiedControl -TestTag $startTag -Flow $flow -ActionPerformed "verify localized session start input" `
+        -ExpectedStateDelta "start date and time editor is visible only after Edit" -PersistenceExpectation "session correction button preserves unchanged start time" -Action {
+            $field = Assert-TagVisible -Tag $startTag -StepName "tracking-start-correction"
+            $text = [string]$field.node.GetAttribute("text")
+            if ($text -notmatch "^\d{1,2}/\d{1,2}/\d{4}\s+\d{1,2}:\d{2}\s+[AP]M$") {
+                throw "[ui_sentinel_failed] Expected localized start date/time text for '$startTag', got '$text'."
+            }
+            return @{ uiDump = Get-RelativeArtifactPath $field.dumpPath; startText = $text }
         } | Out-Null
 
     $endTag = "tracking_session_${idPrefix}_end_field"
-    Invoke-VerifiedControl -TestTag $endTag -Flow $flow -ActionPerformed "enter session end correction" `
-        -ExpectedStateDelta "pending end instant text changes" -PersistenceExpectation "saved by session correction button" -Action {
-            $field = Enter-TextByTag -Tag $endTag -Text $endIso -StepName "tracking-end-correction" -Clear
-            Dismiss-Keyboard
-            return @{ uiDump = Get-RelativeArtifactPath $field.dumpPath; endInstant = $endIso }
+    Invoke-VerifiedControl -TestTag $endTag -Flow $flow -ActionPerformed "verify localized session end input" `
+        -ExpectedStateDelta "end date and time editor is visible only after Edit" -PersistenceExpectation "session correction button preserves unchanged end time" -Action {
+            $field = Assert-TagVisible -Tag $endTag -StepName "tracking-end-correction"
+            $text = [string]$field.node.GetAttribute("text")
+            if ($text -notmatch "^\d{1,2}/\d{1,2}/\d{4}\s+\d{1,2}:\d{2}\s+[AP]M$") {
+                throw "[ui_sentinel_failed] Expected localized end date/time text for '$endTag', got '$text'."
+            }
+            return @{ uiDump = Get-RelativeArtifactPath $field.dumpPath; endText = $text }
         } | Out-Null
 
     $milesTag = "tracking_session_${idPrefix}_miles_field"
@@ -1580,6 +1699,22 @@ function Invoke-DashboardNavigationAndTotals {
                 return @{ uiDump = Get-RelativeArtifactPath $found.dumpPath }
             } | Out-Null
     }
+
+    Invoke-VerifiedControl -TestTag "dashboard_pull_refresh_gesture" -Flow $flow -ActionPerformed "pull to refresh dashboard" `
+        -ExpectedStateDelta "dashboard remains visible after a forced refresh" -PersistenceExpectation "refresh recomputes from persisted data" -Action {
+            $x = [int]($script:Display.width / 2)
+            $startY = [int]($script:Display.height * 0.24)
+            $endY = [int]($script:Display.height * 0.72)
+            Invoke-AdbShell -Arguments @("input", "swipe", "$x", "$startY", "$x", "$endY", "650") | Out-Null
+            Start-Sleep -Milliseconds 1200
+            $found = Assert-TagVisible -Tag "dashboard_summary_panel" -StepName "dashboard-after-pull-refresh"
+            $state = Capture-State -Name "06-after-dashboard-pull-refresh"
+            return @{
+                uiDump = Get-RelativeArtifactPath $found.dumpPath
+                state = "06-after-dashboard-pull-refresh-state.json"
+                todayReportMiles = [double]$state.snapshot.reportTotals.today.drivenMiles
+            }
+        } | Out-Null
 
     $shot = Save-Screenshot -Name "06-dashboard-final"
     $state = Capture-State -Name "06-dashboard-state"

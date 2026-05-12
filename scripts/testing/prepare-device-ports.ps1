@@ -1,6 +1,6 @@
 param(
     [string]$DeviceId,
-    [int]$StatePort = 4948,
+    [int]$StatePort = 4958,
     [int]$LogPort = 3947
 )
 
@@ -27,6 +27,24 @@ function Resolve-DeviceId {
 }
 
 $resolvedDeviceId = Resolve-DeviceId -RequestedDeviceId $DeviceId
+
+$existingStateForwards = @(& adb forward --list | Where-Object { $_ -match "\btcp:$StatePort\b" })
+foreach ($forward in $existingStateForwards) {
+    $serial = ($forward -split "\s+")[0]
+    if (-not [string]::IsNullOrWhiteSpace($serial)) {
+        & adb -s $serial forward --remove "tcp:$StatePort" 2>$null | Out-Null
+    }
+}
+
+$connectedDevices = @(& adb devices | Select-String -Pattern "^\S+\s+device$" | ForEach-Object {
+        ($_.Line -split "\s+")[0]
+    })
+foreach ($device in $connectedDevices) {
+    $existingLogReverses = @(& adb -s $device reverse --list 2>$null | Where-Object { $_ -match "\btcp:$LogPort\b" })
+    foreach ($reverse in $existingLogReverses) {
+        & adb -s $device reverse --remove "tcp:$LogPort" 2>$null | Out-Null
+    }
+}
 
 & adb -s $resolvedDeviceId forward "tcp:$StatePort" "tcp:$StatePort" | Out-Null
 if ($LASTEXITCODE -ne 0) {

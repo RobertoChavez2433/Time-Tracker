@@ -1,7 +1,7 @@
 param(
     [string]$DeviceId,
     [string]$Package = "com.robertochavez.timetracker.debug",
-    [int]$StatePort = 4948,
+    [int]$StatePort = 4958,
     [ValidateSet("Endpoint", "Provider")]
     [string]$Mode = "Endpoint",
     [double]$StartLat = 42.64517,
