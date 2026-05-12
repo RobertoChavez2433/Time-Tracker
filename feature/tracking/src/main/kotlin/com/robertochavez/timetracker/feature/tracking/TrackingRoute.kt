@@ -16,9 +16,11 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.robertochavez.timetracker.core.designsystem.TimeTrackerMetricRow
 import com.robertochavez.timetracker.core.designsystem.TimeTrackerMutedText
 import com.robertochavez.timetracker.core.designsystem.TimeTrackerPanel
 import com.robertochavez.timetracker.core.designsystem.TimeTrackerPrimaryButton
+import com.robertochavez.timetracker.core.designsystem.TimeTrackerQuietButton
 import com.robertochavez.timetracker.core.designsystem.TimeTrackerScreen
 import com.robertochavez.timetracker.core.designsystem.TimeTrackerScreenTitle
 import com.robertochavez.timetracker.core.designsystem.TimeTrackerSecondaryButton
@@ -69,6 +71,8 @@ fun TrackingRoute(modifier: Modifier = Modifier, viewModel: TrackingViewModel = 
             SessionCard(
                 session = session,
                 actions = SessionActions(
+                    onEdit = { viewModel.editSession(session.id) },
+                    onCancelEdit = { viewModel.cancelEdit(session.id) },
                     onToggleCounts = { viewModel.setCountsTowardTotals(session.id, it) },
                     onStartChange = { viewModel.updateEditStart(session.id, it) },
                     onEndChange = { viewModel.updateEditEnd(session.id, it) },
@@ -81,6 +85,8 @@ fun TrackingRoute(modifier: Modifier = Modifier, viewModel: TrackingViewModel = 
 }
 
 private data class SessionActions(
+    val onEdit: () -> Unit,
+    val onCancelEdit: () -> Unit,
     val onToggleCounts: (Boolean) -> Unit,
     val onStartChange: (String) -> Unit,
     val onEndChange: (String) -> Unit,
@@ -94,47 +100,71 @@ private fun SessionCard(session: SessionUiModel, actions: SessionActions) {
     TimeTrackerPanel(modifier = Modifier.testTag(TimeTrackerTestTags.trackingSessionCard(idPrefix))) {
         Text(session.title, style = MaterialTheme.typography.titleMedium)
         TimeTrackerMutedText(session.subtitle)
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text("Counts toward totals")
-            Switch(
-                checked = session.countsTowardTotals,
-                onCheckedChange = actions.onToggleCounts,
-                modifier = Modifier.testTag(TimeTrackerTestTags.trackingSessionCountsSwitch(idPrefix)),
+        TimeTrackerMetricRow("Duration", session.duration)
+        TimeTrackerMetricRow("Miles", session.miles)
+        TimeTrackerMetricRow("Status", session.inclusionStatus)
+        TimeTrackerMutedText(session.classificationSummary)
+        if (session.isEditing) {
+            SessionEditControls(session = session, actions = actions, idPrefix = idPrefix)
+        } else {
+            TimeTrackerSecondaryButton(
+                text = "Edit",
+                onClick = actions.onEdit,
+                modifier = Modifier.testTag(TimeTrackerTestTags.trackingSessionEditButton(idPrefix)),
             )
         }
-        OutlinedTextField(
-            value = session.editStart,
-            onValueChange = actions.onStartChange,
-            label = { Text("Start ISO instant") },
-            singleLine = true,
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag(TimeTrackerTestTags.trackingSessionStartField(idPrefix)),
+    }
+}
+
+@Composable
+private fun SessionEditControls(session: SessionUiModel, actions: SessionActions, idPrefix: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("Include in dashboard")
+        Switch(
+            checked = session.countsTowardTotals,
+            onCheckedChange = actions.onToggleCounts,
+            modifier = Modifier.testTag(TimeTrackerTestTags.trackingSessionCountsSwitch(idPrefix)),
         )
-        OutlinedTextField(
-            value = session.editEnd,
-            onValueChange = actions.onEndChange,
-            label = { Text("End ISO instant") },
-            singleLine = true,
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag(TimeTrackerTestTags.trackingSessionEndField(idPrefix)),
-        )
-        OutlinedTextField(
-            value = session.editDrivenMiles,
-            onValueChange = actions.onMilesChange,
-            label = { Text("Miles driven") },
-            singleLine = true,
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag(TimeTrackerTestTags.trackingSessionMilesField(idPrefix)),
+    }
+    OutlinedTextField(
+        value = session.editStart,
+        onValueChange = actions.onStartChange,
+        label = { Text("Start date and time") },
+        singleLine = true,
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag(TimeTrackerTestTags.trackingSessionStartField(idPrefix)),
+    )
+    OutlinedTextField(
+        value = session.editEnd,
+        onValueChange = actions.onEndChange,
+        label = { Text("End date and time") },
+        singleLine = true,
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag(TimeTrackerTestTags.trackingSessionEndField(idPrefix)),
+    )
+    OutlinedTextField(
+        value = session.editDrivenMiles,
+        onValueChange = actions.onMilesChange,
+        label = { Text("Miles") },
+        singleLine = true,
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag(TimeTrackerTestTags.trackingSessionMilesField(idPrefix)),
+    )
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        TimeTrackerQuietButton(
+            text = "Cancel",
+            onClick = actions.onCancelEdit,
+            modifier = Modifier.testTag(TimeTrackerTestTags.trackingSessionCancelEditButton(idPrefix)),
         )
         TimeTrackerSecondaryButton(
-            text = "Save Manual Correction",
+            text = "Save",
             onClick = actions.onSaveWindow,
             modifier = Modifier.testTag(TimeTrackerTestTags.trackingSessionSaveButton(idPrefix)),
         )
