@@ -71,6 +71,7 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
         when (transition) {
             Geofence.GEOFENCE_TRANSITION_EXIT -> {
                 logger.info(LogCategory.LOCATION, "Home geofence exit received")
+                workPresenceRepository.setAtWork(atWork = false, updatedAt = at)
                 val started = trackingSessionController.startAwaySessionIfTrackable(at)
                 if (started != null) {
                     driveMileageTracker.clearBaseline()
@@ -80,6 +81,7 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
             Geofence.GEOFENCE_TRANSITION_DWELL,
             -> {
                 logger.info(LogCategory.LOCATION, "Home geofence enter or dwell received")
+                workPresenceRepository.setAtWork(atWork = false, updatedAt = at)
                 trackingSessionController.stopActiveAwaySession(at)
                 driveMileageTracker.stopTracking()
                 workSiteSessionRepository.stopActiveWorkSiteSession(at = at)

@@ -1,6 +1,7 @@
 package com.robertochavez.timetracker.core.database
 
 import com.robertochavez.timetracker.core.common.model.TrackingSessionController
+import com.robertochavez.timetracker.core.common.repository.AwaySessionPresenceRepository
 import com.robertochavez.timetracker.core.common.repository.HomeLocationRepository
 import com.robertochavez.timetracker.core.common.repository.PayPeriodSettingsRepository
 import com.robertochavez.timetracker.core.common.repository.TrackingRepository
@@ -8,6 +9,7 @@ import com.robertochavez.timetracker.core.common.repository.WorkLocationReposito
 import com.robertochavez.timetracker.core.common.repository.WorkPresenceRepository
 import com.robertochavez.timetracker.core.common.repository.WorkScheduleRepository
 import com.robertochavez.timetracker.core.common.repository.WorkSiteSessionRepository
+import com.robertochavez.timetracker.core.database.repository.RoomAwaySessionPresenceRepository
 import com.robertochavez.timetracker.core.database.repository.RoomHomeLocationRepository
 import com.robertochavez.timetracker.core.database.repository.RoomPayPeriodSettingsRepository
 import com.robertochavez.timetracker.core.database.repository.RoomTrackingRepository
@@ -55,4 +57,8 @@ abstract class TrackingBindings {
     @Binds
     @Singleton
     abstract fun bindTrackingSessionController(repository: RoomTrackingRepository): TrackingSessionController
+
+    @Binds
+    @Singleton
+    abstract fun bindAwaySessionPresenceRepository(repository: RoomAwaySessionPresenceRepository): AwaySessionPresenceRepository
 }
