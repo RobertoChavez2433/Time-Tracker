@@ -3,10 +3,12 @@ package com.robertochavez.timetracker.feature.reports
 import com.robertochavez.timetracker.core.common.model.ActivityInterval
 import com.robertochavez.timetracker.core.common.model.AwaySession
 import com.robertochavez.timetracker.core.common.model.DailyReport
+import com.robertochavez.timetracker.core.common.model.DriveMovementObservation
 import com.robertochavez.timetracker.core.common.model.PayPeriodSettings
 import com.robertochavez.timetracker.core.common.model.PeriodReport
 import com.robertochavez.timetracker.core.common.model.WorkSchedule
 import com.robertochavez.timetracker.core.common.model.WorkSiteSession
+import com.robertochavez.timetracker.core.common.util.coerceNonNegative
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
@@ -25,9 +27,16 @@ data class ReportsUiState(
 internal data class ReportInputs(
     val sessions: List<AwaySession>,
     val intervals: List<ActivityInterval>,
+    val movementObservations: List<DriveMovementObservation>,
     val workSiteSessions: List<WorkSiteSession>,
     val schedule: WorkSchedule,
     val payPeriod: PayPeriodSettings,
+)
+
+internal data class TrackingReportInputs(
+    val sessions: List<AwaySession>,
+    val intervals: List<ActivityInterval>,
+    val movementObservations: List<DriveMovementObservation>,
 )
 
 data class DashboardSummaryUiModel(val title: String, val home: String, val work: String, val drive: String, val miles: String)
@@ -91,7 +100,7 @@ internal fun PeriodReport.toWeeklyLedger(today: LocalDate, schedule: WorkSchedul
             work = report.totalAway.formatLedgerValue(hasData),
             drive = report.drive.formatLedgerValue(hasData),
             site = report.site.formatLedgerValue(hasData),
-            idle = displayIdleDuration(report.totalAway, report.drive, report.site).formatLedgerValue(hasData),
+            idle = report.idle.formatLedgerValue(hasData),
             miles = report.drivenMiles.formatLedgerMiles(hasData),
             isToday = report.date == today,
         )
@@ -107,7 +116,7 @@ internal fun PeriodReport.toWeeklyLedger(today: LocalDate, schedule: WorkSchedul
             work = totalAway.formatHours(),
             drive = drive.formatHours(),
             site = site.formatHours(),
-            idle = displayIdleDuration(totalAway, drive, site).formatHours(),
+            idle = idle.formatHours(),
             miles = drivenMiles.formatWholeMiles(),
         ),
     )
@@ -131,13 +140,6 @@ private fun DailyReport.homeDuration(now: Instant, zoneId: ZoneId): Duration {
 }
 
 private fun DailyReport.hasDashboardData(): Boolean = !totalAway.isZero || drivenMiles > 0.0
-
-private fun Duration.coerceNonNegative(): Duration = if (isNegative) Duration.ZERO else this
-
-private fun displayIdleDuration(work: Duration, drive: Duration, site: Duration): Duration {
-    val visibleIdleMinutes = work.toMinutes() - drive.toMinutes() - site.toMinutes()
-    return Duration.ofMinutes(visibleIdleMinutes.coerceAtLeast(0))
-}
 
 private fun Duration.formatHours(): String {
     val totalMinutes = toMinutes()

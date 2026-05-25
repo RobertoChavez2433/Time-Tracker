@@ -36,14 +36,27 @@ class ReportsViewModel @Inject constructor(
 ) : ViewModel() {
     private val refreshTicks = MutableStateFlow(0L)
     private val refreshing = MutableStateFlow(false)
-    private val reportInputs: Flow<ReportInputs> = combine(
+    private val trackingInputs: Flow<TrackingReportInputs> = combine(
         trackingRepository.observeSessions(),
         trackingRepository.observeActivityIntervals(),
+        trackingRepository.observeDriveMovementObservations(),
+    ) { sessions, intervals, movementObservations ->
+        TrackingReportInputs(sessions, intervals, movementObservations)
+    }
+    private val reportInputs: Flow<ReportInputs> = combine(
+        trackingInputs,
         workSiteSessionRepository.observeWorkSiteSessions(),
         workScheduleRepository.observeWorkSchedule(),
         payPeriodSettingsRepository.observeSettings(),
-    ) { sessions, intervals, workSiteSessions, schedule, payPeriod ->
-        ReportInputs(sessions, intervals, workSiteSessions, schedule, payPeriod)
+    ) { tracking, workSiteSessions, schedule, payPeriod ->
+        ReportInputs(
+            sessions = tracking.sessions,
+            intervals = tracking.intervals,
+            movementObservations = tracking.movementObservations,
+            workSiteSessions = workSiteSessions,
+            schedule = schedule,
+            payPeriod = payPeriod,
+        )
     }
 
     val uiState: StateFlow<ReportsUiState> = combine(
@@ -54,9 +67,16 @@ class ReportsViewModel @Inject constructor(
         val today = LocalDate.now(clock)
         val now = Instant.now(clock)
         val calculator = ReportCalculator(clock.zone, inputs.schedule, inputs.payPeriod)
-        val daily = calculator.daily(today, inputs.sessions, inputs.intervals, now, inputs.workSiteSessions)
-        val weekly = calculator.weekly(today, inputs.sessions, inputs.intervals, now, inputs.workSiteSessions)
-        val biweekly = calculator.biweekly(today, inputs.sessions, inputs.intervals, now, inputs.workSiteSessions)
+        val daily = calculator.daily(today, inputs.sessions, inputs.intervals, now, inputs.workSiteSessions, inputs.movementObservations)
+        val weekly = calculator.weekly(today, inputs.sessions, inputs.intervals, now, inputs.workSiteSessions, inputs.movementObservations)
+        val biweekly = calculator.biweekly(
+            today,
+            inputs.sessions,
+            inputs.intervals,
+            now,
+            inputs.workSiteSessions,
+            inputs.movementObservations,
+        )
         logger.info(
             LogCategory.REPORTS,
             "Reports recalculated",
@@ -64,6 +84,7 @@ class ReportsViewModel @Inject constructor(
                 "sessionCount" to inputs.sessions.size,
                 "activityIntervalCount" to inputs.intervals.size,
                 "workSiteSessionCount" to inputs.workSiteSessions.size,
+                "movementObservationCount" to inputs.movementObservations.size,
             ),
         )
         ReportsUiState(

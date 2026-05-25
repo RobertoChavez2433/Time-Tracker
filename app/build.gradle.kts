@@ -12,6 +12,25 @@ val e2eDebugEnabled =
         .map(String::toBoolean)
         .orElse(false)
 
+val compatibleDebugSigningEnabled =
+    providers
+        .gradleProperty("timeTracker.compatDebugSigning")
+        .map(String::toBoolean)
+        .orElse(false)
+
+val releaseSigningPropertiesFile = file("${System.getProperty("user.home")}/.android/time-tracker-release.properties")
+val releaseSigningProperties =
+    if (releaseSigningPropertiesFile.isFile) {
+        releaseSigningPropertiesFile
+            .readLines()
+            .map(String::trim)
+            .filter { it.isNotEmpty() && !it.startsWith("#") && "=" in it }
+            .associate { line -> line.substringBefore("=") to line.substringAfter("=") }
+    } else {
+        emptyMap()
+    }
+val hasReleaseSigningProperties = releaseSigningProperties.isNotEmpty()
+
 android {
     namespace = "com.robertochavez.timetracker"
     compileSdk = 36
@@ -20,8 +39,8 @@ android {
         applicationId = "com.robertochavez.timetracker"
         minSdk = 26
         targetSdk = 36
-        versionCode = 6
-        versionName = "0.2.4"
+        versionCode = 7
+        versionName = "0.2.5"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -30,12 +49,27 @@ android {
         compose = true
     }
 
+    signingConfigs {
+        if (hasReleaseSigningProperties) {
+            create("release") {
+                storeFile = file(requireNotNull(releaseSigningProperties["storeFile"]))
+                storePassword = requireNotNull(releaseSigningProperties["storePassword"])
+                keyAlias = requireNotNull(releaseSigningProperties["keyAlias"])
+                keyPassword = requireNotNull(releaseSigningProperties["keyPassword"])
+            }
+        }
+    }
+
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
             buildConfigField("boolean", "E2E_DEBUG_ENABLED", e2eDebugEnabled.get().toString())
         }
         release {
+            when {
+                compatibleDebugSigningEnabled.get() -> signingConfig = signingConfigs.getByName("debug")
+                hasReleaseSigningProperties -> signingConfig = signingConfigs.getByName("release")
+            }
             buildConfigField("boolean", "E2E_DEBUG_ENABLED", "false")
         }
     }

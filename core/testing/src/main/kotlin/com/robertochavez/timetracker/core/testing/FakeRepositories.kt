@@ -4,6 +4,8 @@ import com.robertochavez.timetracker.core.common.model.ActivityBucket
 import com.robertochavez.timetracker.core.common.model.ActivityInterval
 import com.robertochavez.timetracker.core.common.model.AppSettings
 import com.robertochavez.timetracker.core.common.model.AwaySession
+import com.robertochavez.timetracker.core.common.model.DriveMovementObservation
+import com.robertochavez.timetracker.core.common.model.DriveMovementObservationDraft
 import com.robertochavez.timetracker.core.common.model.HomeLocation
 import com.robertochavez.timetracker.core.common.model.PayPeriodSettings
 import com.robertochavez.timetracker.core.common.model.WorkLocation
@@ -19,6 +21,7 @@ import com.robertochavez.timetracker.core.common.repository.WorkLocationReposito
 import com.robertochavez.timetracker.core.common.repository.WorkPresenceRepository
 import com.robertochavez.timetracker.core.common.repository.WorkScheduleRepository
 import com.robertochavez.timetracker.core.common.repository.WorkSiteSessionRepository
+import com.robertochavez.timetracker.core.common.util.METERS_PER_MILE
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import java.time.Instant
@@ -117,18 +120,24 @@ class FakeWorkSiteSessionRepository(
     }
 }
 
-class FakeTrackingRepository(initialSessions: List<AwaySession> = emptyList(), initialIntervals: List<ActivityInterval> = emptyList()) :
-    TrackingRepository {
+class FakeTrackingRepository(
+    initialSessions: List<AwaySession> = emptyList(),
+    initialIntervals: List<ActivityInterval> = emptyList(),
+    initialMovementObservations: List<DriveMovementObservation> = emptyList(),
+) : TrackingRepository {
     val sessions = MutableStateFlow(initialSessions)
     val intervals = MutableStateFlow(initialIntervals)
+    val movementObservations = MutableStateFlow(initialMovementObservations)
     val manualStarts = mutableListOf<Instant>()
     val activeStops = mutableListOf<Instant>()
     val activityTransitions = mutableListOf<Pair<ActivityBucket, Instant>>()
-    val drivenDistanceUpdates = mutableListOf<Double>()
+    val driveMovementObservationUpdates = mutableListOf<DriveMovementObservationDraft>()
 
     override fun observeSessions(): Flow<List<AwaySession>> = sessions
 
     override fun observeActivityIntervals(): Flow<List<ActivityInterval>> = intervals
+
+    override fun observeDriveMovementObservations(): Flow<List<DriveMovementObservation>> = movementObservations
 
     override suspend fun startManualSession(at: Instant?): AwaySession {
         val start = requireNotNull(at) { "FakeTrackingRepository requires explicit start times." }
@@ -152,10 +161,21 @@ class FakeTrackingRepository(initialSessions: List<AwaySession> = emptyList(), i
         activityTransitions += bucket to at
     }
 
-    override suspend fun addDrivenDistanceToActiveSession(distanceMeters: Double, at: Instant): AwaySession? {
-        drivenDistanceUpdates += distanceMeters
+    override suspend fun recordDriveMovementObservation(observation: DriveMovementObservationDraft): AwaySession? {
+        driveMovementObservationUpdates += observation
         val active = sessions.value.firstOrNull { it.isActive } ?: return null
-        val updated = active.copy(drivenMiles = active.drivenMiles + distanceMeters / METERS_PER_MILE)
+        movementObservations.value = movementObservations.value + DriveMovementObservation(
+            id = "movement-${driveMovementObservationUpdates.size}",
+            sessionId = active.id,
+            start = observation.start,
+            end = observation.end,
+            distanceMeters = observation.distanceMeters,
+            countedDistanceMeters = observation.countedDistanceMeters,
+            speedMilesPerHour = observation.speedMilesPerHour,
+            vehicleLike = observation.vehicleLike,
+            atWork = observation.atWork,
+        )
+        val updated = active.copy(drivenMiles = active.drivenMiles + observation.countedDistanceMeters / METERS_PER_MILE)
         sessions.value = sessions.value.map { if (it.id == active.id) updated else it }
         return updated
     }
@@ -186,8 +206,6 @@ class FakeTrackingRepository(initialSessions: List<AwaySession> = emptyList(), i
         return updated
     }
 }
-
-private const val METERS_PER_MILE = 1_609.344
 
 class FakeWorkScheduleRepository(initialSchedule: WorkSchedule = WorkSchedule()) : WorkScheduleRepository {
     val schedule = MutableStateFlow(initialSchedule)

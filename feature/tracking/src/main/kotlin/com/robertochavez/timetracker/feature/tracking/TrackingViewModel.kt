@@ -6,6 +6,7 @@ import com.robertochavez.timetracker.core.common.model.ActivityBucket
 import com.robertochavez.timetracker.core.common.model.ActivityInterval
 import com.robertochavez.timetracker.core.common.model.AwaySession
 import com.robertochavez.timetracker.core.common.repository.TrackingRepository
+import com.robertochavez.timetracker.core.common.util.coerceNonNegative
 import com.robertochavez.timetracker.core.logging.AppLogger
 import com.robertochavez.timetracker.core.logging.LogCategory
 import com.robertochavez.timetracker.core.logging.info
@@ -205,7 +206,9 @@ private fun List<ActivityInterval>.classificationSummary(): String {
     val totals = groupBy({ it.bucket }, { Duration.between(it.start, it.end) })
         .mapValues { (_, durations) -> durations.fold(Duration.ZERO, Duration::plus) }
     val parts = listOf(
+        ActivityBucket.HOME to "Home",
         ActivityBucket.DRIVE to "Drive",
+        ActivityBucket.SITE to "Site",
         ActivityBucket.IDLE to "Idle",
         ActivityBucket.UNCLASSIFIED to "Other",
     ).mapNotNull { (bucket, label) ->
@@ -224,8 +227,6 @@ private fun parseInstant(value: String, zoneId: ZoneId): Result<Instant> = runCa
         LocalDateTime.parse(value, INPUT_FORMATTER).atZone(zoneId).toInstant()
     }
 }
-
-private fun Duration.coerceNonNegative(): Duration = if (isNegative) Duration.ZERO else this
 
 private fun Duration.formatDuration(): String {
     val totalMinutes = toMinutes()
