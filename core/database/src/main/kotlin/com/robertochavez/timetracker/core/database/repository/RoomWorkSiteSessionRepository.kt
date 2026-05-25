@@ -4,6 +4,7 @@ import androidx.room.withTransaction
 import com.robertochavez.timetracker.core.common.model.WorkLocation
 import com.robertochavez.timetracker.core.common.model.WorkSiteSession
 import com.robertochavez.timetracker.core.common.repository.WorkSiteSessionRepository
+import com.robertochavez.timetracker.core.common.util.safePrefix
 import com.robertochavez.timetracker.core.database.TimeTrackerDatabase
 import com.robertochavez.timetracker.core.database.dao.WorkLocationDao
 import com.robertochavez.timetracker.core.database.dao.WorkSiteSessionDao
@@ -70,5 +71,3 @@ class RoomWorkSiteSessionRepository @Inject constructor(
         stopped
     }
 }
-
-private fun String.safePrefix(): String = take(8)

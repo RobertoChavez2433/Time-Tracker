@@ -3,10 +3,13 @@ package com.robertochavez.timetracker.core.database
 import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import com.robertochavez.timetracker.core.common.model.ActivityBucket
+import com.robertochavez.timetracker.core.common.model.DriveMovementObservationDraft
 import com.robertochavez.timetracker.core.common.model.WorkSchedule
 import com.robertochavez.timetracker.core.database.entity.WorkScheduleEntity
 import com.robertochavez.timetracker.core.database.repository.RoomTrackingRepository
 import com.robertochavez.timetracker.core.logging.NoopAppLogger
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -36,6 +39,7 @@ class TrackingRepositoryTest {
             database = database,
             awaySessionDao = database.awaySessionDao(),
             activityIntervalDao = database.activityIntervalDao(),
+            driveMovementObservationDao = database.driveMovementObservationDao(),
             workScheduleDao = database.workScheduleDao(),
             clock = Clock.fixed(Instant.parse("2026-05-04T12:00:00Z"), ZoneId.of("America/New_York")),
             logger = NoopAppLogger(),
@@ -69,15 +73,37 @@ class TrackingRepositoryTest {
     }
 
     @Test
-    fun `adds driven distance to active away session miles`() = runTest {
+    fun `records drive movement observation and adds counted distance to active away session miles`() = runTest {
         val started = repository.startManualSession(Instant.parse("2026-05-04T12:00:00Z"))
 
-        val updated = repository.addDrivenDistanceToActiveSession(
-            distanceMeters = 1_609.344,
-            at = Instant.parse("2026-05-04T12:05:00Z"),
+        val updated = repository.recordDriveMovementObservation(
+            DriveMovementObservationDraft(
+                start = Instant.parse("2026-05-04T12:00:00Z"),
+                end = Instant.parse("2026-05-04T12:05:00Z"),
+                distanceMeters = 1_609.344,
+                countedDistanceMeters = 1_609.344,
+                speedMilesPerHour = 19.0,
+                vehicleLike = true,
+                atWork = false,
+            ),
         )
 
+        val observations = database.driveMovementObservationDao().observeObservations().first()
         assertEquals(started.id, updated?.id)
         assertEquals(1.0, updated?.drivenMiles ?: 0.0, 0.001)
+        assertEquals(1, observations.size)
+        assertEquals(started.id, observations.single().sessionId)
+    }
+
+    @Test
+    fun `observes open activity intervals using current clock as temporary end`() = runTest {
+        val started = repository.startManualSession(Instant.parse("2026-05-04T11:30:00Z"))
+        repository.recordActivityTransition(ActivityBucket.DRIVE, Instant.parse("2026-05-04T11:45:00Z"))
+
+        val interval = repository.observeActivityIntervals().first().single()
+
+        assertEquals(started.id, interval.sessionId)
+        assertEquals(ActivityBucket.DRIVE, interval.bucket)
+        assertEquals(Instant.parse("2026-05-04T12:00:00Z"), interval.end)
     }
 }

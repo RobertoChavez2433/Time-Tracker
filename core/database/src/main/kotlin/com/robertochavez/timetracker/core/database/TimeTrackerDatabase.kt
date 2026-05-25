@@ -4,6 +4,7 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import com.robertochavez.timetracker.core.database.dao.ActivityIntervalDao
 import com.robertochavez.timetracker.core.database.dao.AwaySessionDao
+import com.robertochavez.timetracker.core.database.dao.DriveMovementObservationDao
 import com.robertochavez.timetracker.core.database.dao.HomeLocationDao
 import com.robertochavez.timetracker.core.database.dao.PayPeriodSettingsDao
 import com.robertochavez.timetracker.core.database.dao.WorkLocationDao
@@ -12,6 +13,7 @@ import com.robertochavez.timetracker.core.database.dao.WorkScheduleDao
 import com.robertochavez.timetracker.core.database.dao.WorkSiteSessionDao
 import com.robertochavez.timetracker.core.database.entity.ActivityIntervalEntity
 import com.robertochavez.timetracker.core.database.entity.AwaySessionEntity
+import com.robertochavez.timetracker.core.database.entity.DriveMovementObservationEntity
 import com.robertochavez.timetracker.core.database.entity.HomeLocationEntity
 import com.robertochavez.timetracker.core.database.entity.PayPeriodSettingsEntity
 import com.robertochavez.timetracker.core.database.entity.WorkLocationEntity
@@ -29,8 +31,9 @@ import com.robertochavez.timetracker.core.database.entity.WorkSiteSessionEntity
         WorkLocationEntity::class,
         WorkPresenceEntity::class,
         WorkSiteSessionEntity::class,
+        DriveMovementObservationEntity::class,
     ],
-    version = 6,
+    version = 9,
     exportSchema = false,
 )
 abstract class TimeTrackerDatabase : RoomDatabase() {
@@ -45,6 +48,8 @@ abstract class TimeTrackerDatabase : RoomDatabase() {
     abstract fun awaySessionDao(): AwaySessionDao
 
     abstract fun activityIntervalDao(): ActivityIntervalDao
+
+    abstract fun driveMovementObservationDao(): DriveMovementObservationDao
 
     abstract fun workScheduleDao(): WorkScheduleDao
 

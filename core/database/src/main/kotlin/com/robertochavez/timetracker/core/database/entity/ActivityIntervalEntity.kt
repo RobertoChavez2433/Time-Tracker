@@ -27,14 +27,14 @@ data class ActivityIntervalEntity(
     val startEpochMillis: Long,
     val endEpochMillis: Long?,
 ) {
-    fun toModelOrNull(): ActivityInterval? {
-        val end = endEpochMillis ?: return null
+    fun toModelOrNull(openIntervalEnd: Instant? = null): ActivityInterval? {
+        val end = endEpochMillis?.let(Instant::ofEpochMilli) ?: openIntervalEnd ?: return null
         return ActivityInterval(
             id = id,
             sessionId = sessionId,
             bucket = bucket,
             start = Instant.ofEpochMilli(startEpochMillis),
-            end = Instant.ofEpochMilli(end),
+            end = end,
         )
     }
 

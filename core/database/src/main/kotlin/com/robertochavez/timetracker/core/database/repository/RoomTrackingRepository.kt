@@ -5,14 +5,20 @@ import com.robertochavez.timetracker.core.common.domain.ManualCorrectionService
 import com.robertochavez.timetracker.core.common.model.ActivityBucket
 import com.robertochavez.timetracker.core.common.model.ActivityInterval
 import com.robertochavez.timetracker.core.common.model.AwaySession
+import com.robertochavez.timetracker.core.common.model.DriveMovementObservation
+import com.robertochavez.timetracker.core.common.model.DriveMovementObservationDraft
 import com.robertochavez.timetracker.core.common.model.TrackingSessionController
 import com.robertochavez.timetracker.core.common.repository.TrackingRepository
+import com.robertochavez.timetracker.core.common.util.METERS_PER_MILE
+import com.robertochavez.timetracker.core.common.util.safePrefix
 import com.robertochavez.timetracker.core.database.TimeTrackerDatabase
 import com.robertochavez.timetracker.core.database.dao.ActivityIntervalDao
 import com.robertochavez.timetracker.core.database.dao.AwaySessionDao
+import com.robertochavez.timetracker.core.database.dao.DriveMovementObservationDao
 import com.robertochavez.timetracker.core.database.dao.WorkScheduleDao
 import com.robertochavez.timetracker.core.database.entity.ActivityIntervalEntity
 import com.robertochavez.timetracker.core.database.entity.AwaySessionEntity
+import com.robertochavez.timetracker.core.database.entity.DriveMovementObservationEntity
 import com.robertochavez.timetracker.core.database.entity.WorkScheduleEntity
 import com.robertochavez.timetracker.core.logging.AppLogger
 import com.robertochavez.timetracker.core.logging.LogCategory
@@ -30,6 +36,7 @@ class RoomTrackingRepository @Inject constructor(
     private val database: TimeTrackerDatabase,
     private val awaySessionDao: AwaySessionDao,
     private val activityIntervalDao: ActivityIntervalDao,
+    private val driveMovementObservationDao: DriveMovementObservationDao,
     private val workScheduleDao: WorkScheduleDao,
     private val clock: Clock,
     private val logger: AppLogger,
@@ -39,9 +46,16 @@ class RoomTrackingRepository @Inject constructor(
         .map { sessions -> sessions.map(AwaySessionEntity::toModel) }
 
     override fun observeActivityIntervals(): Flow<List<ActivityInterval>> = activityIntervalDao.observeIntervals()
-        .map { intervals -> intervals.mapNotNull(ActivityIntervalEntity::toModelOrNull) }
+        .map { intervals ->
+            val openIntervalEnd = Instant.now(clock)
+            intervals.mapNotNull { interval -> interval.toModelOrNull(openIntervalEnd) }
+        }
 
-    override suspend fun startManualSession(at: Instant?): AwaySession = createSession(at ?: Instant.now(clock))
+    override fun observeDriveMovementObservations(): Flow<List<DriveMovementObservation>> =
+        driveMovementObservationDao.observeObservations()
+            .map { observations -> observations.map(DriveMovementObservationEntity::toModel) }
+
+    override suspend fun startManualSession(at: Instant?): AwaySession = createSession(awaySessionDao, logger, at ?: Instant.now(clock))
 
     override suspend fun startAwaySessionIfTrackable(at: Instant): AwaySession? {
         val schedule = WorkScheduleEntity.toSchedule(workScheduleDao.getWorkScheduleDays())
@@ -51,14 +65,14 @@ class RoomTrackingRepository @Inject constructor(
             return null
         }
         return database.withTransaction {
-            awaySessionDao.getActiveSession()?.toModel() ?: createSession(at, source = "geofence")
+            awaySessionDao.getActiveSession()?.toModel() ?: createSession(awaySessionDao, logger, at, source = "geofence")
         }
     }
 
     override suspend fun stopActiveAwaySession(at: Instant): AwaySession? = database.withTransaction {
         val active = awaySessionDao.getActiveSession() ?: return@withTransaction null
         val stopped = active.toModel().copy(end = at)
-        closeOpenActivityInterval(active.id, at)
+        closeOpenActivityInterval(activityIntervalDao, active.id, at)
         awaySessionDao.upsert(AwaySessionEntity.fromModel(stopped))
         logger.info(LogCategory.TRACKING, "Away session stopped", mapOf("session" to active.id.safePrefix()))
         stopped
@@ -67,7 +81,7 @@ class RoomTrackingRepository @Inject constructor(
     override suspend fun recordActivityTransition(bucket: ActivityBucket, at: Instant) {
         database.withTransaction {
             val active = awaySessionDao.getActiveSession() ?: return@withTransaction
-            closeOpenActivityInterval(active.id, at)
+            closeOpenActivityInterval(activityIntervalDao, active.id, at)
             activityIntervalDao.upsert(
                 ActivityIntervalEntity(
                     id = UUID.randomUUID().toString(),
@@ -85,24 +99,46 @@ class RoomTrackingRepository @Inject constructor(
         }
     }
 
-    override suspend fun addDrivenDistanceToActiveSession(distanceMeters: Double, at: Instant): AwaySession? = database.withTransaction {
-        if (distanceMeters <= 0.0) return@withTransaction awaySessionDao.getActiveSession()?.toModel()
-
-        val active = awaySessionDao.getActiveSession() ?: return@withTransaction null
-        val updated = active.toModel().copy(drivenMiles = active.drivenMiles + distanceMeters / METERS_PER_MILE)
-        awaySessionDao.upsert(AwaySessionEntity.fromModel(updated))
-        logger.info(
-            LogCategory.TRACKING,
-            "Session miles automatically updated",
-            mapOf(
-                "session" to active.id.safePrefix(),
-                "distanceMeters" to distanceMeters,
-                "totalMiles" to updated.drivenMiles,
-                "atEpochMillis" to at.toEpochMilli(),
-            ),
-        )
-        updated
-    }
+    override suspend fun recordDriveMovementObservation(observation: DriveMovementObservationDraft): AwaySession? =
+        database.withTransaction {
+            val active = awaySessionDao.getActiveSession() ?: return@withTransaction null
+            driveMovementObservationDao.upsert(
+                DriveMovementObservationEntity.fromModel(
+                    DriveMovementObservation(
+                        id = UUID.randomUUID().toString(),
+                        sessionId = active.id,
+                        start = observation.start,
+                        end = observation.end,
+                        distanceMeters = observation.distanceMeters,
+                        countedDistanceMeters = observation.countedDistanceMeters,
+                        speedMilesPerHour = observation.speedMilesPerHour,
+                        vehicleLike = observation.vehicleLike,
+                        atWork = observation.atWork,
+                    ),
+                ),
+            )
+            val updated = if (observation.countedDistanceMeters > 0.0) {
+                active.toModel().copy(drivenMiles = active.drivenMiles + observation.countedDistanceMeters / METERS_PER_MILE)
+                    .also { awaySessionDao.upsert(AwaySessionEntity.fromModel(it)) }
+            } else {
+                active.toModel()
+            }
+            logger.info(
+                LogCategory.TRACKING,
+                "Drive movement observation recorded",
+                mapOf(
+                    "session" to active.id.safePrefix(),
+                    "distanceMeters" to observation.distanceMeters,
+                    "countedDistanceMeters" to observation.countedDistanceMeters,
+                    "totalMiles" to updated.drivenMiles,
+                    "startEpochMillis" to observation.start.toEpochMilli(),
+                    "endEpochMillis" to observation.end.toEpochMilli(),
+                    "vehicleLike" to observation.vehicleLike,
+                    "atWork" to observation.atWork,
+                ),
+            )
+            updated
+        }
 
     override suspend fun updateSessionWindow(sessionId: String, start: Instant, end: Instant?): AwaySession? {
         val existing = awaySessionDao.getSession(sessionId)?.toModel() ?: return null
@@ -153,28 +189,24 @@ class RoomTrackingRepository @Inject constructor(
             )
             updated
         }
-
-    private suspend fun createSession(at: Instant, source: String = "manual"): AwaySession {
-        val session = AwaySession(
-            id = UUID.randomUUID().toString(),
-            start = at,
-            end = null,
-        )
-        awaySessionDao.upsert(AwaySessionEntity.fromModel(session))
-        logger.info(LogCategory.TRACKING, "Away session started", mapOf("session" to session.id.safePrefix(), "source" to source))
-        return session
-    }
-
-    private suspend fun closeOpenActivityInterval(sessionId: String, at: Instant) {
-        val openInterval = activityIntervalDao.getOpenInterval(sessionId) ?: return
-        if (at.toEpochMilli() > openInterval.startEpochMillis) {
-            activityIntervalDao.upsert(openInterval.copy(endEpochMillis = at.toEpochMilli()))
-        } else {
-            activityIntervalDao.deleteById(openInterval.id)
-        }
-    }
 }
 
-private const val METERS_PER_MILE = 1_609.344
+private suspend fun createSession(awaySessionDao: AwaySessionDao, logger: AppLogger, at: Instant, source: String = "manual"): AwaySession {
+    val session = AwaySession(
+        id = UUID.randomUUID().toString(),
+        start = at,
+        end = null,
+    )
+    awaySessionDao.upsert(AwaySessionEntity.fromModel(session))
+    logger.info(LogCategory.TRACKING, "Away session started", mapOf("session" to session.id.safePrefix(), "source" to source))
+    return session
+}
 
-private fun String.safePrefix(): String = take(8)
+private suspend fun closeOpenActivityInterval(activityIntervalDao: ActivityIntervalDao, sessionId: String, at: Instant) {
+    val openInterval = activityIntervalDao.getOpenInterval(sessionId) ?: return
+    if (at.toEpochMilli() > openInterval.startEpochMillis) {
+        activityIntervalDao.upsert(openInterval.copy(endEpochMillis = at.toEpochMilli()))
+    } else {
+        activityIntervalDao.deleteById(openInterval.id)
+    }
+}
