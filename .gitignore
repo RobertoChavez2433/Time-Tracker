@@ -9,6 +9,7 @@ build/
 local.properties
 *.iml
 .idea/
+.vscode/
 
 # Android Studio generated artifacts
 captures/
@@ -22,6 +23,7 @@ captures/
 # Logs
 *.log
 tools/testing/test-results/
+tools/testing/screenshots/
 
 # OS metadata
 .DS_Store
