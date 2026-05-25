@@ -63,6 +63,7 @@ class PlayServicesCurrentGeofenceLocationProvider @Inject constructor(
         return location
     }
 
+    @SuppressLint("MissingPermission")
     private suspend fun requestCurrentLocation(): Location? {
         val request = CurrentLocationRequest.Builder()
             .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
@@ -88,6 +89,7 @@ class PlayServicesCurrentGeofenceLocationProvider @Inject constructor(
         return location
     }
 
+    @SuppressLint("MissingPermission")
     private suspend fun requestLastKnownLocation(): Location? = try {
         fusedLocationProviderClient.lastLocation.awaitTask()
     } catch (error: SecurityException) {

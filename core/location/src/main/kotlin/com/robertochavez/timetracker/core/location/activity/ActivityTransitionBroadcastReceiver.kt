@@ -82,7 +82,7 @@ class ActivityTransitionBroadcastReceiver : BroadcastReceiver() {
                         ),
                     )
                     trackingSessionController.recordActivityTransition(bucket, eventAt)
-                    handleMileageTracking(activity, transition)
+                    handleMileageTracking(activity, transition, homePresence == GeofencePresence.OUTSIDE)
                 }
             } finally {
                 pendingResult.finish()
@@ -90,11 +90,15 @@ class ActivityTransitionBroadcastReceiver : BroadcastReceiver() {
         }
     }
 
-    private suspend fun handleMileageTracking(activity: MotionActivity, transition: MotionTransition) {
+    private suspend fun handleMileageTracking(activity: MotionActivity, transition: MotionTransition, awayFromHome: Boolean) {
+        if (!awayFromHome) {
+            driveMileageTracker.stopTracking()
+            return
+        }
         when {
             activity == MotionActivity.IN_VEHICLE && transition == MotionTransition.ENTER -> driveMileageTracker.startTracking()
-            activity == MotionActivity.IN_VEHICLE && transition == MotionTransition.EXIT -> driveMileageTracker.stopTracking()
-            activity == MotionActivity.STILL && transition == MotionTransition.ENTER -> driveMileageTracker.stopTracking()
+            activity == MotionActivity.IN_VEHICLE && transition == MotionTransition.EXIT -> driveMileageTracker.startAwayTracking()
+            activity == MotionActivity.STILL && transition == MotionTransition.ENTER -> driveMileageTracker.startAwayTracking()
         }
     }
 }

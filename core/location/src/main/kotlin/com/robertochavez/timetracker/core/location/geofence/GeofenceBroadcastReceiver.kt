@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import com.google.android.gms.location.Geofence
 import com.google.android.gms.location.GeofencingEvent
+import com.robertochavez.timetracker.core.common.model.ActivityBucket
 import com.robertochavez.timetracker.core.common.model.TrackingSessionController
 import com.robertochavez.timetracker.core.common.repository.WorkPresenceRepository
 import com.robertochavez.timetracker.core.common.repository.WorkSiteSessionRepository
@@ -75,6 +76,7 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
                 val started = trackingSessionController.startAwaySessionIfTrackable(at)
                 if (started != null) {
                     driveMileageTracker.clearBaseline()
+                    driveMileageTracker.startAwayTracking()
                 }
             }
             Geofence.GEOFENCE_TRANSITION_ENTER,
@@ -97,6 +99,7 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
                     workSiteSessionRepository.stopActiveWorkSiteSession(workLocationId, at)
                 }
                 workPresenceRepository.setAtWork(atWork = false, updatedAt = at)
+                trackingSessionController.recordActivityTransition(ActivityBucket.IDLE, at)
             }
             Geofence.GEOFENCE_TRANSITION_ENTER,
             Geofence.GEOFENCE_TRANSITION_DWELL,
@@ -106,6 +109,7 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
                     workSiteSessionRepository.startWorkSiteSession(workLocationId, at)
                 }
                 workPresenceRepository.setAtWork(atWork = true, updatedAt = at)
+                trackingSessionController.recordActivityTransition(ActivityBucket.SITE, at)
             }
         }
     }
