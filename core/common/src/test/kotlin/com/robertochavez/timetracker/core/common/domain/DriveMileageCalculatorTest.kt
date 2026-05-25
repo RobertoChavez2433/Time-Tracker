@@ -19,12 +19,25 @@ class DriveMileageCalculatorTest {
     @Test
     fun `reasonable driving segment returns distance and advances baseline`() {
         val previous = point(longitude = -84.0000, at = Instant.parse("2026-05-05T12:00:00Z"))
+        val current = point(longitude = -84.0030, at = Instant.parse("2026-05-05T12:00:30Z"))
+
+        val result = DriveMileageCalculator.calculate(previous, current)
+
+        assertEquals(current, result.baseline)
+        assertEquals(279.0, result.distanceMeters, 10.0)
+        assertEquals(true, result.movementSegment?.isVehicleLike)
+    }
+
+    @Test
+    fun `movement below drive threshold advances baseline without adding miles`() {
+        val previous = point(longitude = -84.0000, at = Instant.parse("2026-05-05T12:00:00Z"))
         val current = point(longitude = -84.0010, at = Instant.parse("2026-05-05T12:00:30Z"))
 
         val result = DriveMileageCalculator.calculate(previous, current)
 
         assertEquals(current, result.baseline)
-        assertEquals(93.0, result.distanceMeters, 5.0)
+        assertEquals(0.0, result.distanceMeters, 0.001)
+        assertEquals(false, result.movementSegment?.isVehicleLike)
     }
 
     @Test

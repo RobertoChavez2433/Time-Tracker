@@ -9,7 +9,16 @@ import kotlin.math.sqrt
 
 data class DriveMileagePoint(val latitude: Double, val longitude: Double, val accuracyMeters: Float?, val at: Instant)
 
-data class DriveMileageCalculation(val baseline: DriveMileagePoint?, val distanceMeters: Double)
+data class DriveMovementSegment(val start: Instant, val end: Instant, val distanceMeters: Double, val speedMilesPerHour: Double) {
+    val duration: Duration = Duration.between(start, end)
+    val isVehicleLike: Boolean = speedMilesPerHour >= DriveMileageCalculator.INFERRED_DRIVE_MILES_PER_HOUR
+}
+
+data class DriveMileageCalculation(
+    val baseline: DriveMileagePoint?,
+    val distanceMeters: Double,
+    val movementSegment: DriveMovementSegment? = null,
+)
 
 object DriveMileageCalculator {
     fun calculate(previous: DriveMileagePoint?, current: DriveMileagePoint): DriveMileageCalculation = when {
@@ -27,7 +36,19 @@ object DriveMileageCalculator {
             distanceMeters < MIN_SEGMENT_METERS -> DriveMileageCalculation(this, distanceMeters = 0.0)
             distanceMeters / elapsedSeconds > MAX_REASONABLE_SPEED_METERS_PER_SECOND ->
                 DriveMileageCalculation(current, distanceMeters = 0.0)
-            else -> DriveMileageCalculation(current, distanceMeters)
+            else -> {
+                val segment = DriveMovementSegment(
+                    start = at,
+                    end = current.at,
+                    distanceMeters = distanceMeters,
+                    speedMilesPerHour = distanceMeters / elapsedSeconds * METERS_PER_SECOND_TO_MILES_PER_HOUR,
+                )
+                DriveMileageCalculation(
+                    baseline = current,
+                    distanceMeters = if (segment.isVehicleLike) distanceMeters else 0.0,
+                    movementSegment = segment,
+                )
+            }
         }
     }
 
@@ -47,4 +68,6 @@ object DriveMileageCalculator {
     private const val MAX_ACCURACY_METERS = 100f
     private const val MIN_SEGMENT_METERS = 15.0
     private const val MAX_REASONABLE_SPEED_METERS_PER_SECOND = 70.0
+    private const val METERS_PER_SECOND_TO_MILES_PER_HOUR = 2.2369362920544
+    const val INFERRED_DRIVE_MILES_PER_HOUR = 15.0
 }

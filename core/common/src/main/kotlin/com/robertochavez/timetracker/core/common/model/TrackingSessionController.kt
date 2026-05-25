@@ -9,5 +9,5 @@ interface TrackingSessionController {
 
     suspend fun recordActivityTransition(bucket: ActivityBucket, at: Instant)
 
-    suspend fun addDrivenDistanceToActiveSession(distanceMeters: Double, at: Instant): AwaySession?
+    suspend fun recordDriveMovementObservation(observation: DriveMovementObservationDraft): AwaySession?
 }

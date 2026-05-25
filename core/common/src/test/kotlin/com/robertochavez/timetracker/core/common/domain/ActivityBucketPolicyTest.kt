@@ -19,14 +19,14 @@ class ActivityBucketPolicyTest {
     }
 
     @Test
-    fun `in vehicle enter is unclassified while at work`() {
+    fun `in vehicle enter is site while at work`() {
         val bucket = ActivityBucketPolicy.classify(
             activity = MotionActivity.IN_VEHICLE,
             transition = MotionTransition.ENTER,
             atWork = true,
         )
 
-        assertEquals(ActivityBucket.UNCLASSIFIED, bucket)
+        assertEquals(ActivityBucket.SITE, bucket)
     }
 
     @Test
@@ -42,7 +42,7 @@ class ActivityBucketPolicyTest {
     }
 
     @Test
-    fun `vehicle motion inside work geofence is not drive`() {
+    fun `vehicle motion inside work geofence is site`() {
         val bucket = DriveClassificationPolicy.classify(
             activity = MotionActivity.IN_VEHICLE,
             transition = MotionTransition.ENTER,
@@ -50,7 +50,7 @@ class ActivityBucketPolicyTest {
             workPresence = GeofencePresence.INSIDE,
         )
 
-        assertEquals(ActivityBucket.UNCLASSIFIED, bucket)
+        assertEquals(ActivityBucket.SITE, bucket)
     }
 
     @Test
@@ -63,6 +63,32 @@ class ActivityBucketPolicyTest {
         )
 
         assertEquals(ActivityBucket.UNCLASSIFIED, bucket)
+    }
+
+    @Test
+    fun `home wins over vehicle work and movement evidence`() {
+        val bucket = DriveClassificationPolicy.classify(
+            activity = MotionActivity.IN_VEHICLE,
+            transition = MotionTransition.ENTER,
+            homePresence = GeofencePresence.INSIDE,
+            workPresence = GeofencePresence.INSIDE,
+            movementEvidence = MovementEvidence.MOVING,
+        )
+
+        assertEquals(ActivityBucket.HOME, bucket)
+    }
+
+    @Test
+    fun `sustained movement outside home and work can infer drive`() {
+        val bucket = DriveClassificationPolicy.classify(
+            activity = MotionActivity.OTHER,
+            transition = MotionTransition.OTHER,
+            homePresence = GeofencePresence.OUTSIDE,
+            workPresence = GeofencePresence.OUTSIDE,
+            movementEvidence = MovementEvidence.MOVING,
+        )
+
+        assertEquals(ActivityBucket.DRIVE, bucket)
     }
 
     @Test

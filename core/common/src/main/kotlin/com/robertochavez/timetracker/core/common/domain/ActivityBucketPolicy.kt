@@ -37,11 +37,16 @@ object DriveClassificationPolicy {
         workPresence: GeofencePresence,
         movementEvidence: MovementEvidence = MovementEvidence.UNKNOWN,
     ): ActivityBucket = when {
+        homePresence == GeofencePresence.INSIDE -> ActivityBucket.HOME
+        workPresence == GeofencePresence.INSIDE -> ActivityBucket.SITE
         activity == MotionActivity.IN_VEHICLE &&
             transition == MotionTransition.ENTER &&
             homePresence == GeofencePresence.OUTSIDE &&
             workPresence == GeofencePresence.OUTSIDE &&
             movementEvidence != MovementEvidence.STATIONARY -> ActivityBucket.DRIVE
+        movementEvidence == MovementEvidence.MOVING &&
+            homePresence == GeofencePresence.OUTSIDE &&
+            workPresence == GeofencePresence.OUTSIDE -> ActivityBucket.DRIVE
         activity == MotionActivity.STILL && transition == MotionTransition.ENTER -> ActivityBucket.IDLE
         else -> ActivityBucket.UNCLASSIFIED
     }
