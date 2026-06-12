@@ -59,7 +59,7 @@ function Get-KotlinImportLimit {
 function Test-IgnoredPath {
     param([string]$Path)
 
-    return $Path -match "[\\/](build|generated)[\\/]" -or
+    return $Path -match "[\\/](bin|build|generated)[\\/]" -or
         $Path -match "[\\/]\.gradle[\\/]" -or
         $Path -match "[\\/]\.idea[\\/]"
 }
@@ -232,6 +232,17 @@ foreach ($file in $kotlinFiles) {
 }
 
 Test-GradleDependencies
+
+$bucketPolicyCheck = Join-Path -Path $repoRoot -ChildPath "scripts/quality/check-bucket-classification-policies.ps1"
+if (-not (Test-Path -LiteralPath $bucketPolicyCheck)) {
+    Add-Violation -Path "scripts/quality/check-bucket-classification-policies.ps1" -LineNumber 0 `
+        -Message "bucket classification policy check is required."
+} else {
+    & pwsh -ExecutionPolicy Bypass -File $bucketPolicyCheck
+    if ($LASTEXITCODE -ne 0) {
+        exit $LASTEXITCODE
+    }
+}
 
 if ($violations.Count -gt 0) {
     Write-Host "LIMP policy violations found:" -ForegroundColor Red

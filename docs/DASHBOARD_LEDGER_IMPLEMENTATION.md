@@ -2,7 +2,7 @@
 
 ## Task List
 
-- [x] Add dashboard weekly ledger UI models with Home, Work, Drive, On-site, and rounded whole miles.
+- [x] Add dashboard weekly ledger UI models with Home, Work, Drive, Site, Idle, Needs review, and rounded whole miles.
 - [x] Replace the current report cards with a compact dashboard summary and weekly ledger.
 - [x] Make the ledger the primary Dashboard tab.
 - [x] Simplify the old Home setup flow into a clearer Places setup screen.
@@ -27,16 +27,16 @@ Miles 42          Miles 183         Miles 361
 This Week
 May 4 - May 10
 
-Day   Home   Work   Drive  Site   Miles
-Mon   9h15   7h20   2h10   5h10   42
-Tue   8h40   6h55   1h35   5h20   31
-Wed   9h05   7h10   2h     5h10   39
-Thu   -      -      -      -      -
-Fri   -      -      -      -      -
-Sat   Off    -      -      -      -
-Sun   Off    -      -      -      -
+Day   Home   Work   Drive  Site   Idle   Review  Miles
+Mon   9h15   7h20   2h10   5h10   0m     0m      42
+Tue   8h40   6h55   1h35   5h20   0m     0m      31
+Wed   9h05   7h10   2h     5h10   0m     0m      39
+Thu   -      -      -      -      -      -       -
+Fri   -      -      -      -      -      -       -
+Sat   Off    -      -      -      -      -       -
+Sun   Off    -      -      -      -      -       -
 
-Total 27h    21h25  5h45   15h40  112
+Total 27h    21h25  5h45   15h40  0m     0m      112
 ```
 
 ## Terminology
@@ -44,7 +44,8 @@ Total 27h    21h25  5h45   15h40  112
 - Home: time inside the home geofence during days that have tracking data.
 - Work: time outside the home geofence.
 - Drive: driving time.
-- On-site: idle/job-site time.
-- Drive and On-site are sub-buckets of Work, not the full Work total.
+- Site: time inside a saved work-site geofence.
+- Idle: confirmed away-from-home, outside-site, non-driving time.
+- Drive, Site, Idle, and Needs review are sub-buckets of Work, not the full Work total.
 - Miles: rounded whole miles.
-- Unclassified: hidden from the normal dashboard.
+- Needs review: time the app cannot confidently classify.

@@ -2,12 +2,14 @@
 
 Time Tracker is local-only by default.
 
+Bucket and movement privacy rules are defined in [BUCKET_CLASSIFICATION.md](BUCKET_CLASSIFICATION.md).
+
 ## Data Stored Locally
 
 - Home geofence center and radius.
 - Away session start and end times.
 - Miles driven per away session when the user enters mileage or odometer values.
-- Activity intervals classified as `DRIVE`, `IDLE`, or `UNCLASSIFIED`.
+- Activity intervals classified as `HOME`, `DRIVE`, `SITE`, `IDLE`, or `NEEDS_REVIEW`.
 - Work schedule and biweekly pay-period settings.
 - Manual correction flags and edited session windows.
 
@@ -27,13 +29,15 @@ Settings includes a delete-local-data action that clears saved home location, aw
 
 Precise location is used to set the user's home point and register a geofence. Background location is required only so Android can deliver home enter, dwell, and exit geofence transitions while the app is not open. The app does not run a continuous GPS tracker.
 
+When the app is already tracking away-from-home time, adjacent location samples may be compared in memory to compute point-to-point speed as supporting Drive evidence. Time Tracker must not persist route geometry, speed history, or a continuous route log.
+
 ## Activity Recognition Use
 
-Activity Recognition transitions are used only to classify time within an away session into drive, idle, or unclassified reporting buckets. The primary timesheet total remains away-from-home time.
+Activity Recognition transitions are used only to classify time within an away session into Drive, Idle, Site, or Needs review reporting buckets. The primary timesheet total remains away-from-home Work time.
 
 ## In-App Disclosure Text
 
-Automatic tracking uses precise and background location for the home geofence. Activity recognition classifies away time as drive, idle, or unclassified. Data stays on this device unless a future export or sync feature is explicitly added.
+Automatic tracking uses precise and background location for the home geofence. Activity recognition and privacy-limited movement checks classify away time as Drive, Site, Idle, or Needs review. Data stays on this device unless a future export or sync feature is explicitly added.
 
 ## Policy References
 

@@ -2,6 +2,8 @@
 
 Run these on a physical Android device with Google Play services.
 
+Bucket expectations must follow [BUCKET_CLASSIFICATION.md](BUCKET_CLASSIFICATION.md).
+
 ## Permissions
 
 - Install a debug build.
@@ -37,7 +39,17 @@ Run these on a physical Android device with Google Play services.
 - Start or trigger an away session.
 - Drive long enough for an `IN_VEHICLE` transition.
 - Stop and remain still long enough for a `STILL` transition.
-- Open Reports and confirm drive, idle, and unclassified buckets are shown separately.
+- Open Reports and confirm Work, Drive, Site, Idle, Needs review, and Miles are shown separately where evidence exists.
+- Confirm a saved work-site drive counts miles but remains Site time rather than Drive time.
+
+## S21 Bucket Repair Verification
+
+- Use S21 `RFCNC0Y975L` for bucket repair testing and verification.
+- Treat the mock-drive script as smoke-only; it is not bucket acceptance evidence because endpoint mode can bypass the full lifecycle.
+- Run `tools/testing/Invoke-FullDayBucketVerification.ps1` against the S21 debug app and confirm speed-inferred Drive starts only after 15 mph is sustained for at least 1 minute.
+- Optionally run the job-site drive debug scenario as smoke-only plumbing evidence and confirm miles increase, Drive minutes do not increase, and Site minutes increase.
+- For a real-drive check, start away from Home, drive for more than 1 minute above city-street speed, stop outside a saved Site, and confirm the report shows Drive for the vehicle segment and Needs review rather than Idle for uncertain gaps.
+- Repeat a short saved-Site drive and confirm the same movement increases Miles while remaining Site time.
 
 ## Manual Corrections
 

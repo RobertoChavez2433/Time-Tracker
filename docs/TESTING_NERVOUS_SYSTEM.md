@@ -8,6 +8,18 @@ Time Tracker uses a small Field Guide-inspired verification loop:
 - ADB port setup works for either the S21 or an emulator.
 - `tools/testing/Invoke-E2EVerification.ps1` drives named UI subflows through stable Compose test tags, captures artifacts, and validates state after feature actions.
 
+Bucket verification expectations follow [BUCKET_CLASSIFICATION.md](BUCKET_CLASSIFICATION.md). Physical verification for the bucket repair uses S21 hardware (`RFCNC0Y975L`).
+
+Endpoint mock-drive checks are smoke-only. They prove that debug plumbing can seed a narrow drive case, but they do not prove bucket acceptance because they bypass the full geofence, session, and provider-delivered movement lifecycle. Use `tools/testing/Invoke-FullDayBucketVerification.ps1` for acceptance evidence.
+
+## Full-Day Bucket Acceptance
+
+```powershell
+.\tools\testing\Invoke-FullDayBucketVerification.ps1
+```
+
+The verifier defaults to S21 `RFCNC0Y975L` and package `com.robertochavez.timetracker.debug`. It installs with `-PtimeTracker.e2eDebug=true`, resets app data, grants location and activity-recognition permissions, configures Home and a saved Site through the UI, then uses Android test-provider locations for Home exit, commute Drive, Site, Site mileage, Needs review, Idle, return Drive, and Home return. Its acceptance path only reads `/testing/state`; direct mock-drive endpoints remain smoke-only.
+
 ## Full E2E Flow
 
 Run the device verification flow against the only connected device:

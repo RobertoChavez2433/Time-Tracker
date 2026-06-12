@@ -4,6 +4,8 @@ Last refreshed: 2026-05-03.
 
 Premium olive/E2E correction spec: [E2E_VERIFICATION_TODO_SPEC.md](E2E_VERIFICATION_TODO_SPEC.md).
 
+Bucket classification source of truth: [../docs/BUCKET_CLASSIFICATION.md](../docs/BUCKET_CLASSIFICATION.md).
+
 Status legend:
 - `[ ]` not started
 - `[~]` in progress
@@ -173,9 +175,9 @@ ui
 - [x] Model activity buckets:
   - `DRIVE`
   - `IDLE`
-  - `UNCLASSIFIED`
+  - `NEEDS_REVIEW`
 - [x] Primary timesheet total is total away-from-home time.
-- [x] Drive/idle/unclassified are secondary reporting buckets.
+- [x] Drive, site, idle, and needs-review are secondary reporting buckets.
 - [x] Miles driven are a secondary reporting metric, not the primary timesheet total.
 
 ## Location + Activity Automation
@@ -205,10 +207,10 @@ Work/job-site geofence requirement:
 - [x] Count miles driven inside the work/job-site geofence while keeping that vehicle time out of drive-time totals.
 - [x] Log measured current-location/geofence accuracy meters when Play Services provides them.
 - [x] Keep job-site driving separate from commute/away driving in reports if it is shown at all.
-- [x] Do not use GPS speed for drive classification.
-- [x] Do not calculate mileage from GPS speed.
+- [x] Use point-to-point speed as supporting Drive evidence only when Activity Recognition is missing, late, or unreliable.
+- [x] Do not store speed history, route geometry, or continuous route logs.
 - [x] Do not store route geometry for mileage.
-- [x] MVP mileage is manual/odometer-style entry unless an explicit future automatic-mileage design is approved.
+- [x] Keep mileage privacy-preserving: aggregate miles may be stored, but routes and speed history must not be persisted.
 - [x] Do not store routes.
 - [x] Do not run a continuous GPS tracker for MVP.
 - [x] Default notification behavior is no active notification.
@@ -270,13 +272,13 @@ Spec source: [E2E_VERIFICATION_TODO_SPEC.md](E2E_VERIFICATION_TODO_SPEC.md).
 - [x] Exclude job-site driving from tracked drive totals.
 - [x] Split sessions across midnight by calendar day.
 - [x] Ignore non-workdays automatically.
-- [x] Show unclassified time separately.
+- [x] Show Needs review time separately.
 
 ## Manual Corrections
 
 - [x] Allow editing session start/end.
 - [x] Allow toggling whether a session counts toward work totals.
-- [x] Allow correcting drive/idle/unclassified intervals or totals.
+- [x] Allow correcting drive/idle/needs-review intervals or totals.
 - [x] Allow correcting miles driven.
 - [x] Mark edited sessions as manually adjusted.
 
@@ -400,4 +402,4 @@ Checklist:
   - Needs release keystore/signing direction.
 - [!] Record the Play background-location declaration video and review final policy copy before Play release.
   - Needs a physical device and final release UI.
-- [!] If automatic mileage is requested later, design it explicitly for privacy and battery before implementation; do not infer miles from stored routes or continuous GPS by default.
+- [!] Keep automatic mileage privacy-limited; do not infer miles from stored routes, speed history, or continuous GPS logs.

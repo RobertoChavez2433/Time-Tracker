@@ -8,6 +8,7 @@ The project should prefer standard Kotlin and Android tooling before custom chec
 - Detekt owns Kotlin complexity and maintainability rules.
 - Android lint owns Android resource, manifest, and platform checks.
 - LIMP custom checks only cover Time Tracker-specific architecture boundaries and file budgets.
+- Bucket classification checks protect [BUCKET_CLASSIFICATION.md](BUCKET_CLASSIFICATION.md) and prevent hidden bucket rewrites, broad auto-fixes, speed-history persistence, or route-geometry persistence.
 
 ## Architecture Boundaries
 
