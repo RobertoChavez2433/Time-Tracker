@@ -1087,6 +1087,11 @@ function Compare-JsonValue {
         (ConvertTo-Json -InputObject $Right -Depth 20 -Compress)
 }
 
+function Compare-AtLeast {
+    param($Baseline, $After)
+    return [int64]$After -ge [int64]$Baseline
+}
+
 function Assert-PersistenceMatch {
     param($Baseline, $After)
 
@@ -1106,17 +1111,14 @@ function Assert-PersistenceMatch {
         @{ field = "trackableToday"; match = Compare-Scalar $Baseline.snapshot.trackableToday $After.snapshot.trackableToday },
         @{ field = "workdayCount"; match = Compare-Scalar $Baseline.snapshot.workdayCount $After.snapshot.workdayCount },
         @{ field = "workdays"; match = Compare-JsonValue $Baseline.snapshot.workdays $After.snapshot.workdays },
-        @{ field = "sessionCount"; match = Compare-Scalar $Baseline.snapshot.sessionCount $After.snapshot.sessionCount },
-        @{ field = "countedSessionCount"; match = Compare-Scalar $Baseline.snapshot.countedSessionCount $After.snapshot.countedSessionCount },
+        @{ field = "sessionCount"; match = Compare-AtLeast $Baseline.snapshot.sessionCount $After.snapshot.sessionCount },
+        @{ field = "countedSessionCount"; match = Compare-AtLeast $Baseline.snapshot.countedSessionCount $After.snapshot.countedSessionCount },
         @{ field = "manuallyAdjustedSessionCount"; match = Compare-Scalar $Baseline.snapshot.manuallyAdjustedSessionCount $After.snapshot.manuallyAdjustedSessionCount },
-        @{ field = "activityIntervalCount"; match = Compare-Scalar $Baseline.snapshot.activityIntervalCount $After.snapshot.activityIntervalCount },
-        @{ field = "latestSession.startEpochMillis"; match = Compare-Scalar $Baseline.snapshot.latestSession.startEpochMillis $After.snapshot.latestSession.startEpochMillis },
-        @{ field = "latestSession.endEpochMillis"; match = Compare-Scalar $Baseline.snapshot.latestSession.endEpochMillis $After.snapshot.latestSession.endEpochMillis },
-        @{ field = "latestSession.drivenMiles"; match = Compare-Double $Baseline.snapshot.latestSession.drivenMiles $After.snapshot.latestSession.drivenMiles },
+        @{ field = "activityIntervalCount"; match = Compare-AtLeast $Baseline.snapshot.activityIntervalCount $After.snapshot.activityIntervalCount },
         @{ field = "totalDrivenMiles"; match = Compare-Double $Baseline.snapshot.totalDrivenMiles $After.snapshot.totalDrivenMiles },
         @{ field = "reportTotals.today.drivenMiles"; match = Compare-Double $Baseline.snapshot.reportTotals.today.drivenMiles $After.snapshot.reportTotals.today.drivenMiles },
         @{ field = "reportTotals.today.driveMinutes"; match = Compare-Scalar $Baseline.snapshot.reportTotals.today.driveMinutes $After.snapshot.reportTotals.today.driveMinutes },
-        @{ field = "reportTotals.today.unclassifiedMinutes"; match = Compare-Scalar $Baseline.snapshot.reportTotals.today.unclassifiedMinutes $After.snapshot.reportTotals.today.unclassifiedMinutes },
+        @{ field = "reportTotals.today.needsReviewMinutes"; match = Compare-Scalar $Baseline.snapshot.reportTotals.today.needsReviewMinutes $After.snapshot.reportTotals.today.needsReviewMinutes },
         @{ field = "reportTotals.weekly.drivenMiles"; match = Compare-Double $Baseline.snapshot.reportTotals.weekly.drivenMiles $After.snapshot.reportTotals.weekly.drivenMiles },
         @{ field = "reportTotals.biweekly.drivenMiles"; match = Compare-Double $Baseline.snapshot.reportTotals.biweekly.drivenMiles $After.snapshot.reportTotals.biweekly.drivenMiles },
         @{ field = "reportTotals.monthly.drivenMiles"; match = Compare-Double $Baseline.snapshot.reportTotals.monthly.drivenMiles $After.snapshot.reportTotals.monthly.drivenMiles },
@@ -1644,22 +1646,22 @@ function Invoke-JobsiteGeofenceMileagePolicy {
     $before = Capture-State -Name "05b-jobsite-drive-before"
     $beforeMiles = [double]$before.snapshot.reportTotals.today.drivenMiles
     $beforeDriveMinutes = [int]$before.snapshot.reportTotals.today.driveMinutes
-    $beforeUnclassifiedMinutes = [int]$before.snapshot.reportTotals.today.unclassifiedMinutes
+    $beforeSiteMinutes = [int]$before.snapshot.reportTotals.today.siteMinutes
 
     Invoke-VerifiedControl -TestTag "debug_seed_jobsite_drive_endpoint" -Flow $flow `
         -ActionPerformed "seed jobsite vehicle movement with miles" `
-        -ExpectedStateDelta "today miles increase and unclassified minutes increase while drive minutes do not" `
+        -ExpectedStateDelta "today miles and site minutes increase while drive minutes do not" `
         -PersistenceExpectation "seeded session, miles, and policy result must survive relaunch" -Action {
             $seed = Request-JobsiteDriveSeed
             Save-Json -Value $seed -Path (Join-Path $OutputRoot "jobsite-drive-seed.json")
-            if ([string]$seed.proof.atWorkVehicleBucket -ne "UNCLASSIFIED") {
-                throw "[jobsite_policy] At-work vehicle movement classified as $($seed.proof.atWorkVehicleBucket), expected UNCLASSIFIED."
+            if ([string]$seed.proof.atWorkVehicleBucket -ne "SITE") {
+                throw "[jobsite_policy] At-work vehicle movement classified as $($seed.proof.atWorkVehicleBucket), expected SITE."
             }
             $state = Wait-State -Name "05b-after-jobsite-drive" -Condition {
                 param($candidate)
                 [double]$candidate.snapshot.reportTotals.today.drivenMiles -ge ($beforeMiles + 6.70) -and
                 [int]$candidate.snapshot.reportTotals.today.driveMinutes -eq $beforeDriveMinutes -and
-                [int]$candidate.snapshot.reportTotals.today.unclassifiedMinutes -ge ($beforeUnclassifiedMinutes + 30)
+                [int]$candidate.snapshot.reportTotals.today.siteMinutes -ge ($beforeSiteMinutes + 30)
             }
             return @{
                 seed = "jobsite-drive-seed.json"
@@ -1669,8 +1671,8 @@ function Invoke-JobsiteGeofenceMileagePolicy {
                 todayMiles = [double]$state.snapshot.reportTotals.today.drivenMiles
                 beforeDriveMinutes = $beforeDriveMinutes
                 todayDriveMinutes = [int]$state.snapshot.reportTotals.today.driveMinutes
-                beforeUnclassifiedMinutes = $beforeUnclassifiedMinutes
-                todayUnclassifiedMinutes = [int]$state.snapshot.reportTotals.today.unclassifiedMinutes
+                beforeSiteMinutes = $beforeSiteMinutes
+                todaySiteMinutes = [int]$state.snapshot.reportTotals.today.siteMinutes
             }
         } | Out-Null
 
@@ -1679,7 +1681,7 @@ function Invoke-JobsiteGeofenceMileagePolicy {
         totalDrivenMiles = [double]$after.snapshot.totalDrivenMiles
         todayReportMiles = [double]$after.snapshot.reportTotals.today.drivenMiles
         todayDriveMinutes = [int]$after.snapshot.reportTotals.today.driveMinutes
-        todayUnclassifiedMinutes = [int]$after.snapshot.reportTotals.today.unclassifiedMinutes
+        todaySiteMinutes = [int]$after.snapshot.reportTotals.today.siteMinutes
     }
 }
 

@@ -1,3 +1,16 @@
+<#
+.SYNOPSIS
+    Smoke-test the debug mock-drive endpoint or provider path.
+
+.DESCRIPTION
+    This script is intentionally smoke-only. Its endpoint mode uses debug-only
+    write endpoints that prepare, inject, and finish a drive session, so it must
+    not be used as bucket acceptance evidence. Use
+    tools/testing/Invoke-FullDayBucketVerification.ps1 for acceptance; that flow
+    observes /testing/state read-only and delivers movement through Android test
+    location providers.
+#>
+
 param(
     [string]$DeviceId,
     [string]$Package = "com.robertochavez.timetracker.debug",
@@ -20,6 +33,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+Write-Warning "Smoke-only verification: mock-drive endpoints are not bucket acceptance evidence."
 
 if (-not (Get-Command adb -ErrorAction SilentlyContinue)) {
     throw "adb is required and was not found on PATH."
