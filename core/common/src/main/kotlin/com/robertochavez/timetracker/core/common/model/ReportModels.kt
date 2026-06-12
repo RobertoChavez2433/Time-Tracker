@@ -1,6 +1,5 @@
 package com.robertochavez.timetracker.core.common.model
 
-import com.robertochavez.timetracker.core.common.util.coerceNonNegative
 import java.time.Duration
 import java.time.LocalDate
 
@@ -11,12 +10,12 @@ data class DailyReport(
     val drivenMiles: Double,
     val drive: Duration = bucketTotals[ActivityBucket.DRIVE] ?: Duration.ZERO,
     val site: Duration = bucketTotals[ActivityBucket.SITE] ?: Duration.ZERO,
-    val idle: Duration = bucketTotals[ActivityBucket.IDLE] ?: totalAway.minus(drive).minus(site).coerceNonNegative(),
+    val idle: Duration = bucketTotals[ActivityBucket.IDLE] ?: Duration.ZERO,
     val home: Duration = bucketTotals[ActivityBucket.HOME] ?: Duration.ZERO,
-    val unclassified: Duration = bucketTotals[ActivityBucket.UNCLASSIFIED] ?: Duration.ZERO,
+    val needsReview: Duration = bucketTotals[ActivityBucket.NEEDS_REVIEW] ?: Duration.ZERO,
 ) {
     val activityIdle: Duration = bucketTotals[ActivityBucket.IDLE] ?: Duration.ZERO
-    val work: Duration = drive.plus(site).plus(idle)
+    val work: Duration = totalAway
 }
 
 data class PeriodReport(
@@ -30,5 +29,6 @@ data class PeriodReport(
     val site: Duration = dailyReports.fold(Duration.ZERO) { total, report -> total.plus(report.site) }
     val idle: Duration = dailyReports.fold(Duration.ZERO) { total, report -> total.plus(report.idle) }
     val home: Duration = dailyReports.fold(Duration.ZERO) { total, report -> total.plus(report.home) }
-    val work: Duration = drive.plus(site).plus(idle)
+    val needsReview: Duration = dailyReports.fold(Duration.ZERO) { total, report -> total.plus(report.needsReview) }
+    val work: Duration = totalAway
 }

@@ -82,32 +82,14 @@ object TimeTrackerMigrations {
 
     val MIGRATION_8_9: Migration = object : Migration(8, 9) {
         override fun migrate(db: SupportSQLiteDatabase) {
-            db.execSQL(
-                """
-                CREATE TABLE IF NOT EXISTS `drive_movement_observations` (
-                    `id` TEXT NOT NULL,
-                    `sessionId` TEXT NOT NULL,
-                    `startEpochMillis` INTEGER NOT NULL,
-                    `endEpochMillis` INTEGER NOT NULL,
-                    `distanceMeters` REAL NOT NULL,
-                    `countedDistanceMeters` REAL NOT NULL,
-                    `speedMilesPerHour` REAL NOT NULL,
-                    `vehicleLike` INTEGER NOT NULL,
-                    `atWork` INTEGER NOT NULL,
-                    PRIMARY KEY(`id`),
-                    FOREIGN KEY(`sessionId`) REFERENCES `away_sessions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
-                )
-                """.trimIndent(),
-            )
-            db.execSQL(
-                "CREATE INDEX IF NOT EXISTS `index_drive_movement_observations_sessionId` " +
-                    "ON `drive_movement_observations` (`sessionId`)",
-            )
-            db.execSQL(
-                "CREATE INDEX IF NOT EXISTS `index_drive_movement_observations_startEpochMillis` " +
-                    "ON `drive_movement_observations` (`startEpochMillis`)",
-            )
             db.execSQL("DELETE FROM `work_site_sessions` WHERE `id` LIKE 'legacy-site-%'")
+        }
+    }
+
+    val MIGRATION_9_10: Migration = object : Migration(9, 10) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("DROP TABLE IF EXISTS `drive_movement_observations`")
+            db.execSQL("UPDATE `activity_intervals` SET `bucket` = 'NEEDS_REVIEW' WHERE `bucket` = 'UNCLASSIFIED'")
         }
     }
 
@@ -121,5 +103,6 @@ object TimeTrackerMigrations {
             MIGRATION_6_7,
             MIGRATION_7_8,
             MIGRATION_8_9,
+            MIGRATION_9_10,
         )
 }

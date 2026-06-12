@@ -10,6 +10,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import java.io.File
 
 @RunWith(RobolectricTestRunner::class)
 class TimeTrackerMigrationsTest {
@@ -22,7 +23,7 @@ class TimeTrackerMigrationsTest {
     @Test
     fun `version one schema opens as migration baseline`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
-        val database = helper.createDatabase(context.getDatabasePath(TEST_DATABASE).absolutePath, 1)
+        val database = helper.createDatabase(databasePath(context, BASELINE_TEST_DATABASE), 1)
         try {
             database.query("SELECT id, latitude, longitude, radiusMeters, updatedAtEpochMillis FROM home_locations").close()
             database.query("SELECT id, startEpochMillis, endEpochMillis, drivenMiles FROM away_sessions").close()
@@ -35,14 +36,14 @@ class TimeTrackerMigrationsTest {
     }
 
     @Test
-    fun `schema one has eight upgrade migrations`() {
-        assertEquals(8, TimeTrackerMigrations.ALL.size)
+    fun `schema one has nine upgrade migrations`() {
+        assertEquals(9, TimeTrackerMigrations.ALL.size)
     }
 
     @Test
-    fun `migrations add evidence tables and clean unsafe legacy site sessions`() {
+    fun `migrates legacy bucket data`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
-        val database = helper.createDatabase(context.getDatabasePath(TEST_DATABASE).absolutePath, 1)
+        val database = helper.createDatabase(databasePath(context, UPGRADE_TEST_DATABASE), 1)
 
         try {
             TimeTrackerMigrations.MIGRATION_1_2.migrate(database)
@@ -55,21 +56,22 @@ class TimeTrackerMigrationsTest {
             insertUnsafeLegacySiteSessions(database)
             TimeTrackerMigrations.MIGRATION_7_8.migrate(database)
             TimeTrackerMigrations.MIGRATION_8_9.migrate(database)
+            insertVersionNineMovementHistory(database)
+            TimeTrackerMigrations.MIGRATION_9_10.migrate(database)
 
             database.query("SELECT id, label, latitude, longitude, radiusMeters, updatedAtEpochMillis FROM work_locations").close()
             database.query("SELECT id, atWork, updatedAtEpochMillis FROM work_presence").close()
             database.query(
                 "SELECT id, workLocationId, workLocationLabelSnapshot, startEpochMillis, endEpochMillis FROM work_site_sessions",
             ).close()
-            database.query(
-                """
-                SELECT id, sessionId, startEpochMillis, endEpochMillis, distanceMeters, countedDistanceMeters,
-                    speedMilesPerHour, vehicleLike, atWork
-                FROM drive_movement_observations
-                """.trimIndent(),
-            ).close()
             database.query("SELECT id FROM work_site_sessions WHERE id LIKE 'legacy-site-%'").use { cursor ->
                 assertEquals(0, cursor.count)
+            }
+            database.query("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'drive_movement_observations'").use { cursor ->
+                assertEquals(0, cursor.count)
+            }
+            database.query("SELECT id FROM activity_intervals WHERE bucket = 'NEEDS_REVIEW'").use { cursor ->
+                assertEquals(1, cursor.count)
             }
         } finally {
             database.close()
@@ -96,7 +98,7 @@ class TimeTrackerMigrationsTest {
             VALUES
                 ('idle-one', 'session', 'IDLE', 2000, 2500),
                 ('drive-one', 'session', 'DRIVE', 2500, 3500),
-                ('idle-two', 'session', 'IDLE', 3500, 4500)
+                ('review-one', 'session', 'UNCLASSIFIED', 3500, 4500)
             """.trimIndent(),
         )
         database.query("SELECT id FROM work_site_sessions WHERE id LIKE 'legacy-site-%'").use { cursor ->
@@ -121,7 +123,34 @@ class TimeTrackerMigrationsTest {
         )
     }
 
+    private fun insertVersionNineMovementHistory(database: SupportSQLiteDatabase) {
+        database.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `drive_movement_observations` (
+                `id` TEXT NOT NULL,
+                `sessionId` TEXT NOT NULL,
+                `startEpochMillis` INTEGER NOT NULL,
+                `endEpochMillis` INTEGER NOT NULL,
+                `distanceMeters` REAL NOT NULL,
+                `countedDistanceMeters` REAL NOT NULL,
+                `speedMilesPerHour` REAL NOT NULL,
+                `vehicleLike` INTEGER NOT NULL,
+                `atWork` INTEGER NOT NULL,
+                PRIMARY KEY(`id`)
+            )
+            """.trimIndent(),
+        )
+    }
+
+    private fun databasePath(context: Context, name: String): String {
+        val path = context.getDatabasePath(name)
+        path.parentFile?.mkdirs()
+        File(path.absolutePath).delete()
+        return path.absolutePath
+    }
+
     private companion object {
-        const val TEST_DATABASE = "time-tracker-migration-test"
+        const val BASELINE_TEST_DATABASE = "tt-mig-base"
+        const val UPGRADE_TEST_DATABASE = "tt-mig-up"
     }
 }

@@ -54,7 +54,7 @@ class ActivityBucketPolicyTest {
     }
 
     @Test
-    fun `missing geofence presence does not classify vehicle motion as drive`() {
+    fun `missing geofence presence sends vehicle motion to needs review`() {
         val bucket = DriveClassificationPolicy.classify(
             activity = MotionActivity.IN_VEHICLE,
             transition = MotionTransition.ENTER,
@@ -62,7 +62,7 @@ class ActivityBucketPolicyTest {
             workPresence = GeofencePresence.UNKNOWN,
         )
 
-        assertEquals(ActivityBucket.UNCLASSIFIED, bucket)
+        assertEquals(ActivityBucket.NEEDS_REVIEW, bucket)
     }
 
     @Test
@@ -73,6 +73,19 @@ class ActivityBucketPolicyTest {
             homePresence = GeofencePresence.INSIDE,
             workPresence = GeofencePresence.INSIDE,
             movementEvidence = MovementEvidence.MOVING,
+        )
+
+        assertEquals(ActivityBucket.HOME, bucket)
+    }
+
+    @Test
+    fun `unknown movement inside home remains home instead of needs review`() {
+        val bucket = DriveClassificationPolicy.classify(
+            activity = MotionActivity.OTHER,
+            transition = MotionTransition.OTHER,
+            homePresence = GeofencePresence.INSIDE,
+            workPresence = GeofencePresence.UNKNOWN,
+            movementEvidence = MovementEvidence.UNKNOWN,
         )
 
         assertEquals(ActivityBucket.HOME, bucket)

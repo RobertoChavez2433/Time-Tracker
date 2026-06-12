@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.room.Room
 import com.robertochavez.timetracker.core.database.dao.ActivityIntervalDao
 import com.robertochavez.timetracker.core.database.dao.AwaySessionDao
-import com.robertochavez.timetracker.core.database.dao.DriveMovementObservationDao
 import com.robertochavez.timetracker.core.database.dao.HomeLocationDao
 import com.robertochavez.timetracker.core.database.dao.PayPeriodSettingsDao
 import com.robertochavez.timetracker.core.database.dao.WorkLocationDao
@@ -46,10 +45,6 @@ object DatabaseModule {
 
     @Provides
     fun provideActivityIntervalDao(database: TimeTrackerDatabase): ActivityIntervalDao = database.activityIntervalDao()
-
-    @Provides
-    fun provideDriveMovementObservationDao(database: TimeTrackerDatabase): DriveMovementObservationDao =
-        database.driveMovementObservationDao()
 
     @Provides
     fun provideWorkScheduleDao(database: TimeTrackerDatabase): WorkScheduleDao = database.workScheduleDao()

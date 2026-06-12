@@ -83,6 +83,7 @@ class ReportsViewModelTest {
         assertEquals("10h", today.home)
         assertEquals("2h", today.work)
         assertEquals("1h", today.drive)
+        assertEquals("0m", today.needsReview)
         assertEquals("23", today.miles)
 
         val monday = viewModel.uiState.value.weeklyLedger.rows.first()
@@ -93,6 +94,7 @@ class ReportsViewModelTest {
         assertEquals("1h", monday.drive)
         assertEquals("30m", monday.site)
         assertEquals("30m", monday.idle)
+        assertEquals("0m", monday.needsReview)
         assertEquals("23", monday.miles)
     }
 

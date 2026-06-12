@@ -127,10 +127,9 @@ class DebugStateEndpointServer @Inject constructor(
     }
 
     private suspend fun seedJobsiteDrivePayload(runId: String, actorId: String): Map<String, Any?> {
-        val localDate = Instant.now(clock).atZone(clock.zone).toLocalDate()
-        val sessionStart = localDate.atTime(12, 0).atZone(clock.zone).toInstant().truncatedTo(ChronoUnit.SECONDS)
-        val drivingStart = sessionStart.plus(5, ChronoUnit.MINUTES)
-        val drivingEnd = drivingStart.plus(JOBSITE_DRIVE_MINUTES, ChronoUnit.MINUTES)
+        val drivingEnd = Instant.now(clock).minus(1, ChronoUnit.MINUTES).truncatedTo(ChronoUnit.SECONDS)
+        val drivingStart = drivingEnd.minus(JOBSITE_DRIVE_MINUTES, ChronoUnit.MINUTES)
+        val sessionStart = drivingStart.minus(5, ChronoUnit.MINUTES)
         val atWorkVehicleBucket = ActivityBucketPolicy.classify(
             activity = MotionActivity.IN_VEHICLE,
             transition = MotionTransition.ENTER,
@@ -158,7 +157,7 @@ class DebugStateEndpointServer @Inject constructor(
             "todayDriveMinutes" to todayReport.driveMinutes,
             "todaySiteMinutes" to todayReport.siteMinutes,
             "todayIdleMinutes" to todayReport.idleMinutes,
-            "todayUnclassifiedMinutes" to todayReport.unclassifiedMinutes,
+            "todayNeedsReviewMinutes" to todayReport.needsReviewMinutes,
         )
         logger.info(LogCategory.TESTING, "Jobsite drive policy scenario seeded", proof)
         return mapOf(

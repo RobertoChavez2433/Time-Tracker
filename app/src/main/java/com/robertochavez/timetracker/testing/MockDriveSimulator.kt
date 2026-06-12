@@ -2,7 +2,6 @@ package com.robertochavez.timetracker.testing
 
 import android.location.Location
 import android.os.SystemClock
-import com.robertochavez.timetracker.core.common.model.ActivityBucket
 import com.robertochavez.timetracker.core.common.model.HomeLocation
 import com.robertochavez.timetracker.core.common.model.WorkSchedule
 import com.robertochavez.timetracker.core.common.repository.TrackingRepository
@@ -48,7 +47,6 @@ class MockDriveSimulator @Inject constructor(
         trackingRepository.stopActiveAwaySession(startAt)
         val session = trackingRepository.startAwaySessionIfTrackable(startAt)
             ?: trackingRepository.startManualSession(startAt)
-        trackingRepository.recordActivityTransition(ActivityBucket.DRIVE, startAt)
         driveMileageTracker.clearBaseline()
         driveMileageTracker.startTracking()
 
@@ -118,6 +116,7 @@ class MockDriveSimulator @Inject constructor(
                 "scenario" to scenario,
                 "todayDrivenMiles" to todayReport.drivenMiles,
                 "todayDriveMinutes" to todayReport.driveMinutes,
+                "todayNeedsReviewMinutes" to todayReport.needsReviewMinutes,
                 "totalDrivenMiles" to snapshot.totalDrivenMiles,
                 "sessionCount" to snapshot.sessionCount,
                 "activeSession" to snapshot.activeSession?.toMap(),

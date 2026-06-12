@@ -1,0 +1,25 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <application>
+        <receiver
+            android:name="com.robertochavez.timetracker.core.location.geofence.GeofenceBroadcastReceiver"
+            android:exported="true"
+            tools:node="merge"
+            tools:replace="android:exported">
+            <intent-filter>
+                <action android:name="com.robertochavez.timetracker.debug.E2E_GEOFENCE_TRANSITION" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name="com.robertochavez.timetracker.core.location.activity.ActivityTransitionBroadcastReceiver"
+            android:exported="true"
+            tools:node="merge"
+            tools:replace="android:exported">
+            <intent-filter>
+                <action android:name="com.robertochavez.timetracker.debug.E2E_ACTIVITY_TRANSITION" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>

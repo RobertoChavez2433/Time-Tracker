@@ -3,7 +3,6 @@ package com.robertochavez.timetracker.feature.reports
 import com.robertochavez.timetracker.core.common.model.ActivityInterval
 import com.robertochavez.timetracker.core.common.model.AwaySession
 import com.robertochavez.timetracker.core.common.model.DailyReport
-import com.robertochavez.timetracker.core.common.model.DriveMovementObservation
 import com.robertochavez.timetracker.core.common.model.PayPeriodSettings
 import com.robertochavez.timetracker.core.common.model.PeriodReport
 import com.robertochavez.timetracker.core.common.model.WorkSchedule
@@ -27,19 +26,21 @@ data class ReportsUiState(
 internal data class ReportInputs(
     val sessions: List<AwaySession>,
     val intervals: List<ActivityInterval>,
-    val movementObservations: List<DriveMovementObservation>,
     val workSiteSessions: List<WorkSiteSession>,
     val schedule: WorkSchedule,
     val payPeriod: PayPeriodSettings,
 )
 
-internal data class TrackingReportInputs(
-    val sessions: List<AwaySession>,
-    val intervals: List<ActivityInterval>,
-    val movementObservations: List<DriveMovementObservation>,
-)
+internal data class TrackingReportInputs(val sessions: List<AwaySession>, val intervals: List<ActivityInterval>)
 
-data class DashboardSummaryUiModel(val title: String, val home: String, val work: String, val drive: String, val miles: String)
+data class DashboardSummaryUiModel(
+    val title: String,
+    val home: String,
+    val work: String,
+    val drive: String,
+    val needsReview: String,
+    val miles: String,
+)
 
 data class WeeklyLedgerUiModel(
     val title: String = "This Week",
@@ -53,6 +54,7 @@ data class WeeklyLedgerUiModel(
         drive = "-",
         site = "-",
         idle = "-",
+        needsReview = "-",
         miles = "-",
     ),
 )
@@ -65,6 +67,7 @@ data class WeeklyLedgerRowUiModel(
     val drive: String,
     val site: String,
     val idle: String,
+    val needsReview: String,
     val miles: String,
     val isToday: Boolean = false,
 )
@@ -74,6 +77,7 @@ internal fun DailyReport.toSummary(title: String, now: Instant, zoneId: ZoneId):
     home = homeDuration(now, zoneId).formatHours(),
     work = totalAway.formatHours(),
     drive = drive.formatHours(),
+    needsReview = needsReview.formatHours(),
     miles = drivenMiles.formatWholeMiles(),
 )
 
@@ -82,6 +86,7 @@ internal fun PeriodReport.toSummary(title: String, now: Instant, zoneId: ZoneId)
     home = homeDuration(now, zoneId).formatHours(),
     work = totalAway.formatHours(),
     drive = drive.formatHours(),
+    needsReview = needsReview.formatHours(),
     miles = drivenMiles.formatWholeMiles(),
 )
 
@@ -101,6 +106,7 @@ internal fun PeriodReport.toWeeklyLedger(today: LocalDate, schedule: WorkSchedul
             drive = report.drive.formatLedgerValue(hasData),
             site = report.site.formatLedgerValue(hasData),
             idle = report.idle.formatLedgerValue(hasData),
+            needsReview = report.needsReview.formatLedgerValue(hasData),
             miles = report.drivenMiles.formatLedgerMiles(hasData),
             isToday = report.date == today,
         )
@@ -117,6 +123,7 @@ internal fun PeriodReport.toWeeklyLedger(today: LocalDate, schedule: WorkSchedul
             drive = drive.formatHours(),
             site = site.formatHours(),
             idle = idle.formatHours(),
+            needsReview = needsReview.formatHours(),
             miles = drivenMiles.formatWholeMiles(),
         ),
     )

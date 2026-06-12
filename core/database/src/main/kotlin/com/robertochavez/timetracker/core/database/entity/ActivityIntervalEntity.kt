@@ -28,14 +28,17 @@ data class ActivityIntervalEntity(
     val endEpochMillis: Long?,
 ) {
     fun toModelOrNull(openIntervalEnd: Instant? = null): ActivityInterval? {
-        val end = endEpochMillis?.let(Instant::ofEpochMilli) ?: openIntervalEnd ?: return null
-        return ActivityInterval(
-            id = id,
-            sessionId = sessionId,
-            bucket = bucket,
-            start = Instant.ofEpochMilli(startEpochMillis),
-            end = end,
-        )
+        val start = Instant.ofEpochMilli(startEpochMillis)
+        val end = endEpochMillis?.let(Instant::ofEpochMilli) ?: openIntervalEnd
+        return end?.takeIf { it > start }?.let { validEnd ->
+            ActivityInterval(
+                id = id,
+                sessionId = sessionId,
+                bucket = bucket,
+                start = start,
+                end = validEnd,
+            )
+        }
     }
 
     companion object {

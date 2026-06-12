@@ -5,5 +5,5 @@ enum class ActivityBucket {
     DRIVE,
     SITE,
     IDLE,
-    UNCLASSIFIED,
+    NEEDS_REVIEW,
 }

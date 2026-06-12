@@ -7,8 +7,11 @@ import com.google.android.gms.location.Geofence
 import com.google.android.gms.location.GeofencingEvent
 import com.robertochavez.timetracker.core.common.model.ActivityBucket
 import com.robertochavez.timetracker.core.common.model.TrackingSessionController
+import com.robertochavez.timetracker.core.common.repository.AwaySessionPresenceRepository
+import com.robertochavez.timetracker.core.common.repository.HomeLocationRepository
 import com.robertochavez.timetracker.core.common.repository.WorkPresenceRepository
 import com.robertochavez.timetracker.core.common.repository.WorkSiteSessionRepository
+import com.robertochavez.timetracker.core.location.BuildConfig
 import com.robertochavez.timetracker.core.location.mileage.DriveMileageTracker
 import com.robertochavez.timetracker.core.logging.AppLogger
 import com.robertochavez.timetracker.core.logging.LogCategory
@@ -27,6 +30,10 @@ import javax.inject.Inject
 class GeofenceBroadcastReceiver : BroadcastReceiver() {
     @Inject lateinit var trackingSessionController: TrackingSessionController
 
+    @Inject lateinit var awaySessionPresenceRepository: AwaySessionPresenceRepository
+
+    @Inject lateinit var homeLocationRepository: HomeLocationRepository
+
     @Inject lateinit var workPresenceRepository: WorkPresenceRepository
 
     @Inject lateinit var workSiteSessionRepository: WorkSiteSessionRepository
@@ -41,7 +48,11 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
         val pendingResult = goAsync()
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             try {
-                handle(intent)
+                if (BuildConfig.E2E_DEBUG_ENABLED && intent.action == ACTION_E2E_GEOFENCE_TRANSITION) {
+                    handleE2eTransition(intent)
+                } else {
+                    handle(intent)
+                }
             } finally {
                 pendingResult.finish()
             }
@@ -52,19 +63,40 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
         val event = GeofencingEvent.fromIntent(intent) ?: return
         if (event.hasError()) {
             logger.warn(LogCategory.LOCATION, "Geofence event error", mapOf("errorCode" to event.errorCode))
-            return
+        } else {
+            val now = Instant.now(clock)
+            val requestIds = event.triggeringGeofences?.map { it.requestId }?.toSet().orEmpty()
+            logger.info(LogCategory.LOCATION, "Geofence transition received", event.debugData(requestIds))
+            val e2eGuard = E2eGeofenceGuard(homeLocationRepository, workPresenceRepository, logger)
+            val ignored = e2eGuard.shouldIgnoreHomeEnterOutsideHome(event, requestIds) ||
+                e2eGuard.shouldIgnoreNonMockTransition(event, requestIds, now)
+            if (!ignored) {
+                if (requestIds.isEmpty() || TimeTrackerGeofenceIds.HOME in requestIds) {
+                    handleHomeTransition(event.geofenceTransition, now)
+                }
+                val workLocationIds = requestIds.mapNotNull(TimeTrackerGeofenceIds::workLocationId)
+                if (workLocationIds.isNotEmpty()) {
+                    handleWorkTransition(event.geofenceTransition, workLocationIds, now)
+                }
+            }
         }
+    }
 
+    private suspend fun handleE2eTransition(intent: Intent) {
+        val requestId = intent.getStringExtra(EXTRA_E2E_REQUEST_ID) ?: return
+        val transition = intent.getStringExtra(EXTRA_E2E_TRANSITION)?.toGeofenceTransitionOrNull() ?: return
         val now = Instant.now(clock)
-        val requestIds = event.triggeringGeofences?.map { it.requestId }?.toSet().orEmpty()
-        logger.info(LogCategory.LOCATION, "Geofence transition received", event.debugData(requestIds))
-
-        if (requestIds.isEmpty() || TimeTrackerGeofenceIds.HOME in requestIds) {
-            handleHomeTransition(event.geofenceTransition, now)
-        }
-        val workLocationIds = requestIds.mapNotNull(TimeTrackerGeofenceIds::workLocationId)
-        if (workLocationIds.isNotEmpty()) {
-            handleWorkTransition(event.geofenceTransition, workLocationIds, now)
+        logger.info(
+            LogCategory.LOCATION,
+            "E2E geofence transition injected",
+            mapOf("requestId" to requestId, "transition" to transition.name()),
+        )
+        if (requestId == TimeTrackerGeofenceIds.HOME) {
+            handleHomeTransition(transition, now)
+        } else {
+            TimeTrackerGeofenceIds.workLocationId(requestId)?.let { workLocationId ->
+                handleWorkTransition(transition, listOf(workLocationId), now)
+            }
         }
     }
 
@@ -72,10 +104,10 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
         when (transition) {
             Geofence.GEOFENCE_TRANSITION_EXIT -> {
                 logger.info(LogCategory.LOCATION, "Home geofence exit received")
-                workPresenceRepository.setAtWork(atWork = false, updatedAt = at)
+                val workPresence = workPresenceRepository.getWorkPresence()
+                val alreadyAway = awaySessionPresenceRepository.hasActiveAwaySession()
                 val started = trackingSessionController.startAwaySessionIfTrackable(at)
-                if (started != null) {
-                    driveMileageTracker.clearBaseline()
+                if (started != null && !alreadyAway && !workPresence.atWork) {
                     driveMileageTracker.startAwayTracking()
                 }
             }
@@ -99,7 +131,7 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
                     workSiteSessionRepository.stopActiveWorkSiteSession(workLocationId, at)
                 }
                 workPresenceRepository.setAtWork(atWork = false, updatedAt = at)
-                trackingSessionController.recordActivityTransition(ActivityBucket.IDLE, at)
+                trackingSessionController.recordActivityTransition(ActivityBucket.NEEDS_REVIEW, at)
             }
             Geofence.GEOFENCE_TRANSITION_ENTER,
             Geofence.GEOFENCE_TRANSITION_DWELL,
@@ -113,22 +145,10 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
             }
         }
     }
-}
 
-private fun GeofencingEvent.debugData(requestIds: Set<String>): Map<String, Any?> {
-    val location = triggeringLocation
-    return mapOf(
-        "requestIds" to requestIds.sorted(),
-        "transition" to geofenceTransition.name(),
-        "triggeringLocationAvailable" to (location != null),
-        "triggeringLocationHasAccuracy" to (location?.hasAccuracy() == true),
-        "triggeringLocationAccuracyMeters" to location?.takeIf { it.hasAccuracy() }?.accuracy,
-    )
-}
-
-private fun Int.name(): String = when (this) {
-    Geofence.GEOFENCE_TRANSITION_ENTER -> "ENTER"
-    Geofence.GEOFENCE_TRANSITION_EXIT -> "EXIT"
-    Geofence.GEOFENCE_TRANSITION_DWELL -> "DWELL"
-    else -> "UNKNOWN_$this"
+    private companion object {
+        const val ACTION_E2E_GEOFENCE_TRANSITION = "com.robertochavez.timetracker.debug.E2E_GEOFENCE_TRANSITION"
+        const val EXTRA_E2E_REQUEST_ID = "requestId"
+        const val EXTRA_E2E_TRANSITION = "transition"
+    }
 }

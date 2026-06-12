@@ -1,7 +1,6 @@
 package com.robertochavez.timetracker.testing
 
 import com.robertochavez.timetracker.core.common.domain.ReportCalculator
-import com.robertochavez.timetracker.core.common.model.ActivityBucket
 import com.robertochavez.timetracker.core.common.model.ActivityInterval
 import com.robertochavez.timetracker.core.common.model.AwaySession
 import com.robertochavez.timetracker.core.common.model.DailyReport
@@ -108,7 +107,7 @@ class AppStateSnapshotProvider @Inject constructor(
         driveMinutes = drive.toMinutes(),
         siteMinutes = site.toMinutes(),
         idleMinutes = idle.toMinutes(),
-        unclassifiedMinutes = unclassified.toMinutes(),
+        needsReviewMinutes = needsReview.toMinutes(),
     )
 
     private fun PeriodReport.toSnapshot(): ReportSnapshot = ReportSnapshot(
@@ -117,6 +116,6 @@ class AppStateSnapshotProvider @Inject constructor(
         driveMinutes = drive.toMinutes(),
         siteMinutes = site.toMinutes(),
         idleMinutes = idle.toMinutes(),
-        unclassifiedMinutes = bucketTotals.getValue(ActivityBucket.UNCLASSIFIED).toMinutes(),
+        needsReviewMinutes = needsReview.toMinutes(),
     )
 }

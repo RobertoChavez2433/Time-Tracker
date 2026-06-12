@@ -210,7 +210,7 @@ private fun List<ActivityInterval>.classificationSummary(): String {
         ActivityBucket.DRIVE to "Drive",
         ActivityBucket.SITE to "Site",
         ActivityBucket.IDLE to "Idle",
-        ActivityBucket.UNCLASSIFIED to "Other",
+        ActivityBucket.NEEDS_REVIEW to "Needs review",
     ).mapNotNull { (bucket, label) ->
         val duration = totals[bucket]?.takeUnless { it.isZero } ?: return@mapNotNull null
         "$label ${duration.formatDuration()}"

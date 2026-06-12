@@ -89,7 +89,7 @@ data class ReportSnapshot(
     val driveMinutes: Long,
     val siteMinutes: Long,
     val idleMinutes: Long,
-    val unclassifiedMinutes: Long,
+    val needsReviewMinutes: Long,
 ) {
     fun toMap(): Map<String, Any?> = mapOf(
         "awayMinutes" to awayMinutes,
@@ -97,7 +97,8 @@ data class ReportSnapshot(
         "driveMinutes" to driveMinutes,
         "siteMinutes" to siteMinutes,
         "idleMinutes" to idleMinutes,
-        "unclassifiedMinutes" to unclassifiedMinutes,
+        "needsReviewMinutes" to needsReviewMinutes,
+        "unclassifiedMinutes" to needsReviewMinutes,
     )
 }
 

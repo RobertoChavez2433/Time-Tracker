@@ -47,8 +47,11 @@ object DriveClassificationPolicy {
         movementEvidence == MovementEvidence.MOVING &&
             homePresence == GeofencePresence.OUTSIDE &&
             workPresence == GeofencePresence.OUTSIDE -> ActivityBucket.DRIVE
-        activity == MotionActivity.STILL && transition == MotionTransition.ENTER -> ActivityBucket.IDLE
-        else -> ActivityBucket.UNCLASSIFIED
+        activity == MotionActivity.STILL &&
+            transition == MotionTransition.ENTER &&
+            homePresence == GeofencePresence.OUTSIDE &&
+            workPresence == GeofencePresence.OUTSIDE -> ActivityBucket.IDLE
+        else -> ActivityBucket.NEEDS_REVIEW
     }
 
     fun workPresenceFrom(presence: WorkPresence, at: Instant, freshFor: Duration = DEFAULT_GEOFENCE_PRESENCE_FRESHNESS): GeofencePresence =

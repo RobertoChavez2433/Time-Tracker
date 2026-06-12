@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.robertochavez.timetracker.core.common.model.ActivityBucket
-import com.robertochavez.timetracker.core.common.model.DriveMovementObservationDraft
 import com.robertochavez.timetracker.core.common.model.WorkSchedule
 import com.robertochavez.timetracker.core.database.entity.WorkScheduleEntity
 import com.robertochavez.timetracker.core.database.repository.RoomTrackingRepository
@@ -39,7 +38,6 @@ class TrackingRepositoryTest {
             database = database,
             awaySessionDao = database.awaySessionDao(),
             activityIntervalDao = database.activityIntervalDao(),
-            driveMovementObservationDao = database.driveMovementObservationDao(),
             workScheduleDao = database.workScheduleDao(),
             clock = Clock.fixed(Instant.parse("2026-05-04T12:00:00Z"), ZoneId.of("America/New_York")),
             logger = NoopAppLogger(),
@@ -73,26 +71,13 @@ class TrackingRepositoryTest {
     }
 
     @Test
-    fun `records drive movement observation and adds counted distance to active away session miles`() = runTest {
+    fun `adds driven distance to active away session miles without storing speed history`() = runTest {
         val started = repository.startManualSession(Instant.parse("2026-05-04T12:00:00Z"))
 
-        val updated = repository.recordDriveMovementObservation(
-            DriveMovementObservationDraft(
-                start = Instant.parse("2026-05-04T12:00:00Z"),
-                end = Instant.parse("2026-05-04T12:05:00Z"),
-                distanceMeters = 1_609.344,
-                countedDistanceMeters = 1_609.344,
-                speedMilesPerHour = 19.0,
-                vehicleLike = true,
-                atWork = false,
-            ),
-        )
+        val updated = repository.addDrivenDistanceMeters(1_609.344)
 
-        val observations = database.driveMovementObservationDao().observeObservations().first()
         assertEquals(started.id, updated?.id)
         assertEquals(1.0, updated?.drivenMiles ?: 0.0, 0.001)
-        assertEquals(1, observations.size)
-        assertEquals(started.id, observations.single().sessionId)
     }
 
     @Test
@@ -105,5 +90,15 @@ class TrackingRepositoryTest {
         assertEquals(started.id, interval.sessionId)
         assertEquals(ActivityBucket.DRIVE, interval.bucket)
         assertEquals(Instant.parse("2026-05-04T12:00:00Z"), interval.end)
+    }
+
+    @Test
+    fun `ignores future open activity intervals until clock catches up`() = runTest {
+        repository.startManualSession(Instant.parse("2026-05-04T11:30:00Z"))
+        repository.recordActivityTransition(ActivityBucket.DRIVE, Instant.parse("2026-05-04T12:05:00Z"))
+
+        val intervals = repository.observeActivityIntervals().first()
+
+        assertEquals(0, intervals.size)
     }
 }

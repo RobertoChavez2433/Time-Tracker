@@ -2,7 +2,6 @@ package com.robertochavez.timetracker.core.testing
 
 import com.robertochavez.timetracker.core.common.model.ActivityBucket
 import com.robertochavez.timetracker.core.common.model.AwaySession
-import com.robertochavez.timetracker.core.common.model.DriveMovementObservationDraft
 import com.robertochavez.timetracker.core.common.model.HomeLocation
 import com.robertochavez.timetracker.core.common.model.TrackingSessionController
 import java.time.Instant
@@ -11,7 +10,7 @@ class FakeTrackingSessionController : TrackingSessionController {
     val startedAt = mutableListOf<Instant>()
     val stoppedAt = mutableListOf<Instant>()
     val activityTransitions = mutableListOf<Pair<ActivityBucket, Instant>>()
-    val driveMovementObservationUpdates = mutableListOf<DriveMovementObservationDraft>()
+    val drivenDistanceUpdates = mutableListOf<Double>()
 
     override suspend fun startAwaySessionIfTrackable(at: Instant): AwaySession {
         startedAt += at
@@ -27,8 +26,8 @@ class FakeTrackingSessionController : TrackingSessionController {
         activityTransitions += bucket to at
     }
 
-    override suspend fun recordDriveMovementObservation(observation: DriveMovementObservationDraft): AwaySession? {
-        driveMovementObservationUpdates += observation
+    override suspend fun addDrivenDistanceMeters(distanceMeters: Double): AwaySession? {
+        drivenDistanceUpdates += distanceMeters
         return null
     }
 }

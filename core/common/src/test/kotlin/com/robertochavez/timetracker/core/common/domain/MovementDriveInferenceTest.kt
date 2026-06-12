@@ -32,6 +32,30 @@ class MovementDriveInferenceTest {
     }
 
     @Test
+    fun `fifteen mph for one minute starts inferred drive`() {
+        val result = MovementDriveInference.evaluate(
+            state = MovementDriveInferenceState(),
+            segment = segment("2026-05-05T12:00:00Z", "2026-05-05T12:01:00Z", milesPerHour = 15.0),
+            atWork = false,
+        )
+
+        assertEquals(ActivityBucket.DRIVE, result.transition?.bucket)
+        assertEquals(Instant.parse("2026-05-05T12:00:00Z"), result.transition?.at)
+    }
+
+    @Test
+    fun `movement below fifteen mph does not start inferred drive`() {
+        val result = MovementDriveInference.evaluate(
+            state = MovementDriveInferenceState(),
+            segment = segment("2026-05-05T12:00:00Z", "2026-05-05T12:01:00Z", milesPerHour = 14.9),
+            atWork = false,
+        )
+
+        assertNull(result.transition)
+        assertFalse(result.nextState.driveActive)
+    }
+
+    @Test
     fun `movement inside site ends inferred drive as site`() {
         val state = MovementDriveInferenceState(
             candidateStart = Instant.parse("2026-05-05T12:00:00Z"),

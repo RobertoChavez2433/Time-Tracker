@@ -4,8 +4,6 @@ import com.robertochavez.timetracker.core.common.model.ActivityBucket
 import com.robertochavez.timetracker.core.common.model.ActivityInterval
 import com.robertochavez.timetracker.core.common.model.AppSettings
 import com.robertochavez.timetracker.core.common.model.AwaySession
-import com.robertochavez.timetracker.core.common.model.DriveMovementObservation
-import com.robertochavez.timetracker.core.common.model.DriveMovementObservationDraft
 import com.robertochavez.timetracker.core.common.model.HomeLocation
 import com.robertochavez.timetracker.core.common.model.PayPeriodSettings
 import com.robertochavez.timetracker.core.common.model.WorkLocation
@@ -120,24 +118,18 @@ class FakeWorkSiteSessionRepository(
     }
 }
 
-class FakeTrackingRepository(
-    initialSessions: List<AwaySession> = emptyList(),
-    initialIntervals: List<ActivityInterval> = emptyList(),
-    initialMovementObservations: List<DriveMovementObservation> = emptyList(),
-) : TrackingRepository {
+class FakeTrackingRepository(initialSessions: List<AwaySession> = emptyList(), initialIntervals: List<ActivityInterval> = emptyList()) :
+    TrackingRepository {
     val sessions = MutableStateFlow(initialSessions)
     val intervals = MutableStateFlow(initialIntervals)
-    val movementObservations = MutableStateFlow(initialMovementObservations)
     val manualStarts = mutableListOf<Instant>()
     val activeStops = mutableListOf<Instant>()
     val activityTransitions = mutableListOf<Pair<ActivityBucket, Instant>>()
-    val driveMovementObservationUpdates = mutableListOf<DriveMovementObservationDraft>()
+    val drivenDistanceUpdates = mutableListOf<Double>()
 
     override fun observeSessions(): Flow<List<AwaySession>> = sessions
 
     override fun observeActivityIntervals(): Flow<List<ActivityInterval>> = intervals
-
-    override fun observeDriveMovementObservations(): Flow<List<DriveMovementObservation>> = movementObservations
 
     override suspend fun startManualSession(at: Instant?): AwaySession {
         val start = requireNotNull(at) { "FakeTrackingRepository requires explicit start times." }
@@ -161,21 +153,10 @@ class FakeTrackingRepository(
         activityTransitions += bucket to at
     }
 
-    override suspend fun recordDriveMovementObservation(observation: DriveMovementObservationDraft): AwaySession? {
-        driveMovementObservationUpdates += observation
+    override suspend fun addDrivenDistanceMeters(distanceMeters: Double): AwaySession? {
+        drivenDistanceUpdates += distanceMeters
         val active = sessions.value.firstOrNull { it.isActive } ?: return null
-        movementObservations.value = movementObservations.value + DriveMovementObservation(
-            id = "movement-${driveMovementObservationUpdates.size}",
-            sessionId = active.id,
-            start = observation.start,
-            end = observation.end,
-            distanceMeters = observation.distanceMeters,
-            countedDistanceMeters = observation.countedDistanceMeters,
-            speedMilesPerHour = observation.speedMilesPerHour,
-            vehicleLike = observation.vehicleLike,
-            atWork = observation.atWork,
-        )
-        val updated = active.copy(drivenMiles = active.drivenMiles + observation.countedDistanceMeters / METERS_PER_MILE)
+        val updated = active.copy(drivenMiles = active.drivenMiles + distanceMeters / METERS_PER_MILE)
         sessions.value = sessions.value.map { if (it.id == active.id) updated else it }
         return updated
     }

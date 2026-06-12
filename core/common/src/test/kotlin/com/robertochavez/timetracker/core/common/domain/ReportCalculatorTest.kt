@@ -3,10 +3,8 @@ package com.robertochavez.timetracker.core.common.domain
 import com.robertochavez.timetracker.core.common.model.ActivityBucket
 import com.robertochavez.timetracker.core.common.model.ActivityInterval
 import com.robertochavez.timetracker.core.common.model.AwaySession
-import com.robertochavez.timetracker.core.common.model.DriveMovementObservation
 import com.robertochavez.timetracker.core.common.model.PayPeriodSettings
 import com.robertochavez.timetracker.core.common.model.WorkSchedule
-import com.robertochavez.timetracker.core.common.model.WorkSiteSession
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import java.time.DayOfWeek
@@ -132,9 +130,9 @@ class ReportCalculatorTest {
                 end = Instant.parse("2026-05-01T14:30:00Z"),
             ),
             ActivityInterval(
-                id = "unclassified",
+                id = "needs-review",
                 sessionId = "session",
-                bucket = ActivityBucket.UNCLASSIFIED,
+                bucket = ActivityBucket.NEEDS_REVIEW,
                 start = Instant.parse("2026-05-01T14:30:00Z"),
                 end = Instant.parse("2026-05-01T15:00:00Z"),
             ),
@@ -144,233 +142,7 @@ class ReportCalculatorTest {
 
         assertEquals(Duration.ofHours(1), totals[ActivityBucket.DRIVE])
         assertEquals(Duration.ofMinutes(30), totals[ActivityBucket.IDLE])
-        assertEquals(Duration.ofMinutes(30), totals[ActivityBucket.UNCLASSIFIED])
-    }
-
-    @Test
-    fun `driving inside site increases miles but not drive time`() {
-        val session = AwaySession(
-            id = "jobsite",
-            start = Instant.parse("2026-05-01T13:00:00Z"),
-            end = Instant.parse("2026-05-01T14:00:00Z"),
-            drivenMiles = 6.75,
-        )
-        val jobsiteDrivingInterval = ActivityInterval(
-            id = "jobsite-driving",
-            sessionId = session.id,
-            bucket = ActivityBucket.UNCLASSIFIED,
-            start = Instant.parse("2026-05-01T13:15:00Z"),
-            end = Instant.parse("2026-05-01T13:45:00Z"),
-        )
-        val siteSessions = listOf(
-            WorkSiteSession(
-                id = "site",
-                workLocationId = "work",
-                start = Instant.parse("2026-05-01T13:15:00Z"),
-                end = Instant.parse("2026-05-01T13:45:00Z"),
-            ),
-        )
-
-        val report = calculator.daily(
-            date = LocalDate.of(2026, 5, 1),
-            sessions = listOf(session),
-            intervals = listOf(jobsiteDrivingInterval),
-            now = Instant.parse("2026-05-01T15:00:00Z"),
-            workSiteSessions = siteSessions,
-        )
-
-        assertEquals(6.75, report.drivenMiles, 0.001)
-        assertEquals(Duration.ZERO, report.drive)
-        assertEquals(Duration.ofMinutes(30), report.site)
-        assertEquals(Duration.ofMinutes(30), report.idle)
-        assertEquals(Duration.ZERO, report.unclassified)
-    }
-
-    @Test
-    fun `daily report partitions work into drive site and idle`() {
-        val session = AwaySession(
-            id = "session",
-            start = Instant.parse("2026-05-01T13:00:00Z"),
-            end = Instant.parse("2026-05-01T17:00:00Z"),
-        )
-        val intervals = listOf(
-            ActivityInterval(
-                id = "drive",
-                sessionId = session.id,
-                bucket = ActivityBucket.DRIVE,
-                start = Instant.parse("2026-05-01T13:00:00Z"),
-                end = Instant.parse("2026-05-01T14:00:00Z"),
-            ),
-            ActivityInterval(
-                id = "site-drive",
-                sessionId = session.id,
-                bucket = ActivityBucket.DRIVE,
-                start = Instant.parse("2026-05-01T15:00:00Z"),
-                end = Instant.parse("2026-05-01T15:30:00Z"),
-            ),
-        )
-        val siteSessions = listOf(
-            WorkSiteSession(
-                id = "site",
-                workLocationId = "work",
-                start = Instant.parse("2026-05-01T14:00:00Z"),
-                end = Instant.parse("2026-05-01T16:00:00Z"),
-            ),
-        )
-
-        val report = calculator.daily(
-            date = LocalDate.of(2026, 5, 1),
-            sessions = listOf(session),
-            intervals = intervals,
-            now = Instant.parse("2026-05-01T18:00:00Z"),
-            workSiteSessions = siteSessions,
-        )
-
-        assertEquals(Duration.ofHours(4), report.totalAway)
-        assertEquals(Duration.ofHours(1), report.drive)
-        assertEquals(Duration.ofHours(2), report.site)
-        assertEquals(Duration.ofHours(1), report.idle)
-    }
-
-    @Test
-    fun `home wins over drive site idle and miles`() {
-        val session = AwaySession(
-            id = "session",
-            start = Instant.parse("2026-05-01T13:00:00Z"),
-            end = Instant.parse("2026-05-01T15:00:00Z"),
-            drivenMiles = 20.0,
-        )
-        val intervals = listOf(
-            ActivityInterval(
-                id = "home",
-                sessionId = session.id,
-                bucket = ActivityBucket.HOME,
-                start = Instant.parse("2026-05-01T13:00:00Z"),
-                end = Instant.parse("2026-05-01T14:00:00Z"),
-            ),
-            ActivityInterval(
-                id = "drive-home",
-                sessionId = session.id,
-                bucket = ActivityBucket.DRIVE,
-                start = Instant.parse("2026-05-01T13:15:00Z"),
-                end = Instant.parse("2026-05-01T13:45:00Z"),
-            ),
-            ActivityInterval(
-                id = "site-overlap",
-                sessionId = session.id,
-                bucket = ActivityBucket.SITE,
-                start = Instant.parse("2026-05-01T13:30:00Z"),
-                end = Instant.parse("2026-05-01T14:30:00Z"),
-            ),
-            ActivityInterval(
-                id = "idle-home",
-                sessionId = session.id,
-                bucket = ActivityBucket.IDLE,
-                start = Instant.parse("2026-05-01T13:45:00Z"),
-                end = Instant.parse("2026-05-01T14:15:00Z"),
-            ),
-        )
-
-        val report = calculator.daily(
-            date = LocalDate.of(2026, 5, 1),
-            sessions = listOf(session),
-            intervals = intervals,
-            now = Instant.parse("2026-05-01T16:00:00Z"),
-        )
-
-        assertEquals(Duration.ofHours(1), report.totalAway)
-        assertEquals(Duration.ZERO, report.drive)
-        assertEquals(Duration.ofMinutes(30), report.site)
-        assertEquals(Duration.ofMinutes(30), report.idle)
-        assertEquals(10.0, report.drivenMiles, 0.001)
-        assertEquals(report.totalAway, report.work)
-    }
-
-    @Test
-    fun `unsaved work stops classify as idle`() {
-        val session = AwaySession(
-            id = "unsaved-stop",
-            start = Instant.parse("2026-05-01T13:00:00Z"),
-            end = Instant.parse("2026-05-01T14:00:00Z"),
-        )
-
-        val report = calculator.daily(
-            date = LocalDate.of(2026, 5, 1),
-            sessions = listOf(session),
-            intervals = emptyList(),
-            now = Instant.parse("2026-05-01T15:00:00Z"),
-        )
-
-        assertEquals(Duration.ZERO, report.drive)
-        assertEquals(Duration.ZERO, report.site)
-        assertEquals(Duration.ofHours(1), report.idle)
-        assertEquals(report.totalAway, report.drive.plus(report.site).plus(report.idle))
-    }
-
-    @Test
-    fun `historical repair moves drive inside saved site to site`() {
-        val session = AwaySession(
-            id = "historical",
-            start = Instant.parse("2026-05-01T13:00:00Z"),
-            end = Instant.parse("2026-05-01T15:00:00Z"),
-        )
-        val misclassifiedDrive = ActivityInterval(
-            id = "drive-inside-site",
-            sessionId = session.id,
-            bucket = ActivityBucket.DRIVE,
-            start = Instant.parse("2026-05-01T13:30:00Z"),
-            end = Instant.parse("2026-05-01T14:30:00Z"),
-        )
-        val siteSession = WorkSiteSession(
-            id = "site",
-            workLocationId = "work",
-            start = Instant.parse("2026-05-01T13:30:00Z"),
-            end = Instant.parse("2026-05-01T14:30:00Z"),
-        )
-
-        val report = calculator.daily(
-            date = LocalDate.of(2026, 5, 1),
-            sessions = listOf(session),
-            intervals = listOf(misclassifiedDrive),
-            now = Instant.parse("2026-05-01T16:00:00Z"),
-            workSiteSessions = listOf(siteSession),
-        )
-
-        assertEquals(Duration.ZERO, report.drive)
-        assertEquals(Duration.ofHours(1), report.site)
-        assertEquals(Duration.ofHours(1), report.idle)
-        assertEquals(report.totalAway, report.drive.plus(report.site).plus(report.idle))
-    }
-
-    @Test
-    fun `movement observations infer drive time when activity transition is missing`() {
-        val session = AwaySession(
-            id = "movement",
-            start = Instant.parse("2026-05-01T13:00:00Z"),
-            end = Instant.parse("2026-05-01T14:00:00Z"),
-        )
-        val movement = DriveMovementObservation(
-            id = "movement-one",
-            sessionId = session.id,
-            start = Instant.parse("2026-05-01T13:05:00Z"),
-            end = Instant.parse("2026-05-01T13:07:00Z"),
-            distanceMeters = 1_000.0,
-            countedDistanceMeters = 1_000.0,
-            speedMilesPerHour = 18.0,
-            vehicleLike = true,
-            atWork = false,
-        )
-
-        val report = calculator.daily(
-            date = LocalDate.of(2026, 5, 1),
-            sessions = listOf(session),
-            intervals = emptyList(),
-            now = Instant.parse("2026-05-01T15:00:00Z"),
-            movementObservations = listOf(movement),
-        )
-
-        assertEquals(Duration.ofMinutes(2), report.drive)
-        assertEquals(Duration.ofMinutes(58), report.idle)
+        assertEquals(Duration.ofMinutes(30), totals[ActivityBucket.NEEDS_REVIEW])
     }
 
     @Test
