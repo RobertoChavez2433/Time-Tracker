@@ -67,10 +67,22 @@ class PlayServicesDriveMileageTracker @Inject constructor(
             logger.info(LogCategory.LOCATION, "Away movement tracking skipped because location permission is missing")
             return
         }
-        if (preferences.getBoolean(KEY_ACTIVE, false) && preferences.trackingMode() == mode) return
+        val wasActive = preferences.getBoolean(KEY_ACTIVE, false)
+        if (wasActive && preferences.trackingMode() == mode) return
 
-        preferences.edit().putBoolean(KEY_ACTIVE, true).apply()
+        preferences.edit()
+            .putBoolean(KEY_ACTIVE, true)
+            .apply {
+                if (!wasActive) {
+                    clearLastPoint()
+                    clearMovementInference()
+                }
+            }
+            .apply()
         try {
+            if (!wasActive) {
+                seedBaselineFromLastKnownLocation()
+            }
             fusedLocationProviderClient.removeLocationUpdates(pendingIntent()).awaitTask()
             fusedLocationProviderClient
                 .requestLocationUpdates(locationRequest(mode), pendingIntent())
@@ -80,6 +92,20 @@ class PlayServicesDriveMileageTracker @Inject constructor(
         } catch (error: SecurityException) {
             preferences.edit().putBoolean(KEY_ACTIVE, false).apply()
             logger.warn(LogCategory.LOCATION, "Away movement tracking lost location permission", error = error)
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    private suspend fun seedBaselineFromLastKnownLocation() {
+        runCatching {
+            fusedLocationProviderClient.lastLocation.awaitTask()
+        }.onSuccess { location ->
+            if (location?.isUsableBaseline() == true) {
+                preferences.edit().putLastPoint(location.toMileagePoint()).apply()
+                logger.info(LogCategory.LOCATION, "Drive mileage baseline seeded from last known location")
+            }
+        }.onFailure { error ->
+            logger.warn(LogCategory.LOCATION, "Drive mileage baseline seed failed", error = error)
         }
     }
 
@@ -180,6 +206,13 @@ class PlayServicesDriveMileageTracker @Inject constructor(
         at = time.takeIf { it > 0L }?.let(Instant::ofEpochMilli) ?: Instant.now(clock),
     )
 
+    private fun Location.isUsableBaseline(): Boolean = isUsableDriveMileageBaseline(
+        timeEpochMillis = time,
+        hasAccuracy = hasAccuracy(),
+        accuracyMeters = accuracy,
+        clockMillis = clock.millis(),
+    )
+
     private companion object {
         const val PREFERENCES_NAME = "drive_mileage_tracker"
         const val ACTION_DRIVE_LOCATION_UPDATE = "com.robertochavez.timetracker.action.DRIVE_LOCATION_UPDATE"
@@ -187,4 +220,12 @@ class PlayServicesDriveMileageTracker @Inject constructor(
     }
 }
 
+internal fun isUsableDriveMileageBaseline(timeEpochMillis: Long, hasAccuracy: Boolean, accuracyMeters: Float, clockMillis: Long): Boolean {
+    val accuracyUsable = !hasAccuracy || accuracyMeters <= MAX_BASELINE_ACCURACY_METERS
+    val ageMillis = clockMillis - timeEpochMillis
+    return accuracyUsable && timeEpochMillis > 0L && ageMillis in 0..MAX_BASELINE_AGE_MILLIS
+}
+
 private const val KEY_ACTIVE = "active"
+private const val MAX_BASELINE_ACCURACY_METERS = 100f
+private const val MAX_BASELINE_AGE_MILLIS = 10 * 60 * 1_000L

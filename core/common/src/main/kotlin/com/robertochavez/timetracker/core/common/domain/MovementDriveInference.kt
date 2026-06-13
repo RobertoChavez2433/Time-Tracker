@@ -29,9 +29,11 @@ object MovementDriveInference {
         val nextState = copy(candidateStart = start)
         val sustainedDuration = Duration.between(start, segment.end)
         return if (!driveActive && sustainedDuration >= SUSTAINED_DRIVE_DURATION) {
+            val earliestSupportedDriveStart = segment.end.minus(SUSTAINED_DRIVE_DURATION)
+            val transitionAt = if (earliestSupportedDriveStart.isAfter(start)) earliestSupportedDriveStart else start
             MovementDriveInferenceResult(
                 nextState = nextState.copy(driveActive = true),
-                transition = MovementBucketTransition(ActivityBucket.DRIVE, start),
+                transition = MovementBucketTransition(ActivityBucket.DRIVE, transitionAt),
                 shouldEscalateToVehicle = true,
             )
         } else {

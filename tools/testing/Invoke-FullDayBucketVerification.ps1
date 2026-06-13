@@ -488,8 +488,6 @@ function Select-UiNodeByTag {
         "startup_setup_dialog" { "Finish setup" }
         "startup_enable_button" { "Agree and Enable Tracking" }
         "startup_background_button" { "Enable Background Location" }
-        "home_radius_option_quarter_mile" { "1/4 mi" }
-        "work_radius_option_quarter_mile" { "1/4 mi" }
         "settings_delete_confirm_button" { "Delete" }
         default { $null }
     }
@@ -596,15 +594,72 @@ function Test-TagVisibleNow {
     }
 }
 
+function Select-UiOptionByText {
+    param(
+        [Parameter(Mandatory = $true)][xml]$Ui,
+        [Parameter(Mandatory = $true)][string]$Text
+    )
+
+    $fallback = $null
+    foreach ($node in @($Ui.SelectNodes("//node[@text='$Text']"))) {
+        $candidate = Select-ClickableAncestorOrNode -Node $node
+        $resourceId = [string]$candidate.GetAttribute("resource-id")
+        if (-not $fallback) {
+            $fallback = $candidate
+        }
+        if (-not $resourceId.EndsWith("_radius_dropdown")) {
+            return $candidate
+        }
+    }
+    return $fallback
+}
+
+function Find-UiOptionByText {
+    param(
+        [Parameter(Mandatory = $true)][string]$Text,
+        [Parameter(Mandatory = $true)][string]$StepName
+    )
+
+    for ($attempt = 0; $attempt -lt 6; $attempt++) {
+        $path = Save-UiDump -Name "$StepName-option-$attempt"
+        [xml]$ui = Get-Content -LiteralPath $path -Raw
+        $node = Select-UiOptionByText -Ui $ui -Text $Text
+        if ($node) {
+            return @{ node = $node; dumpPath = $path }
+        }
+        Start-Sleep -Milliseconds 250
+    }
+    throw "[ui_sentinel_failed] Could not find UI option '$Text' for $StepName."
+}
+
 function Tap-Tag {
     param(
         [Parameter(Mandatory = $true)][string]$Tag,
         [Parameter(Mandatory = $true)][string]$StepName,
-        [int]$WaitMs = 700
+        [int]$WaitMs = 700,
+        [switch]$CenterInContent
     )
 
     $found = Find-UiNodeByTag -Tag $Tag -StepName $StepName
     $center = Get-NodeCenter -Node $found.node
+    if ($CenterInContent) {
+        $minTapY = 120
+        $maxTapY = [int]($script:Display.height * 0.78)
+        for ($attempt = 0; $attempt -lt 3; $attempt++) {
+            if ($center.y -lt $minTapY) {
+                Invoke-Scroll -Direction Down
+            } elseif ($center.y -gt $maxTapY) {
+                Invoke-Scroll -Direction Up
+            } else {
+                break
+            }
+            $found = Find-UiNodeByTag -Tag $Tag -StepName "$StepName-centered-$attempt"
+            $center = Get-NodeCenter -Node $found.node
+        }
+        if ($center.y -lt $minTapY -or $center.y -gt $maxTapY) {
+            throw "[ui_sentinel_failed] UI tag '$Tag' for $StepName was found but not in a tappable input area at y=$($center.y)."
+        }
+    }
     Invoke-AdbShell -Arguments @("input", "tap", "$($center.x)", "$($center.y)") | Out-Null
     Start-Sleep -Milliseconds $WaitMs
     return $found
@@ -693,8 +748,42 @@ function Select-RadiusOption {
         [Parameter(Mandatory = $true)][string]$OptionSuffix
     )
 
-    Tap-Tag -Tag "${Prefix}_radius_dropdown" -StepName "$Prefix-radius-dropdown" | Out-Null
-    Tap-Tag -Tag "${Prefix}_radius_option_$OptionSuffix" -StepName "$Prefix-radius-$OptionSuffix" | Out-Null
+    Tap-Tag -Tag "${Prefix}_radius_dropdown" -StepName "$Prefix-radius-dropdown" -CenterInContent | Out-Null
+    $label = Get-RadiusOptionLabel -OptionSuffix $OptionSuffix
+    $found = Find-UiOptionByText -Text $label -StepName "$Prefix-radius-$OptionSuffix"
+    $center = Get-NodeCenter -Node $found.node
+    Invoke-AdbShell -Arguments @("input", "tap", "$($center.x)", "$($center.y)") | Out-Null
+    Start-Sleep -Milliseconds 700
+}
+
+function Get-RadiusOptionLabel {
+    param([Parameter(Mandatory = $true)][string]$OptionSuffix)
+
+    switch ($OptionSuffix) {
+        "50_ft" { "50 ft" }
+        "quarter_mile" { "1/4 mi" }
+        "half_mile" { "1/2 mi" }
+        "three_quarter_mile" { "3/4 mi" }
+        "one_mile" { "1 mi" }
+        "two_miles" { "2 mi" }
+        "five_miles" { "5 mi" }
+        default { throw "Unknown radius option suffix '$OptionSuffix'." }
+    }
+}
+
+function Get-RadiusOptionMeters {
+    param([Parameter(Mandatory = $true)][string]$OptionSuffix)
+
+    switch ($OptionSuffix) {
+        "50_ft" { 15.24 }
+        "quarter_mile" { 402.336 }
+        "half_mile" { 804.672 }
+        "three_quarter_mile" { 1207.008 }
+        "one_mile" { 1609.344 }
+        "two_miles" { 3218.688 }
+        "five_miles" { 8046.72 }
+        default { throw "Unknown radius option suffix '$OptionSuffix'." }
+    }
 }
 
 function Initialize-SingleTestLocationProvider {
@@ -946,6 +1035,11 @@ function Send-LinearRoute {
     }
 }
 
+function Get-SustainedDrivePointCount {
+    $effectiveDelaySeconds = [Math]::Max(1, $PointDelaySeconds)
+    return [int][Math]::Max(8, [Math]::Ceiling(70.0 / $effectiveDelaySeconds))
+}
+
 function Get-TodayTotals {
     param([Parameter(Mandatory = $true)]$State)
     return $State.snapshot.reportTotals.today
@@ -1067,6 +1161,7 @@ function Configure-HomeAndSite {
     Tap-Tag -Tag "home_save_pin_button" -StepName "home-save-pin" | Out-Null
     $homeState = Wait-State -Name "home-after-save" -Condition { param($candidate) [bool]$candidate.snapshot.homeSet }
     Assert-Condition -Condition ([double]$homeState.snapshot.homeRadiusMeters -gt 0) -Message "Home radius was not saved."
+    Assert-Condition -Condition ([Math]::Abs(([double]$homeState.snapshot.homeRadiusMeters) - (Get-RadiusOptionMeters -OptionSuffix $HomePoint.RadiusOption)) -lt 1.0) -Message "Home radius did not match selected option $($HomePoint.RadiusOption). Actual=$($homeState.snapshot.homeRadiusMeters)"
 
     Tap-Tag -Tag "work_edit_pin_button" -StepName "work-edit-pin" | Out-Null
     Enter-TextByTag -Tag "work_label_field" -Text $Site.Label -StepName "work-label" | Out-Null
@@ -1076,6 +1171,7 @@ function Configure-HomeAndSite {
     Tap-Tag -Tag "work_save_pin_button" -StepName "work-save-pin" | Out-Null
     $workState = Wait-State -Name "work-after-save" -Condition { param($candidate) [int]$candidate.snapshot.workLocationCount -ge 1 }
     Assert-Condition -Condition ([double]$workState.snapshot.workRadiusMeters -gt 0) -Message "Work radius was not saved."
+    Assert-Condition -Condition ([Math]::Abs(([double]$workState.snapshot.workRadiusMeters) - (Get-RadiusOptionMeters -OptionSuffix $Site.RadiusOption)) -lt 1.0) -Message "Work radius did not match selected option $($Site.RadiusOption). Actual=$($workState.snapshot.workRadiusMeters)"
 
     Wait-Log -Name "home-work-geofence-registration" -Predicate {
         param($logs)
@@ -1087,6 +1183,7 @@ function Configure-HomeAndSite {
 }
 
 function Invoke-FullDayLifecycle {
+    $sustainedDrivePointCount = Get-SustainedDrivePointCount
     Save-Json -Value @{
         home = $HomePoint
         site = $Site
@@ -1099,6 +1196,7 @@ function Invoke-FullDayLifecycle {
         pointDelaySeconds = $PointDelaySeconds
         speedThresholdMph = 15
         sustainedDriveSeconds = 60
+        sustainedDrivePointCount = $sustainedDrivePointCount
         tolerance = @{ minutes = $MinuteTolerance; miles = $MileTolerance }
     } -Path (Join-Path $OutputRoot "route-inputs.json")
 
@@ -1121,9 +1219,9 @@ function Invoke-FullDayLifecycle {
         @($logs | Where-Object { $_.message -eq "Home geofence exit received" }).Count -gt 0
     } | Out-Null
     $afterHomeExit = Wait-State -Name "after-home-exit-active-session" -Condition { param($candidate) $null -ne $candidate.snapshot.activeSession }
-    Wait-Log -Name "balanced-movement-started" -Predicate {
+    Wait-Log -Name "vehicle-movement-started-after-home-exit" -Predicate {
         param($logs)
-        @($logs | Where-Object { $_.message -eq "Away movement location updates started" -and $_.data.mode -eq "BALANCED" }).Count -gt 0
+        @($logs | Where-Object { $_.message -eq "Away movement location updates started" -and $_.data.mode -eq "VEHICLE" }).Count -gt 0
     } | Out-Null
 
     Send-LinearRoute -Stage "below-threshold-no-drive" `
@@ -1143,7 +1241,7 @@ function Invoke-FullDayLifecycle {
     Send-LinearRoute -Stage "sustained-commute-drive" `
         -StartLatitude $script:RoutePoints.shortBurstEnd.Latitude -StartLongitude $script:RoutePoints.shortBurstEnd.Longitude `
         -EndLatitude $script:RoutePoints.driveEnd.Latitude -EndLongitude $script:RoutePoints.driveEnd.Longitude `
-        -PointCount 6 -ExpectedBucket "DRIVE" -WaitSeconds $PointDelaySeconds
+        -PointCount $sustainedDrivePointCount -ExpectedBucket "DRIVE" -WaitSeconds $PointDelaySeconds
     Wait-Log -Name "drive-transition-observed" -Predicate {
         param($logs)
         @($logs | Where-Object { $_.message -eq "Activity bucket transition recorded" -and $_.data.bucket -eq "DRIVE" }).Count -gt 0
@@ -1162,7 +1260,10 @@ function Invoke-FullDayLifecycle {
     Send-TestLocation -Stage "site-enter" -Latitude $Site.Latitude -Longitude $Site.Longitude -ExpectedBucket "SITE" -WaitSeconds 3
     Wait-Log -Name "site-enter-observed" -Predicate {
         param($logs)
-        @($logs | Where-Object { $_.message -eq "Work geofence enter or dwell received" }).Count -gt 0
+        @($logs | Where-Object {
+                $_.message -eq "Work geofence enter or dwell received" -or
+                $_.message -eq "E2E provider-derived Work geofence enter received"
+            }).Count -gt 0
     } | Out-Null
     $siteEntered = Wait-State -Name "site-entered-state" -Condition {
         param($candidate)
@@ -1225,7 +1326,7 @@ function Invoke-FullDayLifecycle {
     Send-LinearRoute -Stage "return-commute-drive" `
         -StartLatitude $script:RoutePoints.returnBypass.Latitude -StartLongitude $script:RoutePoints.returnBypass.Longitude `
         -EndLatitude $script:RoutePoints.homeExit.Latitude -EndLongitude $script:RoutePoints.homeExit.Longitude `
-        -PointCount 6 -ExpectedBucket "DRIVE" -WaitSeconds $PointDelaySeconds
+        -PointCount $sustainedDrivePointCount -ExpectedBucket "DRIVE" -WaitSeconds $PointDelaySeconds
     $returnDrive = Capture-State -Name "return-commute-drive"
     Assert-Condition -Condition ([int](Get-TodayTotals -State $returnDrive).driveMinutes -gt [int](Get-TodayTotals -State $needsReviewGap).driveMinutes) -Message "Return commute did not increase Drive minutes."
     Assert-MinimumIncrease -Before (Get-TotalDrivenMiles -State $needsReviewGap) -After (Get-TotalDrivenMiles -State $returnDrive) -Minimum 0.05 -Message "Return commute miles did not increase."

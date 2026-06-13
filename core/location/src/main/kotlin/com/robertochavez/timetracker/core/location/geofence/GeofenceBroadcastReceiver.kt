@@ -107,9 +107,12 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
                 val workPresence = workPresenceRepository.getWorkPresence()
                 val alreadyAway = awaySessionPresenceRepository.hasActiveAwaySession()
                 val started = trackingSessionController.startAwaySessionIfTrackable(at)
-                if (started != null && !alreadyAway && !workPresence.atWork) {
-                    driveMileageTracker.startAwayTracking()
-                }
+                startDriveMileageForHomeExit(
+                    awaySessionStarted = started != null,
+                    alreadyAway = alreadyAway,
+                    atWork = workPresence.atWork,
+                    driveMileageTracker = driveMileageTracker,
+                )
             }
             Geofence.GEOFENCE_TRANSITION_ENTER,
             Geofence.GEOFENCE_TRANSITION_DWELL,

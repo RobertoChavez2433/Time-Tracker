@@ -44,6 +44,18 @@ class MovementDriveInferenceTest {
     }
 
     @Test
+    fun `long sparse segment only backdates drive to supported sustained window`() {
+        val result = MovementDriveInference.evaluate(
+            state = MovementDriveInferenceState(),
+            segment = segment("2026-05-05T12:00:00Z", "2026-05-05T12:03:00Z", milesPerHour = 20.0),
+            atWork = false,
+        )
+
+        assertEquals(ActivityBucket.DRIVE, result.transition?.bucket)
+        assertEquals(Instant.parse("2026-05-05T12:02:00Z"), result.transition?.at)
+    }
+
+    @Test
     fun `movement below fifteen mph does not start inferred drive`() {
         val result = MovementDriveInference.evaluate(
             state = MovementDriveInferenceState(),

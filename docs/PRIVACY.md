@@ -35,6 +35,12 @@ When the app is already tracking away-from-home time, adjacent location samples 
 
 Activity Recognition transitions are used only to classify time within an away session into Drive, Idle, Site, or Needs review reporting buckets. The primary timesheet total remains away-from-home Work time.
 
+## Texting and Device Input Non-Interference
+
+Time Tracker must not request SMS, phone, accessibility, input method, notification listener, or call-screening access. It cannot read texts, send texts, become a keyboard, inspect notification contents, or block the default texting app through the app permissions and components declared by this project.
+
+The manifest privacy guard test fails if future manifests introduce texting or device-input interception capabilities. Manual release checks should still verify SMS send/receive while tracking is active on a physical device.
+
 ## In-App Disclosure Text
 
 Automatic tracking uses precise and background location for the home geofence. Activity recognition and privacy-limited movement checks classify away time as Drive, Site, Idle, or Needs review. Data stays on this device unless a future export or sync feature is explicitly added.

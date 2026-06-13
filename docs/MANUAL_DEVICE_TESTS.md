@@ -68,3 +68,7 @@ Bucket expectations must follow [BUCKET_CLASSIFICATION.md](BUCKET_CLASSIFICATION
 - Verify no route list, map trace, speed history, or continuous GPS log is visible or persisted.
 - Confirm default notification settings are off.
 - Enable optional notification settings and confirm no foreground service behavior is introduced without a deliberate future implementation.
+- While an away session is actively tracking mileage, send an SMS from the device and confirm it sends normally.
+- While tracking remains active, receive an SMS and confirm the message and notification arrive normally.
+- If the user's normal workflow includes MMS or group texting, receive one while tracking is active and confirm the default texting app behaves normally.
+- Open and use the default texting app while tracking is active; confirm Time Tracker never asks to become a keyboard, SMS app, accessibility service, notification listener, or phone/call handler.
