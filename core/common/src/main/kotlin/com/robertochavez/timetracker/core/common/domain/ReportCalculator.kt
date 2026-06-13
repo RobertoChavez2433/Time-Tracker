@@ -15,7 +15,6 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
-import java.time.temporal.ChronoUnit
 import java.time.temporal.TemporalAdjusters
 
 class ReportCalculator(
@@ -58,18 +57,13 @@ class ReportCalculator(
         intervals: List<ActivityInterval>,
         now: Instant,
         workSiteSessions: List<WorkSiteSession> = emptyList(),
-    ): PeriodReport {
-        val anchor = payPeriodSettings.biweeklyAnchorStartDate
-        val daysSinceAnchor = Math.floorMod(ChronoUnit.DAYS.between(anchor, dateInPeriod).toInt(), BIWEEKLY_DAYS)
-        val start = dateInPeriod.minusDays(daysSinceAnchor.toLong())
-        return period(
-            DateRange(start, start.plusDays(BIWEEKLY_DAYS.toLong())),
-            sessions,
-            intervals,
-            now,
-            workSiteSessions,
-        )
-    }
+    ): PeriodReport = period(
+        payPeriodSettings.biweeklyRangeFor(dateInPeriod),
+        sessions,
+        intervals,
+        now,
+        workSiteSessions,
+    )
 
     fun monthly(
         month: YearMonth,
@@ -92,6 +86,14 @@ class ReportCalculator(
         val start = LocalDate.of(year, 1, 1)
         return period(DateRange(start, start.plusYears(1)), sessions, intervals, now, workSiteSessions)
     }
+
+    fun range(
+        range: DateRange,
+        sessions: List<AwaySession>,
+        intervals: List<ActivityInterval>,
+        now: Instant,
+        workSiteSessions: List<WorkSiteSession> = emptyList(),
+    ): PeriodReport = period(range, sessions, intervals, now, workSiteSessions)
 
     private fun period(
         range: DateRange,
@@ -119,8 +121,6 @@ class ReportCalculator(
         )
     }
 }
-
-private const val BIWEEKLY_DAYS = 14
 
 private data class ReportEvidence(
     val sessions: List<AwaySession>,

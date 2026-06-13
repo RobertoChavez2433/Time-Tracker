@@ -25,6 +25,7 @@ import java.time.ZoneId
 import java.time.ZoneOffset
 
 @OptIn(ExperimentalCoroutinesApi::class)
+@Suppress("LargeClass")
 class ReportsViewModelTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
@@ -162,6 +163,167 @@ class ReportsViewModelTest {
         advanceUntilIdle()
 
         assertEquals("1h 30m", viewModel.uiState.value.summaries.first().work)
+    }
+
+    @Test
+    @Suppress("LongMethod")
+    fun `history groups site visits by label and filters by site`() = runTest(mainDispatcherRule.testDispatcher) {
+        val siteSessions = listOf(
+            WorkSiteSession(
+                id = "office-monday",
+                workLocationId = "office",
+                workLocationLabelSnapshot = "Office",
+                start = Instant.parse("2026-05-04T13:00:00Z"),
+                end = Instant.parse("2026-05-04T15:00:00Z"),
+            ),
+            WorkSiteSession(
+                id = "yard-friday",
+                workLocationId = "yard",
+                workLocationLabelSnapshot = "North Yard",
+                start = Instant.parse("2026-05-01T14:00:00Z"),
+                end = Instant.parse("2026-05-01T15:30:00Z"),
+            ),
+        )
+        val officeTrip = AwaySession(
+            id = "office-trip",
+            start = Instant.parse("2026-05-04T12:00:00Z"),
+            end = Instant.parse("2026-05-04T16:00:00Z"),
+            drivenMiles = 22.5,
+        )
+        val officeDrive = ActivityInterval(
+            id = "office-drive",
+            sessionId = officeTrip.id,
+            bucket = ActivityBucket.DRIVE,
+            start = Instant.parse("2026-05-04T12:00:00Z"),
+            end = Instant.parse("2026-05-04T13:00:00Z"),
+        )
+        val trackingRepository = FakeTrackingRepository(initialSessions = listOf(officeTrip), initialIntervals = listOf(officeDrive))
+        val siteSessionRepository = FakeWorkSiteSessionRepository(siteSessions)
+        val viewModel = ReportsViewModel(
+            trackingRepository = trackingRepository,
+            workScheduleRepository = FakeWorkScheduleRepository(),
+            payPeriodSettingsRepository = FakePayPeriodSettingsRepository(),
+            workSiteSessionRepository = siteSessionRepository,
+            clock = clock,
+            logger = NoopAppLogger(),
+        )
+
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.uiState.collect()
+        }
+        advanceUntilIdle()
+
+        assertEquals(HistoryRangeMode.PAY_PERIOD, viewModel.uiState.value.historyRangeMode)
+        assertEquals("Biweekly Pay Period: May 4, 2026 - May 17, 2026", viewModel.uiState.value.historyTitle)
+        assertEquals(listOf("Office"), viewModel.uiState.value.siteHistory.map { it.label })
+        assertEquals(2, viewModel.uiState.value.historyCalendar.weeks.size)
+        val payPeriodDay = viewModel.uiState.value.historyCalendar.dailyRows.single()
+        assertEquals("2026-05-04", payPeriodDay.dateIso)
+        assertEquals("Mon, May 4", payPeriodDay.dayLabel)
+        assertEquals("8h", payPeriodDay.home)
+        assertEquals("4h", payPeriodDay.work)
+        assertEquals("1h", payPeriodDay.drive)
+        assertEquals("23", payPeriodDay.miles)
+        assertEquals(
+            Instant.parse("2026-05-04T04:00:00Z") to Instant.parse("2026-05-18T04:00:00Z"),
+            trackingRepository.sessionRangeRequests.last(),
+        )
+        assertEquals(
+            trackingRepository.sessionRangeRequests.last(),
+            trackingRepository.intervalRangeRequests.last(),
+        )
+        assertEquals(
+            trackingRepository.sessionRangeRequests.last(),
+            siteSessionRepository.rangeRequests.last(),
+        )
+
+        viewModel.selectHistoryRange(HistoryRangeMode.MONTH)
+        advanceUntilIdle()
+
+        assertEquals("May 2026", viewModel.uiState.value.historyTitle)
+        assertEquals(listOf("Office", "North Yard"), viewModel.uiState.value.siteHistory.map { it.label })
+        val office = viewModel.uiState.value.siteHistory.first { it.label == "Office" }
+        assertEquals("2h", office.total)
+        assertEquals("1", office.visitCount)
+        assertEquals("1h", office.drive)
+        assertEquals("23", office.miles)
+        assertEquals("Mon, May 4", office.dailyRows.single().date)
+        assertEquals(
+            Instant.parse("2026-05-01T04:00:00Z") to Instant.parse("2026-06-01T04:00:00Z"),
+            trackingRepository.sessionRangeRequests.last(),
+        )
+
+        viewModel.selectHistoryRange(HistoryRangeMode.WEEK)
+        advanceUntilIdle()
+
+        assertEquals("Week: May 4, 2026 - May 10, 2026", viewModel.uiState.value.historyTitle)
+        assertEquals(1, viewModel.uiState.value.historyCalendar.weeks.size)
+        assertEquals(listOf("2026-05-04"), viewModel.uiState.value.historyCalendar.dailyRows.map { it.dateIso })
+
+        viewModel.updateSiteFilter("office")
+        advanceUntilIdle()
+
+        assertEquals(listOf("Office"), viewModel.uiState.value.siteHistory.map { it.label })
+    }
+
+    @Test
+    fun `custom history range drives selected totals and calendar days`() = runTest(mainDispatcherRule.testDispatcher) {
+        val sessions = listOf(
+            AwaySession(
+                id = "friday",
+                start = Instant.parse("2026-05-01T14:00:00Z"),
+                end = Instant.parse("2026-05-01T16:00:00Z"),
+                drivenMiles = 12.0,
+            ),
+            AwaySession(
+                id = "monday",
+                start = Instant.parse("2026-05-04T13:00:00Z"),
+                end = Instant.parse("2026-05-04T15:00:00Z"),
+                drivenMiles = 24.0,
+            ),
+        )
+        val intervals = listOf(
+            ActivityInterval(
+                id = "friday-drive",
+                sessionId = "friday",
+                bucket = ActivityBucket.DRIVE,
+                start = Instant.parse("2026-05-01T14:00:00Z"),
+                end = Instant.parse("2026-05-01T15:00:00Z"),
+            ),
+            ActivityInterval(
+                id = "monday-drive",
+                sessionId = "monday",
+                bucket = ActivityBucket.DRIVE,
+                start = Instant.parse("2026-05-04T13:00:00Z"),
+                end = Instant.parse("2026-05-04T14:00:00Z"),
+            ),
+        )
+        val viewModel = ReportsViewModel(
+            trackingRepository = FakeTrackingRepository(initialSessions = sessions, initialIntervals = intervals),
+            workScheduleRepository = FakeWorkScheduleRepository(),
+            payPeriodSettingsRepository = FakePayPeriodSettingsRepository(),
+            workSiteSessionRepository = FakeWorkSiteSessionRepository(),
+            clock = clock,
+            logger = NoopAppLogger(),
+        )
+
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.uiState.collect()
+        }
+        advanceUntilIdle()
+
+        viewModel.selectHistoryRange(HistoryRangeMode.CUSTOM)
+        viewModel.updateCustomStartDate("2026-05-01")
+        viewModel.updateCustomEndDate("2026-05-01")
+        advanceUntilIdle()
+
+        assertEquals("2026-05-01 to 2026-05-01", viewModel.uiState.value.historyTitle)
+        assertEquals("12", viewModel.uiState.value.historySummary.miles)
+        assertEquals(listOf("2026-05-01"), viewModel.uiState.value.historyCalendar.dailyRows.map { it.dateIso })
+        val friday = viewModel.uiState.value.historyCalendar.dailyRows.single()
+        assertEquals("2h", friday.work)
+        assertEquals("1h", friday.drive)
+        assertEquals("12", friday.miles)
     }
 }
 

@@ -1,0 +1,17 @@
+package com.robertochavez.timetracker.core.common.domain
+
+import com.robertochavez.timetracker.core.common.model.DateRange
+import com.robertochavez.timetracker.core.common.model.PayPeriodSettings
+import java.time.LocalDate
+import java.time.temporal.ChronoUnit
+
+fun PayPeriodSettings.biweeklyRangeFor(dateInPeriod: LocalDate): DateRange {
+    val daysSinceAnchor = Math.floorMod(
+        ChronoUnit.DAYS.between(biweeklyAnchorStartDate, dateInPeriod).toInt(),
+        BIWEEKLY_DAYS,
+    )
+    val start = dateInPeriod.minusDays(daysSinceAnchor.toLong())
+    return DateRange(start, start.plusDays(BIWEEKLY_DAYS.toLong()))
+}
+
+private const val BIWEEKLY_DAYS = 14
