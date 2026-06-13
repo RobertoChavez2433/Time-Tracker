@@ -12,6 +12,13 @@ interface WorkSiteSessionDao {
     fun observeWorkSiteSessions(): Flow<List<WorkSiteSessionEntity>>
 
     @Query(
+        "SELECT * FROM work_site_sessions WHERE startEpochMillis < :endExclusiveEpochMillis " +
+            "AND (endEpochMillis IS NULL OR endEpochMillis > :startInclusiveEpochMillis) " +
+            "ORDER BY startEpochMillis ASC",
+    )
+    fun observeWorkSiteSessionsInRange(startInclusiveEpochMillis: Long, endExclusiveEpochMillis: Long): Flow<List<WorkSiteSessionEntity>>
+
+    @Query(
         "SELECT * FROM work_site_sessions WHERE workLocationId = :workLocationId " +
             "AND endEpochMillis IS NULL ORDER BY startEpochMillis DESC LIMIT 1",
     )

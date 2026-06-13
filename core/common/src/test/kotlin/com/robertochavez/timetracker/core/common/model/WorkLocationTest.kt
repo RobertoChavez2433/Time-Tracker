@@ -23,4 +23,15 @@ class WorkLocationTest {
             updatedAt = Instant.parse("2026-05-03T12:00:00Z"),
         )
     }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `rejects blank address metadata`() {
+        WorkLocation(
+            latitude = 35.0,
+            longitude = -80.0,
+            radiusMeters = WorkLocation.MAXIMUM_RADIUS_METERS,
+            updatedAt = Instant.parse("2026-05-03T12:00:00Z"),
+            address = " ",
+        )
+    }
 }

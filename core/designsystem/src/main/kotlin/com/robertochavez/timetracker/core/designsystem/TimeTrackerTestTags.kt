@@ -24,6 +24,8 @@ object TimeTrackerTestTags {
     const val HOME_OVERWRITE_CANCEL_BUTTON = "home_overwrite_cancel_button"
     const val WORK_USE_CURRENT_BUTTON = "work_use_current_button"
     const val WORK_LABEL_FIELD = "work_label_field"
+    const val WORK_ADDRESS_FIELD = "work_address_field"
+    const val WORK_RESOLVE_ADDRESS_BUTTON = "work_resolve_address_button"
     const val WORK_LATITUDE_FIELD = "work_latitude_field"
     const val WORK_LONGITUDE_FIELD = "work_longitude_field"
     const val WORK_RADIUS_FIELD = "work_radius_field"

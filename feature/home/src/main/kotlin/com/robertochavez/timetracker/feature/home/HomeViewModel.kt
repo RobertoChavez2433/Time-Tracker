@@ -6,6 +6,7 @@ import com.robertochavez.timetracker.core.common.model.HomeLocation
 import com.robertochavez.timetracker.core.common.model.WorkLocation
 import com.robertochavez.timetracker.core.common.repository.HomeLocationRepository
 import com.robertochavez.timetracker.core.common.repository.WorkLocationRepository
+import com.robertochavez.timetracker.core.location.AddressGeocoder
 import com.robertochavez.timetracker.core.location.CurrentGeofenceLocationProvider
 import com.robertochavez.timetracker.core.location.geofence.HomeGeofenceRegistrar
 import com.robertochavez.timetracker.core.location.geofence.WorkGeofenceRegistrar
@@ -24,12 +25,13 @@ import kotlinx.coroutines.launch
 import java.time.Clock
 import javax.inject.Inject
 
-@Suppress("LargeClass")
+@Suppress("LargeClass", "LongParameterList")
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val homeLocationRepository: HomeLocationRepository,
     private val workLocationRepository: WorkLocationRepository,
     private val currentGeofenceLocationProvider: CurrentGeofenceLocationProvider,
+    private val addressGeocoder: AddressGeocoder,
     private val homeGeofenceRegistrar: HomeGeofenceRegistrar,
     private val workGeofenceRegistrar: WorkGeofenceRegistrar,
     private val clock: Clock,
@@ -55,10 +57,10 @@ class HomeViewModel @Inject constructor(
             workLocationRepository.observeWorkLocations().collect { workLocations ->
                 val work = workLocations.firstOrNull()
                 if (work == null) {
-                    if (!workEditorState.value.hasCoordinates()) {
+                    if (workEditorState.value.isPristine()) {
                         workEditorState.value = WorkEditorState()
                     }
-                } else if (!workEditorState.value.hasCoordinates()) {
+                } else if (workEditorState.value.isPristine()) {
                     workEditorState.value = WorkEditorState.fromLocation(work)
                 }
             }
@@ -86,6 +88,8 @@ class HomeViewModel @Inject constructor(
             workLongitude = workEditor.longitude,
             workRadiusMeters = workEditor.radiusMeters,
             workLabel = workEditor.label,
+            workAddress = workEditor.address,
+            workResolvedAddress = workEditor.resolvedAddress,
             latestWorkLocationLabel = latestWork?.label.orEmpty(),
             statusMessage = status,
         )
@@ -134,8 +138,9 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             runCatching {
                 val target = resolveWorkTarget(replaceLatest)
+                val address = workEditorState.value.preferredAddress()
                 currentGeofenceLocationProvider.currentPreciseWorkLocation(workEditorState.value.radiusInput())
-                    ?.copy(id = target.id, label = target.label)
+                    ?.copy(id = target.id, label = target.label, address = address)
             }.onSuccess { work ->
                 if (work == null) {
                     statusMessage.value =
@@ -179,6 +184,31 @@ class HomeViewModel @Inject constructor(
                     statusMessage.value = error.message ?: "Invalid work pin."
                 },
             )
+        }
+    }
+
+    fun resolveWorkAddress() {
+        val query = workEditorState.value.address.trim()
+        statusMessage.value = "Looking up work address..."
+        viewModelScope.launch {
+            runCatching {
+                addressGeocoder.findAddress(query)
+            }.onSuccess { result ->
+                if (result == null) {
+                    statusMessage.value = "No address match found."
+                } else {
+                    workEditorState.value = workEditorState.value.copy(
+                        address = result.displayAddress,
+                        resolvedAddress = result.displayAddress,
+                        latitude = result.latitude.toString(),
+                        longitude = result.longitude.toString(),
+                    )
+                    statusMessage.value = "Address found. Confirm the pin, radius, and site name before saving."
+                }
+            }.onFailure { error ->
+                logger.warn(LogCategory.LOCATION, "Work address lookup failed", error = error)
+                statusMessage.value = error.message ?: "Address lookup failed."
+            }
         }
     }
 
@@ -247,11 +277,15 @@ data class HomeUiState(
     val workLongitude: String = "",
     val workRadiusMeters: String = WorkLocation.MINIMUM_RADIUS_METERS.toString(),
     val workLabel: String = WorkLocation.DEFAULT_LABEL,
+    val workAddress: String = "",
+    val workResolvedAddress: String = "",
     val latestWorkLocationLabel: String = "",
     val statusMessage: String = "",
 )
 
 private data class WorkTarget(val id: String, val label: String)
+
+private fun WorkEditorState.preferredAddress(): String? = resolvedAddress.trim().ifBlank { address.trim() }.ifBlank { null }
 
 private fun List<WorkLocation>.summary(): String = when (size) {
     0 -> "No work location set"

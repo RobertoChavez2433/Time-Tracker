@@ -40,8 +40,23 @@ class RoomTrackingRepository @Inject constructor(
     override fun observeSessions(): Flow<List<AwaySession>> = awaySessionDao.observeSessions()
         .map { sessions -> sessions.map(AwaySessionEntity::toModel) }
 
+    override fun observeSessions(startInclusive: Instant, endExclusive: Instant): Flow<List<AwaySession>> =
+        awaySessionDao.observeSessionsInRange(
+            startInclusiveEpochMillis = startInclusive.toEpochMilli(),
+            endExclusiveEpochMillis = endExclusive.toEpochMilli(),
+        ).map { sessions -> sessions.map(AwaySessionEntity::toModel) }
+
     override fun observeActivityIntervals(): Flow<List<ActivityInterval>> = activityIntervalDao.observeIntervals()
         .map { intervals ->
+            val openIntervalEnd = Instant.now(clock)
+            intervals.mapNotNull { interval -> interval.toModelOrNull(openIntervalEnd) }
+        }
+
+    override fun observeActivityIntervals(startInclusive: Instant, endExclusive: Instant): Flow<List<ActivityInterval>> =
+        activityIntervalDao.observeIntervalsInRange(
+            startInclusiveEpochMillis = startInclusive.toEpochMilli(),
+            endExclusiveEpochMillis = endExclusive.toEpochMilli(),
+        ).map { intervals ->
             val openIntervalEnd = Instant.now(clock)
             intervals.mapNotNull { interval -> interval.toModelOrNull(openIntervalEnd) }
         }

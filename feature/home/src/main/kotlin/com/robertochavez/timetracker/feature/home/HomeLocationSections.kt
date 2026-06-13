@@ -111,6 +111,7 @@ internal data class LocationSectionActions(
     val onFieldChange: (LocationField, String) -> Unit,
     val onRadiusSelected: (Float) -> Unit,
     val onSaveRadius: () -> Unit,
+    val onResolveAddress: () -> Unit,
     val onSave: () -> Unit,
 )
 

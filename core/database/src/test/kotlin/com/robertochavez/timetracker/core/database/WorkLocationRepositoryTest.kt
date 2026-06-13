@@ -46,6 +46,7 @@ class WorkLocationRepositoryTest {
             longitude = -80.0,
             radiusMeters = WorkLocation.MAXIMUM_RADIUS_METERS,
             updatedAt = Instant.parse("2026-05-03T12:00:00Z"),
+            address = "123 Office Way, Denver, CO",
         )
 
         repository.setWorkLocation(location)
@@ -123,5 +124,43 @@ class WorkLocationRepositoryTest {
 
         assertEquals("Original Site", session.workLocationLabelSnapshot)
         assertEquals("Original Site", stored.workLocationLabelSnapshot)
+    }
+
+    @Test
+    fun `observes work site sessions overlapping requested range`() = runTest {
+        val site = WorkLocation(
+            latitude = 35.0,
+            longitude = -80.0,
+            radiusMeters = WorkLocation.MAXIMUM_RADIUS_METERS,
+            updatedAt = Instant.parse("2026-05-03T12:00:00Z"),
+            id = "site",
+            label = "Original Site",
+        )
+        val sessionRepository = RoomWorkSiteSessionRepository(
+            database = database,
+            workSiteSessionDao = database.workSiteSessionDao(),
+            workLocationDao = database.workLocationDao(),
+            logger = NoopAppLogger(),
+        )
+        repository.setWorkLocation(site)
+
+        val before = sessionRepository.startWorkSiteSession("site", Instant.parse("2026-05-03T10:00:00Z"))
+        sessionRepository.stopActiveWorkSiteSession("site", Instant.parse("2026-05-03T12:00:00Z"))
+        val overlappingStart = sessionRepository.startWorkSiteSession("site", Instant.parse("2026-05-03T23:00:00Z"))
+        sessionRepository.stopActiveWorkSiteSession("site", Instant.parse("2026-05-04T01:00:00Z"))
+        val inside = sessionRepository.startWorkSiteSession("site", Instant.parse("2026-05-04T12:00:00Z"))
+        sessionRepository.stopActiveWorkSiteSession("site", Instant.parse("2026-05-04T13:00:00Z"))
+        val active = sessionRepository.startWorkSiteSession("site", Instant.parse("2026-05-04T20:00:00Z"))
+        sessionRepository.stopActiveWorkSiteSession("site", Instant.parse("2026-05-04T21:00:00Z"))
+        val after = sessionRepository.startWorkSiteSession("site", Instant.parse("2026-05-05T01:00:00Z"))
+        sessionRepository.stopActiveWorkSiteSession("site", Instant.parse("2026-05-05T02:00:00Z"))
+
+        val sessions = sessionRepository.observeWorkSiteSessions(
+            startInclusive = Instant.parse("2026-05-04T00:00:00Z"),
+            endExclusive = Instant.parse("2026-05-05T00:00:00Z"),
+        ).first()
+
+        assertEquals(setOf(overlappingStart.id, inside.id, active.id), sessions.map { it.id }.toSet())
+        assertEquals(false, sessions.any { it.id == before.id || it.id == after.id })
     }
 }

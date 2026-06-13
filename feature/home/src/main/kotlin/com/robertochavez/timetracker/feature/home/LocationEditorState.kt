@@ -8,6 +8,7 @@ import java.time.Instant
 
 enum class LocationField {
     LABEL,
+    ADDRESS,
     LATITUDE,
     LONGITUDE,
     RADIUS_METERS,
@@ -31,6 +32,7 @@ internal fun HomeEditorState.hasCoordinates(): Boolean = latitude.isNotBlank() |
 
 internal fun HomeEditorState.updated(field: LocationField, value: String): HomeEditorState = when (field) {
     LocationField.LABEL -> this
+    LocationField.ADDRESS -> this
     LocationField.LATITUDE -> copy(latitude = value)
     LocationField.LONGITUDE -> copy(longitude = value)
     LocationField.RADIUS_METERS -> copy(radiusMeters = value)
@@ -50,6 +52,8 @@ internal fun HomeEditorState.radiusInput(): Float = (radiusMeters.toFloatOrNull(
 
 internal data class WorkEditorState(
     val label: String = WorkLocation.DEFAULT_LABEL,
+    val address: String = "",
+    val resolvedAddress: String = "",
     val latitude: String = "",
     val longitude: String = "",
     val radiusMeters: String = GeofenceRadiusOptions.default.meters.toString(),
@@ -57,6 +61,8 @@ internal data class WorkEditorState(
     companion object {
         fun fromLocation(workLocation: WorkLocation): WorkEditorState = WorkEditorState(
             label = workLocation.label,
+            address = workLocation.address.orEmpty(),
+            resolvedAddress = workLocation.address.orEmpty(),
             latitude = workLocation.latitude.toString(),
             longitude = workLocation.longitude.toString(),
             radiusMeters = GeofenceRadiusOptions.nearest(workLocation.radiusMeters).meters.toString(),
@@ -66,14 +72,22 @@ internal data class WorkEditorState(
 
 internal fun WorkEditorState.hasCoordinates(): Boolean = latitude.isNotBlank() || longitude.isNotBlank()
 
+internal fun WorkEditorState.isPristine(): Boolean = !hasCoordinates() &&
+    label == WorkLocation.DEFAULT_LABEL &&
+    address.isBlank() &&
+    resolvedAddress.isBlank()
+
 internal fun WorkEditorState.updated(field: LocationField, value: String): WorkEditorState = when (field) {
     LocationField.LABEL -> copy(label = value)
+    LocationField.ADDRESS -> copy(address = value, resolvedAddress = "")
     LocationField.LATITUDE -> copy(latitude = value)
     LocationField.LONGITUDE -> copy(longitude = value)
     LocationField.RADIUS_METERS -> copy(radiusMeters = value)
 }
 
 internal fun WorkEditorState.toWorkLocation(clock: Clock, id: String, label: String): Result<WorkLocation> = runCatching {
+    val trimmedResolvedAddress = resolvedAddress.trim()
+    val trimmedAddress = address.trim()
     WorkLocation(
         latitude = requireNotNull(latitude.toDoubleOrNull()) { "Enter valid work latitude, longitude, and radius." },
         longitude = requireNotNull(longitude.toDoubleOrNull()) { "Enter valid work latitude, longitude, and radius." },
@@ -81,6 +95,7 @@ internal fun WorkEditorState.toWorkLocation(clock: Clock, id: String, label: Str
         updatedAt = Instant.now(clock),
         id = id,
         label = label.trim(),
+        address = trimmedResolvedAddress.ifBlank { trimmedAddress }.ifBlank { null },
     )
 }
 
@@ -89,7 +104,10 @@ internal fun WorkEditorState.radiusInput(): Float = (radiusMeters.toFloatOrNull(
 
 internal fun HomeLocation.summary(): String = "${latitude.formatCoordinate()}, ${longitude.formatCoordinate()} (${radiusLabel()})"
 
-internal fun WorkLocation.summary(): String = "$label: ${latitude.formatCoordinate()}, ${longitude.formatCoordinate()} (${radiusLabel()})"
+internal fun WorkLocation.summary(): String {
+    val addressSummary = address?.let { " - $it" }.orEmpty()
+    return "$label: ${latitude.formatCoordinate()}, ${longitude.formatCoordinate()} (${radiusLabel()})$addressSummary"
+}
 
 internal fun HomeLocation.radiusLabel(): String = GeofenceRadiusOptions.nearest(radiusMeters).label
 

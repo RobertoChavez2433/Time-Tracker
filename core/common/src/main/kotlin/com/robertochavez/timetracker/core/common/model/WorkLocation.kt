@@ -9,10 +9,12 @@ data class WorkLocation(
     val updatedAt: Instant,
     val id: String = DEFAULT_ID,
     val label: String = DEFAULT_LABEL,
+    val address: String? = null,
 ) {
     init {
         require(id.isNotBlank()) { "Work location id is required." }
         require(label.isNotBlank()) { "Work location label is required." }
+        require(address == null || address.isNotBlank()) { "Work location address cannot be blank." }
         require(latitude in -90.0..90.0) { "Latitude must be between -90 and 90." }
         require(longitude in -180.0..180.0) { "Longitude must be between -180 and 180." }
         require(radiusMeters >= MINIMUM_RADIUS_METERS) {

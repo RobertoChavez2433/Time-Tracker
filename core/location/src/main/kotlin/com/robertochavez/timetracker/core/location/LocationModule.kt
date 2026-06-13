@@ -16,6 +16,9 @@ import dagger.hilt.components.SingletonComponent
 @InstallIn(SingletonComponent::class)
 object LocationModule {
     @Provides
+    fun provideAddressGeocoder(androidAddressGeocoder: AndroidAddressGeocoder): AddressGeocoder = androidAddressGeocoder
+
+    @Provides
     fun provideFusedLocationProviderClient(@ApplicationContext context: Context): FusedLocationProviderClient =
         LocationServices.getFusedLocationProviderClient(context)
 

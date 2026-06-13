@@ -9,7 +9,11 @@ import java.time.Instant
 interface TrackingRepository : TrackingSessionController {
     fun observeSessions(): Flow<List<AwaySession>>
 
+    fun observeSessions(startInclusive: Instant, endExclusive: Instant): Flow<List<AwaySession>>
+
     fun observeActivityIntervals(): Flow<List<ActivityInterval>>
+
+    fun observeActivityIntervals(startInclusive: Instant, endExclusive: Instant): Flow<List<ActivityInterval>>
 
     suspend fun startManualSession(at: Instant? = null): AwaySession
 

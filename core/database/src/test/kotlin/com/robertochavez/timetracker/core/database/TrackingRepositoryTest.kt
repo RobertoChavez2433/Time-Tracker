@@ -5,6 +5,7 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.robertochavez.timetracker.core.common.model.ActivityBucket
 import com.robertochavez.timetracker.core.common.model.WorkSchedule
+import com.robertochavez.timetracker.core.database.entity.ActivityIntervalEntity
 import com.robertochavez.timetracker.core.database.entity.WorkScheduleEntity
 import com.robertochavez.timetracker.core.database.repository.RoomTrackingRepository
 import com.robertochavez.timetracker.core.logging.NoopAppLogger
@@ -100,5 +101,80 @@ class TrackingRepositoryTest {
         val intervals = repository.observeActivityIntervals().first()
 
         assertEquals(0, intervals.size)
+    }
+
+    @Test
+    fun `observes sessions overlapping requested range`() = runTest {
+        val before = repository.startManualSession(Instant.parse("2026-05-03T10:00:00Z"))
+        repository.updateSessionWindow(
+            before.id,
+            Instant.parse("2026-05-03T10:00:00Z"),
+            Instant.parse("2026-05-03T12:00:00Z"),
+        )
+        val overlappingStart = repository.startManualSession(Instant.parse("2026-05-03T23:00:00Z"))
+        repository.updateSessionWindow(
+            overlappingStart.id,
+            Instant.parse("2026-05-03T23:00:00Z"),
+            Instant.parse("2026-05-04T01:00:00Z"),
+        )
+        val inside = repository.startManualSession(Instant.parse("2026-05-04T12:00:00Z"))
+        repository.updateSessionWindow(
+            inside.id,
+            Instant.parse("2026-05-04T12:00:00Z"),
+            Instant.parse("2026-05-04T13:00:00Z"),
+        )
+        val active = repository.startManualSession(Instant.parse("2026-05-04T20:00:00Z"))
+        val after = repository.startManualSession(Instant.parse("2026-05-05T01:00:00Z"))
+        repository.updateSessionWindow(
+            after.id,
+            Instant.parse("2026-05-05T01:00:00Z"),
+            Instant.parse("2026-05-05T02:00:00Z"),
+        )
+
+        val sessions = repository.observeSessions(
+            startInclusive = Instant.parse("2026-05-04T00:00:00Z"),
+            endExclusive = Instant.parse("2026-05-05T00:00:00Z"),
+        ).first()
+
+        assertEquals(setOf(overlappingStart.id, inside.id, active.id), sessions.map { it.id }.toSet())
+    }
+
+    @Test
+    fun `observes activity intervals overlapping requested range`() = runTest {
+        val session = repository.startManualSession(Instant.parse("2026-05-03T00:00:00Z"))
+        database.activityIntervalDao().upsert(
+            ActivityIntervalEntity(
+                id = "before",
+                sessionId = session.id,
+                bucket = ActivityBucket.DRIVE,
+                startEpochMillis = Instant.parse("2026-05-03T10:00:00Z").toEpochMilli(),
+                endEpochMillis = Instant.parse("2026-05-03T11:00:00Z").toEpochMilli(),
+            ),
+        )
+        database.activityIntervalDao().upsert(
+            ActivityIntervalEntity(
+                id = "overlapping",
+                sessionId = session.id,
+                bucket = ActivityBucket.DRIVE,
+                startEpochMillis = Instant.parse("2026-05-03T23:30:00Z").toEpochMilli(),
+                endEpochMillis = Instant.parse("2026-05-04T00:30:00Z").toEpochMilli(),
+            ),
+        )
+        database.activityIntervalDao().upsert(
+            ActivityIntervalEntity(
+                id = "inside",
+                sessionId = session.id,
+                bucket = ActivityBucket.IDLE,
+                startEpochMillis = Instant.parse("2026-05-04T12:00:00Z").toEpochMilli(),
+                endEpochMillis = Instant.parse("2026-05-04T13:00:00Z").toEpochMilli(),
+            ),
+        )
+
+        val intervals = repository.observeActivityIntervals(
+            startInclusive = Instant.parse("2026-05-04T00:00:00Z"),
+            endExclusive = Instant.parse("2026-05-05T00:00:00Z"),
+        ).first()
+
+        assertEquals(setOf("overlapping", "inside"), intervals.map { it.id }.toSet())
     }
 }

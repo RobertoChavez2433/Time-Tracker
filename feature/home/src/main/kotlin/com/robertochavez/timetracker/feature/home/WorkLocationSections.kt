@@ -30,6 +30,23 @@ internal fun WorkPinEditor(state: HomeUiState, actions: LocationSectionActions) 
         singleLine = true,
         modifier = Modifier.fillMaxWidth().testTag(TimeTrackerTestTags.WORK_LABEL_FIELD),
     )
+    OutlinedTextField(
+        value = state.workAddress,
+        onValueChange = { actions.onFieldChange(LocationField.ADDRESS, it) },
+        label = { Text("Address") },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth().testTag(TimeTrackerTestTags.WORK_ADDRESS_FIELD),
+    )
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        TimeTrackerSecondaryButton(
+            text = "Find Address",
+            onClick = actions.onResolveAddress,
+            modifier = Modifier.testTag(TimeTrackerTestTags.WORK_RESOLVE_ADDRESS_BUTTON),
+        )
+        if (state.workResolvedAddress.isNotBlank()) {
+            TimeTrackerMutedText("Resolved: ${state.workResolvedAddress}")
+        }
+    }
     CoordinateRow(
         latitude = state.workLatitude,
         longitude = state.workLongitude,

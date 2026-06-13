@@ -22,6 +22,7 @@ import com.robertochavez.timetracker.core.common.repository.WorkSiteSessionRepos
 import com.robertochavez.timetracker.core.common.util.METERS_PER_MILE
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.map
 import java.time.Instant
 import java.time.LocalDate
 
@@ -82,8 +83,14 @@ class FakeWorkSiteSessionRepository(
     private val labelsByWorkLocationId: Map<String, String> = emptyMap(),
 ) : WorkSiteSessionRepository {
     val sessions = MutableStateFlow(initialSessions)
+    val rangeRequests = mutableListOf<Pair<Instant, Instant>>()
 
     override fun observeWorkSiteSessions(): Flow<List<WorkSiteSession>> = sessions
+
+    override fun observeWorkSiteSessions(startInclusive: Instant, endExclusive: Instant): Flow<List<WorkSiteSession>> {
+        rangeRequests += startInclusive to endExclusive
+        return sessions.map { siteSessions -> siteSessions.filter { it.overlaps(startInclusive, endExclusive) } }
+    }
 
     override suspend fun startWorkSiteSession(workLocationId: String, at: Instant): WorkSiteSession {
         val active = sessions.value.firstOrNull { it.workLocationId == workLocationId && it.isActive }
@@ -118,10 +125,13 @@ class FakeWorkSiteSessionRepository(
     }
 }
 
+@Suppress("TooManyFunctions")
 class FakeTrackingRepository(initialSessions: List<AwaySession> = emptyList(), initialIntervals: List<ActivityInterval> = emptyList()) :
     TrackingRepository {
     val sessions = MutableStateFlow(initialSessions)
     val intervals = MutableStateFlow(initialIntervals)
+    val sessionRangeRequests = mutableListOf<Pair<Instant, Instant>>()
+    val intervalRangeRequests = mutableListOf<Pair<Instant, Instant>>()
     val manualStarts = mutableListOf<Instant>()
     val activeStops = mutableListOf<Instant>()
     val activityTransitions = mutableListOf<Pair<ActivityBucket, Instant>>()
@@ -129,7 +139,17 @@ class FakeTrackingRepository(initialSessions: List<AwaySession> = emptyList(), i
 
     override fun observeSessions(): Flow<List<AwaySession>> = sessions
 
+    override fun observeSessions(startInclusive: Instant, endExclusive: Instant): Flow<List<AwaySession>> {
+        sessionRangeRequests += startInclusive to endExclusive
+        return sessions.map { awaySessions -> awaySessions.filter { it.overlaps(startInclusive, endExclusive) } }
+    }
+
     override fun observeActivityIntervals(): Flow<List<ActivityInterval>> = intervals
+
+    override fun observeActivityIntervals(startInclusive: Instant, endExclusive: Instant): Flow<List<ActivityInterval>> {
+        intervalRangeRequests += startInclusive to endExclusive
+        return intervals.map { activityIntervals -> activityIntervals.filter { it.overlaps(startInclusive, endExclusive) } }
+    }
 
     override suspend fun startManualSession(at: Instant?): AwaySession {
         val start = requireNotNull(at) { "FakeTrackingRepository requires explicit start times." }
@@ -186,6 +206,19 @@ class FakeTrackingRepository(initialSessions: List<AwaySession> = emptyList(), i
         }
         return updated
     }
+}
+
+private fun AwaySession.overlaps(startInclusive: Instant, endExclusive: Instant): Boolean {
+    val effectiveEnd = end
+    return start < endExclusive && (effectiveEnd == null || effectiveEnd > startInclusive)
+}
+
+private fun ActivityInterval.overlaps(startInclusive: Instant, endExclusive: Instant): Boolean =
+    start < endExclusive && end > startInclusive
+
+private fun WorkSiteSession.overlaps(startInclusive: Instant, endExclusive: Instant): Boolean {
+    val effectiveEnd = end
+    return start < endExclusive && (effectiveEnd == null || effectiveEnd > startInclusive)
 }
 
 class FakeWorkScheduleRepository(initialSchedule: WorkSchedule = WorkSchedule()) : WorkScheduleRepository {

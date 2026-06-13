@@ -30,7 +30,7 @@ import com.robertochavez.timetracker.core.database.entity.WorkSiteSessionEntity
         WorkPresenceEntity::class,
         WorkSiteSessionEntity::class,
     ],
-    version = 10,
+    version = 11,
     exportSchema = false,
 )
 abstract class TimeTrackerDatabase : RoomDatabase() {

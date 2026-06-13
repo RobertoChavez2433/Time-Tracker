@@ -2,7 +2,9 @@ package com.robertochavez.timetracker.feature.home
 
 import com.robertochavez.timetracker.core.common.model.HomeLocation
 import com.robertochavez.timetracker.core.common.model.WorkLocation
+import com.robertochavez.timetracker.core.location.AddressGeocoder
 import com.robertochavez.timetracker.core.location.CurrentGeofenceLocationProvider
+import com.robertochavez.timetracker.core.location.GeocodedAddress
 import com.robertochavez.timetracker.core.location.geofence.HomeGeofenceRegistrar
 import com.robertochavez.timetracker.core.location.geofence.WorkGeofenceRegistrar
 import com.robertochavez.timetracker.core.logging.NoopAppLogger
@@ -43,6 +45,7 @@ class HomeViewModelTest {
             homeLocationRepository = FakeHomeLocationRepository(initialHomeLocation = homeLocation),
             workLocationRepository = FakeWorkLocationRepository(),
             currentGeofenceLocationProvider = StaticCurrentGeofenceLocationProvider(),
+            addressGeocoder = StaticAddressGeocoder(),
             homeGeofenceRegistrar = RecordingHomeGeofenceRegistrar(),
             workGeofenceRegistrar = RecordingWorkGeofenceRegistrar(),
             clock = clock,
@@ -74,6 +77,7 @@ class HomeViewModelTest {
             homeLocationRepository = homeRepository,
             workLocationRepository = workRepository,
             currentGeofenceLocationProvider = StaticCurrentGeofenceLocationProvider(homeLocation = homeLocation),
+            addressGeocoder = StaticAddressGeocoder(),
             homeGeofenceRegistrar = geofenceRegistrar,
             workGeofenceRegistrar = RecordingWorkGeofenceRegistrar(),
             clock = clock,
@@ -100,6 +104,7 @@ class HomeViewModelTest {
             homeLocationRepository = FakeHomeLocationRepository(),
             workLocationRepository = FakeWorkLocationRepository(),
             currentGeofenceLocationProvider = currentLocationProvider,
+            addressGeocoder = StaticAddressGeocoder(),
             homeGeofenceRegistrar = RecordingHomeGeofenceRegistrar(),
             workGeofenceRegistrar = RecordingWorkGeofenceRegistrar(),
             clock = clock,
@@ -128,6 +133,7 @@ class HomeViewModelTest {
             homeLocationRepository = homeRepository,
             workLocationRepository = FakeWorkLocationRepository(),
             currentGeofenceLocationProvider = StaticCurrentGeofenceLocationProvider(),
+            addressGeocoder = StaticAddressGeocoder(),
             homeGeofenceRegistrar = geofenceRegistrar,
             workGeofenceRegistrar = RecordingWorkGeofenceRegistrar(),
             clock = clock,
@@ -160,6 +166,7 @@ class HomeViewModelTest {
             homeLocationRepository = FakeHomeLocationRepository(),
             workLocationRepository = workRepository,
             currentGeofenceLocationProvider = StaticCurrentGeofenceLocationProvider(workLocation = workLocation),
+            addressGeocoder = StaticAddressGeocoder(),
             homeGeofenceRegistrar = RecordingHomeGeofenceRegistrar(),
             workGeofenceRegistrar = workGeofenceRegistrar,
             clock = clock,
@@ -180,6 +187,7 @@ class HomeViewModelTest {
             homeLocationRepository = FakeHomeLocationRepository(),
             workLocationRepository = workRepository,
             currentGeofenceLocationProvider = StaticCurrentGeofenceLocationProvider(),
+            addressGeocoder = StaticAddressGeocoder(),
             homeGeofenceRegistrar = RecordingHomeGeofenceRegistrar(),
             workGeofenceRegistrar = RecordingWorkGeofenceRegistrar(),
             clock = clock,
@@ -212,6 +220,7 @@ class HomeViewModelTest {
             homeLocationRepository = FakeHomeLocationRepository(),
             workLocationRepository = workRepository,
             currentGeofenceLocationProvider = StaticCurrentGeofenceLocationProvider(),
+            addressGeocoder = StaticAddressGeocoder(),
             homeGeofenceRegistrar = RecordingHomeGeofenceRegistrar(),
             workGeofenceRegistrar = RecordingWorkGeofenceRegistrar(),
             clock = clock,
@@ -248,6 +257,7 @@ class HomeViewModelTest {
             homeLocationRepository = FakeHomeLocationRepository(),
             workLocationRepository = workRepository,
             currentGeofenceLocationProvider = StaticCurrentGeofenceLocationProvider(),
+            addressGeocoder = StaticAddressGeocoder(),
             homeGeofenceRegistrar = RecordingHomeGeofenceRegistrar(),
             workGeofenceRegistrar = workGeofenceRegistrar,
             clock = clock,
@@ -276,6 +286,7 @@ class HomeViewModelTest {
             homeLocationRepository = homeRepository,
             workLocationRepository = FakeWorkLocationRepository(),
             currentGeofenceLocationProvider = StaticCurrentGeofenceLocationProvider(),
+            addressGeocoder = StaticAddressGeocoder(),
             homeGeofenceRegistrar = FailingHomeGeofenceRegistrar("Precise location is required."),
             workGeofenceRegistrar = RecordingWorkGeofenceRegistrar(),
             clock = clock,
@@ -294,6 +305,94 @@ class HomeViewModelTest {
         assertEquals(39.7392, homeRepository.homeLocation.value?.latitude ?: 0.0, 0.0001)
         assertTrue(viewModel.uiState.value.statusMessage.contains("Precise location is required."))
     }
+
+    @Test
+    fun `address lookup fills work coordinates and saves resolved address`() = runTest(mainDispatcherRule.testDispatcher) {
+        val workRepository = FakeWorkLocationRepository()
+        val viewModel = HomeViewModel(
+            homeLocationRepository = FakeHomeLocationRepository(),
+            workLocationRepository = workRepository,
+            currentGeofenceLocationProvider = StaticCurrentGeofenceLocationProvider(),
+            addressGeocoder = StaticAddressGeocoder(
+                GeocodedAddress(
+                    latitude = 39.7292,
+                    longitude = -104.9803,
+                    displayAddress = "123 Office Way, Denver, CO",
+                ),
+            ),
+            homeGeofenceRegistrar = RecordingHomeGeofenceRegistrar(),
+            workGeofenceRegistrar = RecordingWorkGeofenceRegistrar(),
+            clock = clock,
+            logger = NoopAppLogger(),
+        )
+
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.uiState.collect()
+        }
+        viewModel.updateWorkField(LocationField.LABEL, "Office")
+        viewModel.updateWorkField(LocationField.ADDRESS, "123 Office Way")
+        viewModel.resolveWorkAddress()
+        advanceUntilIdle()
+        viewModel.saveWorkPin()
+        advanceUntilIdle()
+
+        val saved = workRepository.workLocation.value
+        assertEquals("Office", saved?.label)
+        assertEquals("123 Office Way, Denver, CO", saved?.address)
+        assertEquals(39.7292, saved?.latitude ?: 0.0, 0.0001)
+        assertEquals(-104.9803, saved?.longitude ?: 0.0, 0.0001)
+    }
+
+    @Test
+    fun `address lookup keeps typed address when no result is found`() = runTest(mainDispatcherRule.testDispatcher) {
+        val viewModel = HomeViewModel(
+            homeLocationRepository = FakeHomeLocationRepository(),
+            workLocationRepository = FakeWorkLocationRepository(),
+            currentGeofenceLocationProvider = StaticCurrentGeofenceLocationProvider(),
+            addressGeocoder = StaticAddressGeocoder(),
+            homeGeofenceRegistrar = RecordingHomeGeofenceRegistrar(),
+            workGeofenceRegistrar = RecordingWorkGeofenceRegistrar(),
+            clock = clock,
+            logger = NoopAppLogger(),
+        )
+
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.uiState.collect()
+        }
+        viewModel.updateWorkField(LocationField.ADDRESS, "unknown jobsite")
+        viewModel.resolveWorkAddress()
+        advanceUntilIdle()
+
+        assertEquals("No address match found.", viewModel.uiState.value.statusMessage)
+        assertEquals("unknown jobsite", viewModel.uiState.value.workAddress)
+        assertEquals("", viewModel.uiState.value.workLatitude)
+        assertEquals("", viewModel.uiState.value.workLongitude)
+    }
+
+    @Test
+    fun `address lookup surfaces geocoder failure`() = runTest(mainDispatcherRule.testDispatcher) {
+        val viewModel = HomeViewModel(
+            homeLocationRepository = FakeHomeLocationRepository(),
+            workLocationRepository = FakeWorkLocationRepository(),
+            currentGeofenceLocationProvider = StaticCurrentGeofenceLocationProvider(),
+            addressGeocoder = StaticAddressGeocoder(failure = IllegalStateException("Geocoder unavailable")),
+            homeGeofenceRegistrar = RecordingHomeGeofenceRegistrar(),
+            workGeofenceRegistrar = RecordingWorkGeofenceRegistrar(),
+            clock = clock,
+            logger = NoopAppLogger(),
+        )
+
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.uiState.collect()
+        }
+        viewModel.updateWorkField(LocationField.ADDRESS, "123 Office Way")
+        viewModel.resolveWorkAddress()
+        advanceUntilIdle()
+
+        assertEquals("Geocoder unavailable", viewModel.uiState.value.statusMessage)
+        assertEquals("123 Office Way", viewModel.uiState.value.workAddress)
+        assertEquals("", viewModel.uiState.value.workResolvedAddress)
+    }
 }
 
 private class StaticCurrentGeofenceLocationProvider(
@@ -308,6 +407,16 @@ private class StaticCurrentGeofenceLocationProvider(
     }
 
     override suspend fun currentPreciseWorkLocation(radiusMeters: Float): WorkLocation? = workLocation
+}
+
+private class StaticAddressGeocoder(private val result: GeocodedAddress? = null, private val failure: Throwable? = null) : AddressGeocoder {
+    val queries = mutableListOf<String>()
+
+    override suspend fun findAddress(query: String): GeocodedAddress? {
+        queries += query
+        failure?.let { throw it }
+        return result
+    }
 }
 
 private class RecordingHomeGeofenceRegistrar : HomeGeofenceRegistrar {

@@ -36,8 +36,8 @@ class TimeTrackerMigrationsTest {
     }
 
     @Test
-    fun `schema one has nine upgrade migrations`() {
-        assertEquals(9, TimeTrackerMigrations.ALL.size)
+    fun `schema one has ten upgrade migrations`() {
+        assertEquals(10, TimeTrackerMigrations.ALL.size)
     }
 
     @Test
@@ -58,8 +58,9 @@ class TimeTrackerMigrationsTest {
             TimeTrackerMigrations.MIGRATION_8_9.migrate(database)
             insertVersionNineMovementHistory(database)
             TimeTrackerMigrations.MIGRATION_9_10.migrate(database)
+            TimeTrackerMigrations.MIGRATION_10_11.migrate(database)
 
-            database.query("SELECT id, label, latitude, longitude, radiusMeters, updatedAtEpochMillis FROM work_locations").close()
+            database.query("SELECT id, label, address, latitude, longitude, radiusMeters, updatedAtEpochMillis FROM work_locations").close()
             database.query("SELECT id, atWork, updatedAtEpochMillis FROM work_presence").close()
             database.query(
                 "SELECT id, workLocationId, workLocationLabelSnapshot, startEpochMillis, endEpochMillis FROM work_site_sessions",
@@ -73,6 +74,7 @@ class TimeTrackerMigrationsTest {
             database.query("SELECT id FROM activity_intervals WHERE bucket = 'NEEDS_REVIEW'").use { cursor ->
                 assertEquals(1, cursor.count)
             }
+            database.query("SELECT address FROM work_locations").close()
         } finally {
             database.close()
         }

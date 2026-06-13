@@ -11,6 +11,13 @@ interface ActivityIntervalDao {
     @Query("SELECT * FROM activity_intervals ORDER BY startEpochMillis ASC")
     fun observeIntervals(): Flow<List<ActivityIntervalEntity>>
 
+    @Query(
+        "SELECT * FROM activity_intervals WHERE startEpochMillis < :endExclusiveEpochMillis " +
+            "AND (endEpochMillis IS NULL OR endEpochMillis > :startInclusiveEpochMillis) " +
+            "ORDER BY startEpochMillis ASC",
+    )
+    fun observeIntervalsInRange(startInclusiveEpochMillis: Long, endExclusiveEpochMillis: Long): Flow<List<ActivityIntervalEntity>>
+
     @Query("SELECT * FROM activity_intervals WHERE sessionId = :sessionId ORDER BY startEpochMillis ASC")
     fun observeIntervalsForSession(sessionId: String): Flow<List<ActivityIntervalEntity>>
 

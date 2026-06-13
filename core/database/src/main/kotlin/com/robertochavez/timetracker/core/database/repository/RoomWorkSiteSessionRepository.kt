@@ -29,6 +29,12 @@ class RoomWorkSiteSessionRepository @Inject constructor(
     override fun observeWorkSiteSessions(): Flow<List<WorkSiteSession>> =
         workSiteSessionDao.observeWorkSiteSessions().map { sessions -> sessions.map(WorkSiteSessionEntity::toModel) }
 
+    override fun observeWorkSiteSessions(startInclusive: Instant, endExclusive: Instant): Flow<List<WorkSiteSession>> =
+        workSiteSessionDao.observeWorkSiteSessionsInRange(
+            startInclusiveEpochMillis = startInclusive.toEpochMilli(),
+            endExclusiveEpochMillis = endExclusive.toEpochMilli(),
+        ).map { sessions -> sessions.map(WorkSiteSessionEntity::toModel) }
+
     override suspend fun startWorkSiteSession(workLocationId: String, at: Instant): WorkSiteSession = database.withTransaction {
         val existing = workSiteSessionDao.getActiveForLocation(workLocationId)?.toModel()
         if (existing != null) return@withTransaction existing

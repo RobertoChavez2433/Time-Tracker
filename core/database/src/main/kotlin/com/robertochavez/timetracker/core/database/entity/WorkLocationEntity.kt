@@ -9,6 +9,7 @@ import java.time.Instant
 data class WorkLocationEntity(
     @PrimaryKey val id: String = WORK_ID,
     val label: String = WorkLocation.DEFAULT_LABEL,
+    val address: String? = null,
     val latitude: Double,
     val longitude: Double,
     val radiusMeters: Float,
@@ -21,6 +22,7 @@ data class WorkLocationEntity(
         updatedAt = Instant.ofEpochMilli(updatedAtEpochMillis),
         id = id,
         label = label,
+        address = address,
     )
 
     companion object {
@@ -29,6 +31,7 @@ data class WorkLocationEntity(
         fun fromModel(workLocation: WorkLocation): WorkLocationEntity = WorkLocationEntity(
             id = workLocation.id,
             label = workLocation.label,
+            address = workLocation.address,
             latitude = workLocation.latitude,
             longitude = workLocation.longitude,
             radiusMeters = workLocation.radiusMeters,

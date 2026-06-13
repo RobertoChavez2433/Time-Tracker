@@ -7,6 +7,8 @@ import java.time.Instant
 interface WorkSiteSessionRepository {
     fun observeWorkSiteSessions(): Flow<List<WorkSiteSession>>
 
+    fun observeWorkSiteSessions(startInclusive: Instant, endExclusive: Instant): Flow<List<WorkSiteSession>>
+
     suspend fun startWorkSiteSession(workLocationId: String, at: Instant): WorkSiteSession
 
     suspend fun stopActiveWorkSiteSession(workLocationId: String? = null, at: Instant): WorkSiteSession?
