@@ -3,6 +3,7 @@ package com.robertochavez.timetracker.core.sync
 import com.robertochavez.timetracker.core.common.domain.ProjectDaySummaryCalculator
 import com.robertochavez.timetracker.core.common.domain.ReportCalculator
 import com.robertochavez.timetracker.core.common.domain.toHubDailySummary
+import com.robertochavez.timetracker.core.common.model.SummaryStatus
 import com.robertochavez.timetracker.core.common.repository.PayPeriodSettingsRepository
 import com.robertochavez.timetracker.core.common.repository.TrackingRepository
 import com.robertochavez.timetracker.core.common.repository.WorkScheduleRepository
@@ -10,6 +11,7 @@ import com.robertochavez.timetracker.core.common.repository.WorkSiteSessionRepos
 import kotlinx.coroutines.flow.first
 import java.time.Clock
 import java.time.LocalDate
+import java.time.ZoneId
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -27,18 +29,28 @@ class HubSummaryEnqueuer @Inject constructor(
 ) {
     suspend fun enqueueEligible() {
         val start = settingsStore.current().activationDate ?: return
-        val today = LocalDate.now(clock)
         val now = clock.instant()
+        val today = LocalDate.ofInstant(now, BUSINESS_ZONE)
         val sessions = trackingRepository.observeSessions().first()
         val intervals = trackingRepository.observeActivityIntervals().first()
         val siteSessions = workSiteSessionRepository.observeWorkSiteSessions().first()
-        val calculator = ReportCalculator(clock.zone, workScheduleRepository.getWorkSchedule(), payPeriodSettingsRepository.getSettings())
+        val calculator =
+            ReportCalculator(BUSINESS_ZONE, workScheduleRepository.getWorkSchedule(), payPeriodSettingsRepository.getSettings())
         generateSequence(start) { it.plusDays(1) }.takeWhile { !it.isAfter(today) }.forEach { date ->
             val summary = calculator.daily(date, sessions, intervals, now, siteSessions).toHubDailySummary()
-            repository.enqueue(summary.sourceId, HubPayloadType.DAILY_SUMMARY, payloadBuilder.daily(summary))
+            val status = when {
+                summary.needsReviewMinutes > 0 -> SummaryStatus.NEEDS_REVIEW
+                date == today -> SummaryStatus.PROVISIONAL
+                else -> SummaryStatus.FINAL
+            }
+            repository.enqueue(summary.sourceId, HubPayloadType.DAILY_SUMMARY, payloadBuilder.daily(summary, status))
         }
-        ProjectDaySummaryCalculator.calculate(siteSessions, clock.zone, now)
+        ProjectDaySummaryCalculator.calculate(siteSessions, BUSINESS_ZONE, now)
             .filter { !it.date.isBefore(start) }
             .forEach { summary -> repository.enqueue(summary.sourceId, HubPayloadType.PROJECT_DAY, payloadBuilder.projectDay(summary)) }
+    }
+
+    private companion object {
+        val BUSINESS_ZONE: ZoneId = ZoneId.of("America/New_York")
     }
 }

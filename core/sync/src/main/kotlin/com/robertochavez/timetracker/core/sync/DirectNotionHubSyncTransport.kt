@@ -70,6 +70,7 @@ class DirectNotionHubSyncTransport @Inject constructor(
             }.onSuccess {
                 accepted += record.sourceId
             }.onFailure { error ->
+                if (error is IOException) throw error
                 rejected[record.sourceId] = error.message.orEmpty().replace(Regex("[\\r\\n]+"), " ").take(240)
             }
         }
@@ -97,18 +98,7 @@ class DirectNotionHubSyncTransport @Inject constructor(
                 .put("Idle Minutes", number(payload.getLong("idleMinutes")))
                 .put("Needs Review Minutes", number(payload.getLong("needsReviewMinutes")))
                 .put("Miles", number(payload.getString("drivenMiles").toDouble()))
-                .put(
-                    "Time Status",
-                    select(
-                        if (java.time.LocalDate.parse(date) ==
-                            java.time.LocalDate.now(clock)
-                        ) {
-                            "Provisional"
-                        } else {
-                            "Final"
-                        },
-                    ),
-                )
+                .put("Time Status", select(payload.getString("status").toNotionStatus()))
                 .put("Last Time Sync", date(java.time.Instant.now(clock).toString())),
         )
     }
@@ -249,7 +239,8 @@ internal class NotionHttpClient(private val token: String, private val baseUrl: 
                 continue
             }
             if (result.successful) return result.json()
-            if (!result.retryable || attempt >= MAX_HTTP_ATTEMPTS) error(result.errorMessage())
+            if (attempt >= MAX_HTTP_ATTEMPTS && result.retryable) throw IOException(result.errorMessage())
+            if (!result.retryable) error(result.errorMessage())
             waitBeforeRetry(attempt, result.retryAfterSeconds)
         }
     }

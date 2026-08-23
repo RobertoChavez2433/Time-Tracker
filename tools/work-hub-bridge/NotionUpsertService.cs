@@ -72,6 +72,7 @@ public static class EmailBodyCleaner
         var cut = ReplyMarkers.Select(marker => newest.IndexOf(marker, StringComparison.OrdinalIgnoreCase)).Where(index => index > 0).DefaultIfEmpty(newest.Length).Min();
         newest = newest[..cut].Trim();
         if (newest.Length > 100_000) return (newest[..100_000], "Truncated");
+        if (string.Equals(declaredStatus, "truncated", StringComparison.OrdinalIgnoreCase)) return (newest, "Truncated");
         return (newest, "Available");
     }
 }

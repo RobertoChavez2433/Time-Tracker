@@ -60,7 +60,7 @@ class DocumentTreeHubSyncTransport @Inject constructor(
     }
 
     @Suppress("ReturnCount")
-    fun verifyProviderGate(): Boolean {
+    fun runBasicProviderCheck(): Boolean {
         val root = runCatching { configuredRoot() }.getOrNull() ?: return false
         val probe = root.createFile(MIME_JSON, ".work-hub-provider-test.partial") ?: return false
         val wrote = runCatching {
@@ -70,9 +70,7 @@ class DocumentTreeHubSyncTransport @Inject constructor(
         val readable =
             wrote && runCatching { context.contentResolver.openInputStream(probe.uri)?.use { it.read() } != null }.getOrDefault(false)
         probe.delete()
-        val passed = wrote && readable
-        settingsStore.markProviderVerified(passed)
-        return passed
+        return wrote && readable
     }
 
     private fun configuredRoot(): DocumentFile {

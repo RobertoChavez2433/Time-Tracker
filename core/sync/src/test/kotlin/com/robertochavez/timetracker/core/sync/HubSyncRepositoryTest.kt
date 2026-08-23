@@ -53,6 +53,23 @@ class HubSyncRepositoryTest {
         assertEquals(HubSyncState.PENDING.name, dao.get("day:v1:2026-08-22")!!.state)
         assertNull(dao.get("project-day:v1:site:2026-08-22"))
     }
+
+    @Test fun `transient failures remain transferable until bounded attempt limit`() = runBlocking {
+        val dao = FakeHubSyncRecordDao()
+        val repository = HubSyncRepository(dao, clock)
+        val sourceId = "day:v1:2026-08-23"
+        repository.enqueue(sourceId, HubPayloadType.DAILY_SUMMARY, "{}")
+
+        repeat(5) {
+            repository.transientFailure(listOf(dao.get(sourceId)!!), "temporary provider error")
+            assertEquals(HubSyncState.PENDING.name, dao.get(sourceId)!!.state)
+            assertEquals(1, repository.transferable().size)
+        }
+        repository.transientFailure(listOf(dao.get(sourceId)!!), "temporary provider error")
+
+        assertEquals(HubSyncState.FAILED.name, dao.get(sourceId)!!.state)
+        assertEquals(emptyList<HubSyncRecordEntity>(), repository.transferable())
+    }
 }
 
 private class FakeHubSyncRecordDao : HubSyncRecordDao {

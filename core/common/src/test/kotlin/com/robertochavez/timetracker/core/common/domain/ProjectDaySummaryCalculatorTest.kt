@@ -24,11 +24,11 @@ class ProjectDaySummaryCalculatorTest {
 
     @Test fun `session crossing midnight splits by local date across DST safe boundaries`() {
         val result = ProjectDaySummaryCalculator.calculate(
-            listOf(session("a", "2026-11-02T04:30:00Z", "2026-11-02T06:30:00Z")),
+            listOf(session("a", "2026-11-01T03:30:00Z", "2026-11-01T07:30:00Z")),
             zone,
-            Instant.parse("2026-11-03T12:00:00Z"),
+            Instant.parse("2026-11-02T12:00:00Z"),
         )
-        assertEquals(listOf(30L, 90L), result.map { it.onsiteMinutes })
+        assertEquals(listOf(30L, 210L), result.map { it.onsiteMinutes })
     }
 
     @Test fun `active current session is provisional`() {

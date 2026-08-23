@@ -30,8 +30,10 @@ public sealed class NotionClient : IDisposable
                 using var response = await http.SendAsync(request, cancellationToken);
                 var responseText = await response.Content.ReadAsStringAsync(cancellationToken);
                 if (response.IsSuccessStatusCode) return JsonNode.Parse(responseText)?.AsObject() ?? [];
-                if ((response.StatusCode == HttpStatusCode.TooManyRequests || (int)response.StatusCode >= 500) && attempt < 5)
+                if (response.StatusCode == HttpStatusCode.TooManyRequests || (int)response.StatusCode >= 500)
                 {
+                    if (attempt >= 5)
+                        throw new HttpRequestException($"Notion request remained transiently unavailable after {attempt} attempts.");
                     var wait = response.Headers.RetryAfter?.Delta ?? TimeSpan.FromSeconds(Math.Min(30, 1 << attempt));
                     await Task.Delay(wait, cancellationToken);
                     continue;

@@ -32,6 +32,7 @@ public sealed class BridgeTests
         var result = EmailBodyCleaner.Clean(new string('x', 100_100), "available");
         Assert.Equal("Truncated", result.Status);
         Assert.Equal(100_000, result.Body.Length);
+        Assert.Equal("Truncated", EmailBodyCleaner.Clean("partial upstream body", "truncated").Status);
     }
 
     [Fact]
@@ -125,13 +126,14 @@ public sealed class BridgeTests
             var daily = new DailyNoteService(client, "daily-log");
             var upserts = new NotionUpsertService(client, new BridgeStateStore(Path.Combine(temporary.FullName, "state.json")));
             var importer = new TimeImporter(client, resolver, daily, upserts, "time-records");
-            using var document = JsonDocument.Parse("""{"sourceId":"day:v1:2026-08-20","type":"dailySummary","date":"2026-08-20","totalWorkMinutes":480,"driveMinutes":80,"siteMinutes":95,"idleMinutes":20,"needsReviewMinutes":0,"drivenMiles":"12.4"}""");
+            using var document = JsonDocument.Parse("""{"sourceId":"day:v1:2026-08-20","type":"dailySummary","date":"2026-08-20","totalWorkMinutes":480,"driveMinutes":80,"siteMinutes":95,"idleMinutes":20,"needsReviewMinutes":5,"drivenMiles":"12.4","status":"needs_review"}""");
             await importer.ImportAsync(document.RootElement, CancellationToken.None);
             var properties = patch!["properties"]!.AsObject();
             Assert.True(properties.ContainsKey("Total Work Minutes"));
             Assert.True(properties.ContainsKey("Drive Minutes"));
             Assert.False(properties.ContainsKey("Total Work"));
             Assert.False(properties.ContainsKey("Day Key"));
+            Assert.Equal("Needs Review", properties["Time Status"]!["select"]!["name"]!.GetValue<string>());
         }
         finally { temporary.Delete(true); }
     }

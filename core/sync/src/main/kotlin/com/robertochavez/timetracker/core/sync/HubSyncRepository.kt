@@ -24,7 +24,7 @@ class HubSyncRepository @Inject constructor(private val dao: HubSyncRecordDao, p
         val now = clock.millis()
         val hash = sha256(json)
         val existing = dao.get(sourceId)
-        if (existing?.contentHash == hash && existing.state != HubSyncState.PENDING.name) return
+        if (existing?.contentHash == hash) return
         dao.upsert(
             HubSyncRecordEntity(
                 sourceId = sourceId,
@@ -33,7 +33,7 @@ class HubSyncRepository @Inject constructor(private val dao: HubSyncRecordDao, p
                 contentHash = hash,
                 state = HubSyncState.PENDING.name,
                 transferId = null,
-                attemptCount = existing?.attemptCount ?: 0,
+                attemptCount = 0,
                 createdAtEpochMillis = existing?.createdAtEpochMillis ?: now,
                 updatedAtEpochMillis = now,
                 lastAttemptAtEpochMillis = null,
@@ -59,6 +59,24 @@ class HubSyncRepository @Inject constructor(private val dao: HubSyncRecordDao, p
     }
 
     suspend fun failed(records: List<HubSyncRecordEntity>, error: String) = update(records, HubSyncState.FAILED, null, sanitize(error))
+
+    suspend fun transientFailure(records: List<HubSyncRecordEntity>, error: String) {
+        val now = clock.millis()
+        val sanitized = sanitize(error)
+        records.forEach { record ->
+            val attemptCount = record.attemptCount + 1
+            dao.upsert(
+                record.copy(
+                    state = if (attemptCount >= MAX_TRANSFER_ATTEMPTS) HubSyncState.FAILED.name else HubSyncState.PENDING.name,
+                    transferId = null,
+                    attemptCount = attemptCount,
+                    updatedAtEpochMillis = now,
+                    lastAttemptAtEpochMillis = now,
+                    sanitizedError = sanitized,
+                ),
+            )
+        }
+    }
 
     suspend fun fullResync() {
         dao.markAllPending()
@@ -89,5 +107,6 @@ class HubSyncRepository @Inject constructor(private val dao: HubSyncRecordDao, p
 
     private companion object {
         const val STALE_TRANSFER_MILLIS = 24L * 60L * 60L * 1_000L
+        const val MAX_TRANSFER_ATTEMPTS = 6
     }
 }

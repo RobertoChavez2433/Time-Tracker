@@ -26,11 +26,34 @@ class HubSyncSettingsStore @Inject constructor(@ApplicationContext private val c
                 android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
             )
         }
-        update { it.copy(outboxTreeUri = uri?.toString(), documentProviderVerified = false) }
+        update {
+            it.copy(
+                outboxTreeUri = uri?.toString(),
+                transportKind = HubTransportKind.DOCUMENT_TREE,
+                providerGateState = HubProviderGateState.NOT_RUN,
+            )
+        }
     }
 
-    fun markProviderVerified(verified: Boolean) = update { it.copy(documentProviderVerified = verified) }
-    fun setTransport(kind: HubTransportKind) = update { it.copy(transportKind = kind) }
+    fun recordBasicProviderCheck(passed: Boolean) = update {
+        it.copy(providerGateState = if (passed) HubProviderGateState.BASIC_PASSED else HubProviderGateState.BASIC_FAILED)
+    }
+
+    fun recordFullProviderGate(passed: Boolean) = update {
+        require(it.providerGateState == HubProviderGateState.BASIC_PASSED || it.providerGateState == HubProviderGateState.FULL_FAILED) {
+            "Run the basic provider check before recording the full work-phone gate."
+        }
+        it.copy(providerGateState = if (passed) HubProviderGateState.FULL_PASSED else HubProviderGateState.FULL_FAILED)
+    }
+
+    fun setTransport(kind: HubTransportKind) = update {
+        if (kind == HubTransportKind.DIRECT_NOTION) {
+            require(it.providerGateState == HubProviderGateState.BASIC_FAILED || it.providerGateState == HubProviderGateState.FULL_FAILED) {
+                "Direct Notion is available only after the OneDrive provider gate fails."
+            }
+        }
+        it.copy(transportKind = kind)
+    }
     fun setNotionDatabaseIds(dailyLog: String, projects: String, timeRecords: String) = update {
         it.copy(
             dailyLogDatabaseId = dailyLog.trim(),
@@ -50,7 +73,7 @@ class HubSyncSettingsStore @Inject constructor(@ApplicationContext private val c
             .putString(ACTIVATION_DATE, value.activationDate?.toString())
             .putString(OUTBOX_URI, value.outboxTreeUri)
             .putString(TRANSPORT, value.transportKind.name)
-            .putBoolean(PROVIDER_VERIFIED, value.documentProviderVerified)
+            .putString(PROVIDER_GATE_STATE, value.providerGateState.name)
             .putString(DAILY_LOG_ID, value.dailyLogDatabaseId)
             .putString(PROJECTS_ID, value.projectsDatabaseId)
             .putString(TIME_RECORDS_ID, value.timeRecordsDatabaseId)
@@ -62,7 +85,12 @@ class HubSyncSettingsStore @Inject constructor(@ApplicationContext private val c
         activationDate = preferences.getString(ACTIVATION_DATE, null)?.let(LocalDate::parse),
         outboxTreeUri = preferences.getString(OUTBOX_URI, null),
         transportKind = preferences.getString(TRANSPORT, null)?.let(HubTransportKind::valueOf) ?: HubTransportKind.DOCUMENT_TREE,
-        documentProviderVerified = preferences.getBoolean(PROVIDER_VERIFIED, false),
+        providerGateState = preferences.getString(PROVIDER_GATE_STATE, null)?.let(HubProviderGateState::valueOf)
+            ?: if (preferences.getBoolean(LEGACY_PROVIDER_VERIFIED, false)) {
+                HubProviderGateState.BASIC_PASSED
+            } else {
+                HubProviderGateState.NOT_RUN
+            },
         dailyLogDatabaseId = preferences.getString(DAILY_LOG_ID, "").orEmpty(),
         projectsDatabaseId = preferences.getString(PROJECTS_ID, "").orEmpty(),
         timeRecordsDatabaseId = preferences.getString(TIME_RECORDS_ID, "").orEmpty(),
@@ -73,7 +101,8 @@ class HubSyncSettingsStore @Inject constructor(@ApplicationContext private val c
         const val ACTIVATION_DATE = "activation_date"
         const val OUTBOX_URI = "outbox_uri"
         const val TRANSPORT = "transport"
-        const val PROVIDER_VERIFIED = "provider_verified"
+        const val PROVIDER_GATE_STATE = "provider_gate_state"
+        const val LEGACY_PROVIDER_VERIFIED = "provider_verified"
         const val DAILY_LOG_ID = "daily_log_id"
         const val PROJECTS_ID = "projects_id"
         const val TIME_RECORDS_ID = "time_records_id"

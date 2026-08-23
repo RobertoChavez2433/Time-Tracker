@@ -1,5 +1,6 @@
 package com.robertochavez.timetracker.core.sync
 
+import com.robertochavez.timetracker.core.common.model.HubDailySummary
 import com.robertochavez.timetracker.core.common.model.ProjectDaySummary
 import com.robertochavez.timetracker.core.common.model.SummaryStatus
 import org.junit.Assert.assertEquals
@@ -12,6 +13,27 @@ import java.time.LocalDate
 
 @RunWith(RobolectricTestRunner::class)
 class HubPayloadBuilderTest {
+    @Test fun `daily status is explicit and changes deterministic payload`() {
+        val summary = HubDailySummary(
+            "day:v1:2026-08-20",
+            LocalDate.parse("2026-08-20"),
+            480,
+            80,
+            95,
+            20,
+            0,
+            12.4,
+        )
+        val builder = HubPayloadBuilder()
+
+        val provisional = builder.daily(summary, SummaryStatus.PROVISIONAL)
+        val final = builder.daily(summary, SummaryStatus.FINAL)
+
+        assertFalse(provisional == final)
+        assertEquals("provisional", org.json.JSONObject(provisional).getString("status"))
+        assertEquals("final", org.json.JSONObject(final).getString("status"))
+    }
+
     @Test fun `project payload is deterministic and contains no private location fields`() {
         val summary = ProjectDaySummary(
             "project-day:v1:site-1:2026-08-20", LocalDate.parse("2026-08-20"), "site-1", "001-AB",

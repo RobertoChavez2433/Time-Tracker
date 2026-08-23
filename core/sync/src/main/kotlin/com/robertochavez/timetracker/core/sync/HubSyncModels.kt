@@ -6,12 +6,13 @@ import java.time.LocalDate
 enum class HubPayloadType { DAILY_SUMMARY, PROJECT_DAY }
 enum class HubSyncState { PENDING, TRANSFERRED, ACCEPTED, FAILED }
 enum class HubTransportKind { DOCUMENT_TREE, DIRECT_NOTION }
+enum class HubProviderGateState { NOT_RUN, BASIC_PASSED, BASIC_FAILED, FULL_PASSED, FULL_FAILED }
 
 data class HubSyncSettings(
     val activationDate: LocalDate? = null,
     val outboxTreeUri: String? = null,
     val transportKind: HubTransportKind = HubTransportKind.DOCUMENT_TREE,
-    val documentProviderVerified: Boolean = false,
+    val providerGateState: HubProviderGateState = HubProviderGateState.NOT_RUN,
     val dailyLogDatabaseId: String = "",
     val projectsDatabaseId: String = "",
     val timeRecordsDatabaseId: String = "",

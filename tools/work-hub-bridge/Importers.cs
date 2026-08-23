@@ -121,7 +121,7 @@ public sealed class TimeImporter(
             ["Idle Minutes"] = NotionProperties.Number(record.GetProperty("idleMinutes").GetInt64()),
             ["Needs Review Minutes"] = NotionProperties.Number(record.GetProperty("needsReviewMinutes").GetInt64()),
             ["Miles"] = NotionProperties.Number(double.Parse(record.GetProperty("drivenMiles").ToString(), System.Globalization.CultureInfo.InvariantCulture)),
-            ["Time Status"] = NotionProperties.Select(date == DateOnly.FromDateTime(DateTime.Now) ? "Provisional" : "Final"),
+            ["Time Status"] = NotionProperties.Select(ToTitle(record.GetProperty("status").GetString()!)),
             ["Last Time Sync"] = NotionProperties.Date(DateTimeOffset.UtcNow.ToString("O"))
         };
         await notion.SendAsync(HttpMethod.Patch, $"/v1/pages/{pageId}", new JsonObject { ["properties"] = properties }, cancellationToken);

@@ -21,6 +21,7 @@ interface WorkHubSettingsGateway {
     fun setActivationDate(value: LocalDate?)
     fun setOutboxTree(uri: Uri)
     fun verifyProvider(): Boolean
+    fun recordFullProviderGate(passed: Boolean)
     fun setTransport(kind: HubTransportKind)
     fun saveNotionFallback(token: String, dailyLogId: String, projectsId: String, timeRecordsId: String)
     suspend fun syncNow(): HubTransferResult?
@@ -41,6 +42,7 @@ class RealWorkHubSettingsGateway @Inject constructor(
     override fun setActivationDate(value: LocalDate?) = settingsStore.setActivationDate(value)
     override fun setOutboxTree(uri: Uri) = settingsStore.setOutboxTree(uri)
     override fun verifyProvider() = coordinator.verifyDocumentProvider()
+    override fun recordFullProviderGate(passed: Boolean) = coordinator.recordFullProviderGate(passed)
     override fun setTransport(kind: HubTransportKind) = settingsStore.setTransport(kind)
     override fun saveNotionFallback(token: String, dailyLogId: String, projectsId: String, timeRecordsId: String) {
         tokenStore.save(token)
@@ -59,6 +61,7 @@ object NoopWorkHubSettingsGateway : WorkHubSettingsGateway {
     override fun setActivationDate(value: LocalDate?) = Unit
     override fun setOutboxTree(uri: Uri) = Unit
     override fun verifyProvider() = false
+    override fun recordFullProviderGate(passed: Boolean) = Unit
     override fun setTransport(kind: HubTransportKind) = Unit
     override fun saveNotionFallback(token: String, dailyLogId: String, projectsId: String, timeRecordsId: String) = Unit
     override suspend fun syncNow(): HubTransferResult? = null

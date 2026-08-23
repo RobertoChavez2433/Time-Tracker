@@ -42,6 +42,7 @@ import com.robertochavez.timetracker.core.designsystem.TimeTrackerSettingRow
 import com.robertochavez.timetracker.core.designsystem.TimeTrackerSettingSection
 import com.robertochavez.timetracker.core.designsystem.TimeTrackerStatusText
 import com.robertochavez.timetracker.core.designsystem.TimeTrackerTestTags
+import com.robertochavez.timetracker.core.sync.HubProviderGateState
 import com.robertochavez.timetracker.core.sync.HubTransportKind
 
 @Composable
@@ -139,6 +140,7 @@ fun SettingsRoute(modifier: Modifier = Modifier, viewModel: SettingsViewModel = 
                 onActivationDateChange = viewModel::setHubActivationDate,
                 onChooseOutbox = { outboxLauncher.launch(null) },
                 onVerifyProvider = viewModel::verifyHubProvider,
+                onFullProviderGateResult = viewModel::recordFullHubProviderGate,
                 onTransportChange = viewModel::setHubTransport,
                 onNotionTokenChange = { notionToken = it },
                 onDailyLogIdChange = { dailyLogId = it },
@@ -224,6 +226,7 @@ private fun WorkHubSyncSection(
     onActivationDateChange: (String) -> Unit,
     onChooseOutbox: () -> Unit,
     onVerifyProvider: () -> Unit,
+    onFullProviderGateResult: (Boolean) -> Unit,
     onTransportChange: (HubTransportKind) -> Unit,
     onNotionTokenChange: (String) -> Unit,
     onDailyLogIdChange: (String) -> Unit,
@@ -257,15 +260,11 @@ private fun WorkHubSyncSection(
             modifier = Modifier.testTag(TimeTrackerTestTags.SETTINGS_HUB_OUTBOX_BUTTON),
         )
         TimeTrackerSecondaryButton(
-            text = "Test OneDrive provider",
+            text = "Run basic OneDrive file check",
             onClick = onVerifyProvider,
             modifier = Modifier.testTag(TimeTrackerTestTags.SETTINGS_HUB_VERIFY_PROVIDER_BUTTON),
         )
-        Text(
-            if (state.hubProviderVerified) "Provider test passed" else "Provider not verified",
-            color = if (state.hubProviderVerified) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.testTag(TimeTrackerTestTags.SETTINGS_HUB_PROVIDER_STATUS),
-        )
+        ProviderGateStatus(state.hubProviderGateState, onFullProviderGateResult)
         Row(horizontalArrangement = Arrangement.spacedBy(com.robertochavez.timetracker.core.designsystem.TimeTrackerSpacing.Small)) {
             FilterChip(
                 selected = state.hubTransport == HubTransportKind.DOCUMENT_TREE,
@@ -275,7 +274,7 @@ private fun WorkHubSyncSection(
             FilterChip(
                 selected = state.hubTransport == HubTransportKind.DIRECT_NOTION,
                 onClick = { onTransportChange(HubTransportKind.DIRECT_NOTION) },
-                label = { Text("Direct Notion fallback") },
+                label = { Text("Direct Notion fallback (after gate failure)") },
             )
         }
         if (state.hubTransport == HubTransportKind.DIRECT_NOTION) {
@@ -309,6 +308,36 @@ private fun NotionFallbackField(value: String, onValueChange: (String) -> Unit, 
         keyboardOptions = if (secret) KeyboardOptions(keyboardType = KeyboardType.Password) else KeyboardOptions.Default,
         modifier = Modifier.fillMaxWidth(),
     )
+}
+
+@Composable
+private fun ProviderGateStatus(state: HubProviderGateState, onFullProviderGateResult: (Boolean) -> Unit) {
+    val message = when (state) {
+        HubProviderGateState.NOT_RUN -> "Basic file check not run. Full work-phone gate is still required."
+        HubProviderGateState.BASIC_PASSED ->
+            "Basic create, rename, and read checks passed. Restart, reboot, background receipt, and laptop sync are not verified yet."
+        HubProviderGateState.BASIC_FAILED -> "Basic file check failed. Direct Notion fallback is available."
+        HubProviderGateState.FULL_PASSED -> "Full work-phone OneDrive gate passed. Outbox sync is enabled."
+        HubProviderGateState.FULL_FAILED -> "Full work-phone OneDrive gate failed. Direct Notion fallback is available."
+    }
+    Text(
+        message,
+        color = if (state == HubProviderGateState.FULL_PASSED) {
+            MaterialTheme.colorScheme.primary
+        } else {
+            MaterialTheme.colorScheme.onSurfaceVariant
+        },
+        modifier = Modifier.testTag(TimeTrackerTestTags.SETTINGS_HUB_PROVIDER_STATUS),
+    )
+    if (state == HubProviderGateState.BASIC_PASSED) {
+        Text(
+            "On the work phone, verify access after app restart and reboot, a background WorkManager write, receipt reading, " +
+                "and unattended OneDrive sync to the work laptop before recording the result.",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        TimeTrackerSecondaryButton(text = "Record full gate passed", onClick = { onFullProviderGateResult(true) })
+        TimeTrackerQuietButton(text = "Record full gate failed", onClick = { onFullProviderGateResult(false) })
+    }
 }
 
 @Composable

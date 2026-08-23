@@ -2,12 +2,13 @@ package com.robertochavez.timetracker.core.sync
 
 import com.robertochavez.timetracker.core.common.model.HubDailySummary
 import com.robertochavez.timetracker.core.common.model.ProjectDaySummary
+import com.robertochavez.timetracker.core.common.model.SummaryStatus
 import org.json.JSONObject
 import java.math.BigDecimal
 import javax.inject.Inject
 
 class HubPayloadBuilder @Inject constructor() {
-    fun daily(summary: HubDailySummary): String = JSONObject()
+    fun daily(summary: HubDailySummary, status: SummaryStatus): String = JSONObject()
         .put("sourceId", summary.sourceId)
         .put("type", "dailySummary")
         .put("date", summary.date.toString())
@@ -17,6 +18,7 @@ class HubPayloadBuilder @Inject constructor() {
         .put("idleMinutes", summary.idleMinutes)
         .put("needsReviewMinutes", summary.needsReviewMinutes)
         .put("drivenMiles", BigDecimal.valueOf(summary.drivenMiles).stripTrailingZeros().toPlainString())
+        .put("status", status.name.lowercase())
         .toString()
 
     fun projectDay(summary: ProjectDaySummary): String = JSONObject()

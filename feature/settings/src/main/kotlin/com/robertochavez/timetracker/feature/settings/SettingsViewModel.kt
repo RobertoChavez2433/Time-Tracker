@@ -16,6 +16,7 @@ import com.robertochavez.timetracker.core.logging.AppLogger
 import com.robertochavez.timetracker.core.logging.LogCategory
 import com.robertochavez.timetracker.core.logging.info
 import com.robertochavez.timetracker.core.logging.warn
+import com.robertochavez.timetracker.core.sync.HubProviderGateState
 import com.robertochavez.timetracker.core.sync.HubSyncSettings
 import com.robertochavez.timetracker.core.sync.HubSyncStatus
 import com.robertochavez.timetracker.core.sync.HubTransportKind
@@ -94,7 +95,7 @@ class SettingsViewModel @Inject constructor(
             privacyDisclosureAccepted = appSettings.privacyDisclosureAccepted,
             hubActivationDate = sync.settings.activationDate?.toString().orEmpty(),
             hubOutboxConfigured = sync.settings.outboxTreeUri != null,
-            hubProviderVerified = sync.settings.documentProviderVerified,
+            hubProviderGateState = sync.settings.providerGateState,
             hubTransport = sync.settings.transportKind,
             hubSyncStatus = "${sync.status.pending} pending · ${sync.status.failed} failed · " +
                 "${sync.status.accepted} accepted — ${sync.status.lastMessage}",
@@ -264,14 +265,29 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             val passed = runCatching { workHubSettingsGateway.verifyProvider() }.getOrDefault(false)
             statusMessage.value = if (passed) {
-                "Outbox provider passed create, rename, and read checks."
+                "Basic file checks passed. Complete the restart, reboot, background receipt, and laptop-sync checks on the work phone."
             } else {
-                "Provider test failed. Direct Notion fallback is available."
+                "Basic provider check failed. Direct Notion fallback is now available."
             }
         }
     }
 
-    fun setHubTransport(kind: HubTransportKind) = workHubSettingsGateway.setTransport(kind)
+    fun recordFullHubProviderGate(passed: Boolean) {
+        runCatching { workHubSettingsGateway.recordFullProviderGate(passed) }
+            .onSuccess {
+                statusMessage.value = if (passed) {
+                    "Full work-phone OneDrive gate recorded as passed."
+                } else {
+                    "Full work-phone OneDrive gate recorded as failed. Direct Notion fallback is available."
+                }
+            }
+            .onFailure { statusMessage.value = it.message ?: "Could not record the provider gate result." }
+    }
+
+    fun setHubTransport(kind: HubTransportKind) {
+        runCatching { workHubSettingsGateway.setTransport(kind) }
+            .onFailure { statusMessage.value = it.message ?: "That Work Hub transport is not available yet." }
+    }
 
     fun saveNotionFallback(token: String, dailyLogId: String, projectsId: String, timeRecordsId: String) {
         runCatching {
@@ -337,7 +353,7 @@ data class SettingsUiState(
     val privacyDisclosureAccepted: Boolean = false,
     val hubActivationDate: String = "",
     val hubOutboxConfigured: Boolean = false,
-    val hubProviderVerified: Boolean = false,
+    val hubProviderGateState: HubProviderGateState = HubProviderGateState.NOT_RUN,
     val hubTransport: HubTransportKind = HubTransportKind.DOCUMENT_TREE,
     val hubSyncStatus: String = "Not configured",
     val hubFailedCount: Int = 0,

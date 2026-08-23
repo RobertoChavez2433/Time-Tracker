@@ -1,3 +1,5 @@
 <full-backup-content>
     <exclude domain="database" path="time_tracker.db" />
+    <exclude domain="sharedpref" path="work_hub_credentials.xml" />
+    <exclude domain="sharedpref" path="work_hub_sync.xml" />
 </full-backup-content>

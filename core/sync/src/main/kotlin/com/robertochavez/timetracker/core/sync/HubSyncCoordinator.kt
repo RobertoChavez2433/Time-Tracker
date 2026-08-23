@@ -2,6 +2,7 @@ package com.robertochavez.timetracker.core.sync
 
 import com.robertochavez.timetracker.core.database.entity.HubSyncRecordEntity
 import kotlinx.coroutines.flow.Flow
+import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -30,7 +31,13 @@ class HubSyncCoordinator @Inject constructor(
                     )
                 }
             }
-            .onFailure { repository.failed(records, it.message ?: "Sync failed") }
+            .onFailure { error ->
+                if (error is IOException) {
+                    repository.transientFailure(records, error.message ?: "Sync failed")
+                } else {
+                    repository.failed(records, error.message ?: "Sync failed")
+                }
+            }
             .getOrThrow()
     }
 
@@ -40,7 +47,9 @@ class HubSyncCoordinator @Inject constructor(
         return receipts.size
     }
 
-    fun verifyDocumentProvider(): Boolean = documentTreeTransport.verifyProviderGate()
+    fun verifyDocumentProvider(): Boolean = documentTreeTransport.runBasicProviderCheck().also(settingsStore::recordBasicProviderCheck)
+
+    fun recordFullProviderGate(passed: Boolean) = settingsStore.recordFullProviderGate(passed)
 
     suspend fun fullResync(): HubTransferResult? {
         repository.fullResync()
@@ -49,9 +58,23 @@ class HubSyncCoordinator @Inject constructor(
 
     suspend fun discardFailed() = repository.discardFailed()
 
-    private fun selectedTransport(): HubSyncTransport = when (settingsStore.current().transportKind) {
-        HubTransportKind.DOCUMENT_TREE -> documentTreeTransport
-        HubTransportKind.DIRECT_NOTION -> directNotionTransport
+    private fun selectedTransport(): HubSyncTransport {
+        val settings = settingsStore.current()
+        return when (settings.transportKind) {
+            HubTransportKind.DOCUMENT_TREE -> {
+                require(settings.providerGateState == HubProviderGateState.FULL_PASSED) {
+                    "Complete the full work-phone OneDrive gate before enabling outbox sync."
+                }
+                documentTreeTransport
+            }
+            HubTransportKind.DIRECT_NOTION -> {
+                require(
+                    settings.providerGateState == HubProviderGateState.BASIC_FAILED ||
+                        settings.providerGateState == HubProviderGateState.FULL_FAILED,
+                ) { "Direct Notion is available only after the OneDrive provider gate fails." }
+                directNotionTransport
+            }
+        }
     }
 
     private fun List<HubSyncRecordEntity>.filterByActivationDate(settings: HubSyncSettings): List<HubSyncRecordEntity> {
