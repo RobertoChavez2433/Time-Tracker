@@ -17,13 +17,15 @@ public sealed class BridgeHost
         var token = WindowsCredentialStore.Read("TimeTracker.WorkHub.Notion")
             ?? throw new InvalidOperationException("Notion token is missing from Windows Credential Manager target TimeTracker.WorkHub.Notion.");
         using var notion = new NotionClient(token);
+        await new NotionSchemaValidator(notion).ValidateAsync(settings, cancellationToken);
         var scanner = new OutboxScanner(settings.OutboxRoot);
         var validator = new EnvelopeValidator();
         var state = new BridgeStateStore(Path.Combine(settings.StateDirectory, "bridge-state.json"));
         var resolver = new ProjectResolver(notion, settings.ProjectsDataSourceId);
         var dailyNotes = new DailyNoteService(notion, settings.DailyLogDataSourceId);
         var upserts = new NotionUpsertService(notion, state);
-        var emailImporter = new EmailImporter(resolver, dailyNotes, upserts, settings.ProjectEmailsDataSourceId);
+        var businessTimeZone = TimeZoneInfo.FindSystemTimeZoneById(settings.BusinessTimeZone);
+        var emailImporter = new EmailImporter(resolver, dailyNotes, upserts, settings.ProjectEmailsDataSourceId, businessTimeZone);
         var timeImporter = new TimeImporter(notion, resolver, dailyNotes, upserts, settings.TimeRecordsDataSourceId);
         var receipts = new ReceiptWriter(settings.OutboxRoot);
         var archive = new ArchiveManager(settings.OutboxRoot);
@@ -45,11 +47,11 @@ public sealed class BridgeHost
                         {
                             if (record.GetProperty("type").GetString() == "email") await emailImporter.ImportAsync(record, cancellationToken);
                             else await timeImporter.ImportAsync(record, cancellationToken);
-                            accepted.Add(record.GetProperty("sourceId").GetString()!);
+                            accepted.Add(SourceKeyFactory.ForRecord(record));
                         }
                         catch (Exception error) when (error is InvalidDataException or InvalidOperationException)
                         {
-                            rejected[record.GetProperty("sourceId").GetString() ?? "unknown"] = LogSanitizer.Sanitize(error.Message);
+                            rejected[SafeSourceId(record)] = LogSanitizer.Sanitize(error.Message);
                         }
                     }
                     await receipts.WriteAsync(transferId, accepted, rejected, cancellationToken);
@@ -58,6 +60,7 @@ public sealed class BridgeHost
                 catch (Exception error)
                 {
                     Console.Error.WriteLine($"{Path.GetFileName(file)}: {LogSanitizer.Sanitize(error.Message)}");
+                    if (error is InvalidDataException) archive.Move(file, "Failed");
                 }
             }
             archive.DeleteProcessedOlderThan(TimeSpan.FromDays(7));
@@ -65,6 +68,12 @@ public sealed class BridgeHost
             await Task.Delay(TimeSpan.FromSeconds(30), cancellationToken);
         } while (!cancellationToken.IsCancellationRequested);
         return 0;
+    }
+
+    private static string SafeSourceId(JsonElement record)
+    {
+        try { return SourceKeyFactory.ForRecord(record); }
+        catch { return record.TryGetProperty("sourceId", out var sourceId) ? sourceId.GetString() ?? "unknown" : "unknown"; }
     }
 }
 
@@ -74,7 +83,8 @@ public sealed record BridgeSettings(
     string ProjectsDataSourceId,
     string DailyLogDataSourceId,
     string ProjectEmailsDataSourceId,
-    string TimeRecordsDataSourceId);
+    string TimeRecordsDataSourceId,
+    string BusinessTimeZone = "America/New_York");
 
 internal static class JsonOptions
 {

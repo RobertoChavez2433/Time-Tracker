@@ -98,6 +98,7 @@ class SettingsViewModel @Inject constructor(
             hubTransport = sync.settings.transportKind,
             hubSyncStatus = "${sync.status.pending} pending · ${sync.status.failed} failed · " +
                 "${sync.status.accepted} accepted — ${sync.status.lastMessage}",
+            hubFailedCount = sync.status.failed,
             statusMessage = sync.message,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SettingsUiState())
@@ -301,6 +302,14 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    fun discardFailedHubRecords() {
+        viewModelScope.launch {
+            runCatching { workHubSettingsGateway.discardFailed() }
+                .onSuccess { statusMessage.value = "Failed Work Hub records discarded. Local tracking data was not changed." }
+                .onFailure { statusMessage.value = it.message ?: "Failed Work Hub records could not be discarded." }
+        }
+    }
+
     fun exportEncryptedBackup(uri: Uri, passphrase: String) {
         viewModelScope.launch {
             runCatching { workHubSettingsGateway.exportBackup(uri, passphrase.toCharArray()) }
@@ -331,6 +340,7 @@ data class SettingsUiState(
     val hubProviderVerified: Boolean = false,
     val hubTransport: HubTransportKind = HubTransportKind.DOCUMENT_TREE,
     val hubSyncStatus: String = "Not configured",
+    val hubFailedCount: Int = 0,
     val statusMessage: String = "",
 )
 

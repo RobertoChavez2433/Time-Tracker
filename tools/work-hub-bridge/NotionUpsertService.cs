@@ -4,6 +4,9 @@ namespace WorkHubBridge;
 
 public sealed class NotionUpsertService(NotionClient notion, BridgeStateStore state)
 {
+    public Task MergeRelationAsync(string pageId, string property, IEnumerable<string> ids, CancellationToken cancellationToken) =>
+        notion.MergeRelationAsync(pageId, property, ids, cancellationToken);
+
     public async Task<string> UpsertAsync(
         string dataSourceId,
         string sourceId,

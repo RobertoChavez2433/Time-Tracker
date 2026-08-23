@@ -4,5 +4,6 @@
   "projectsDataSourceId": "",
   "dailyLogDataSourceId": "",
   "projectEmailsDataSourceId": "",
-  "timeRecordsDataSourceId": ""
+  "timeRecordsDataSourceId": "",
+  "businessTimeZone": "America/New_York"
 }

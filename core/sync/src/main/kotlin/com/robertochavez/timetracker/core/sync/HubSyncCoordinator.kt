@@ -17,15 +17,16 @@ class HubSyncCoordinator @Inject constructor(
 
     suspend fun syncNow(): HubTransferResult? {
         summaryEnqueuer.enqueueEligible()
+        repository.requeueStaleTransfers()
         val records = repository.transferable().filterByActivationDate(settingsStore.current())
         if (records.isEmpty()) return null
         val transport = selectedTransport()
         return runCatching { transport.transfer(records) }
             .onSuccess { result ->
                 repository.transferred(records, result.transferId)
-                if (result.acceptedSourceIds.isNotEmpty()) {
+                if (result.acceptedSourceIds.isNotEmpty() || result.rejected.isNotEmpty()) {
                     repository.applyReceipt(
-                        HubReceipt(result.transferId, result.acceptedSourceIds, emptyMap(), java.time.Instant.now()),
+                        HubReceipt(result.transferId, result.acceptedSourceIds, result.rejected, java.time.Instant.now()),
                     )
                 }
             }
@@ -45,6 +46,8 @@ class HubSyncCoordinator @Inject constructor(
         repository.fullResync()
         return syncNow()
     }
+
+    suspend fun discardFailed() = repository.discardFailed()
 
     private fun selectedTransport(): HubSyncTransport = when (settingsStore.current().transportKind) {
         HubTransportKind.DOCUMENT_TREE -> documentTreeTransport

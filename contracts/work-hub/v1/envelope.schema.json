@@ -11,10 +11,7 @@
     "createdAt": { "type": "string", "format": "date-time" },
     "records": {
       "type": "array",
-      "items": { "oneOf": [
-        { "$ref": "time-record.schema.json" },
-        { "$ref": "email-record.schema.json" }
-      ] }
+      "items": { "type": "object" }
     }
   }
 }

@@ -7,23 +7,24 @@ public sealed class EmailImporter(
     ProjectResolver projects,
     DailyNoteService dailyNotes,
     NotionUpsertService upserts,
-    string dataSourceId)
+    string dataSourceId,
+    TimeZoneInfo businessTimeZone)
 {
     public async Task ImportAsync(JsonElement record, CancellationToken cancellationToken)
     {
-        var sourceId = record.GetProperty("sourceId").GetString()!;
+        var sourceId = SourceKeyFactory.ForRecord(record);
         var received = record.GetProperty("receivedAt").GetDateTimeOffset();
+        var workDate = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(received, businessTimeZone).DateTime);
         var projectIds = new List<string>();
         foreach (var number in record.GetProperty("projectNumbers").EnumerateArray())
             projectIds.Add(await projects.ResolveAsync(number.GetString()!, cancellationToken));
-        var dailyNoteId = await dailyNotes.EnsureAsync(DateOnly.FromDateTime(received.LocalDateTime), cancellationToken);
+        var dailyNoteId = await dailyNotes.EnsureAsync(workDate, cancellationToken);
         var (body, status) = EmailBodyCleaner.Clean(record.TryGetProperty("body", out var bodyValue) ? bodyValue.GetString() : null, record.GetProperty("bodyStatus").GetString());
         var properties = new JsonObject
         {
             ["Subject"] = NotionProperties.Title(record.GetProperty("subject").GetString() ?? "(No subject)"),
             ["Received"] = NotionProperties.Date(received.ToString("O")),
-            ["Work Date"] = NotionProperties.Date(received.ToString("yyyy-MM-dd")),
-            ["Projects"] = NotionProperties.Relation(projectIds),
+            ["Work Date"] = NotionProperties.Date(workDate.ToString("yyyy-MM-dd")),
             ["Daily Note"] = NotionProperties.Relation([dailyNoteId]),
             ["From"] = NotionProperties.Text(record.GetProperty("from").GetString() ?? string.Empty),
             ["To / CC"] = NotionProperties.Text(Recipients(record)),
@@ -37,7 +38,9 @@ public sealed class EmailImporter(
             ["Last Synced"] = NotionProperties.Date(DateTimeOffset.UtcNow.ToString("O"))
         };
         var children = string.IsNullOrEmpty(body) ? new JsonArray() : PlainTextBlocks(NotionMarkdownEscaper.Escape(body));
-        await upserts.UpsertAsync(dataSourceId, sourceId, properties, children, cancellationToken);
+        var pageId = await upserts.UpsertAsync(dataSourceId, sourceId, properties, children, cancellationToken);
+        await upserts.MergeRelationAsync(pageId, "Projects", projectIds, cancellationToken);
+        await dailyNotes.MergeProjectsAsync(dailyNoteId, projectIds, cancellationToken);
     }
 
     private static string Recipients(JsonElement record) => string.Join(", ", new[] { "to", "cc" }
@@ -56,7 +59,8 @@ public sealed class EmailImporter(
             var chunk = value.Substring(offset, Math.Min(1_900, value.Length - offset));
             blocks.Add(new JsonObject
             {
-                ["object"] = "block", ["type"] = "paragraph",
+                ["object"] = "block",
+                ["type"] = "paragraph",
                 ["paragraph"] = new JsonObject { ["rich_text"] = new JsonArray(new JsonObject { ["type"] = "text", ["text"] = new JsonObject { ["content"] = chunk } }) }
             });
         }
@@ -79,8 +83,10 @@ public sealed class TimeImporter(
         var sourceId = record.GetProperty("sourceId").GetString()!;
         var projectNumber = record.GetProperty("projectNumber").GetString()!;
         var projectId = await projects.ResolveAsync(projectNumber, cancellationToken);
+        await projects.EnsureWorksiteAsync(projectId, record.GetProperty("workLocationId").GetString()!, cancellationToken);
         var date = DateOnly.Parse(record.GetProperty("date").GetString()!);
         var dailyId = await dailyNotes.EnsureAsync(date, cancellationToken);
+        await dailyNotes.MergeProjectsAsync(dailyId, [projectId], cancellationToken);
         var properties = new JsonObject
         {
             ["Record"] = NotionProperties.Title($"{date:yyyy-MM-dd} — {projectNumber} — {record.GetProperty("siteLabel").GetString()}"),
@@ -109,11 +115,11 @@ public sealed class TimeImporter(
         var properties = new JsonObject
         {
             ["Time Summary"] = NotionProperties.Text(summary),
-            ["Total Work"] = NotionProperties.Number(record.GetProperty("totalWorkMinutes").GetInt64()),
-            ["Drive"] = NotionProperties.Number(record.GetProperty("driveMinutes").GetInt64()),
-            ["Site"] = NotionProperties.Number(record.GetProperty("siteMinutes").GetInt64()),
-            ["Idle"] = NotionProperties.Number(record.GetProperty("idleMinutes").GetInt64()),
-            ["Needs Review"] = NotionProperties.Number(record.GetProperty("needsReviewMinutes").GetInt64()),
+            ["Total Work Minutes"] = NotionProperties.Number(record.GetProperty("totalWorkMinutes").GetInt64()),
+            ["Drive Minutes"] = NotionProperties.Number(record.GetProperty("driveMinutes").GetInt64()),
+            ["Site Minutes"] = NotionProperties.Number(record.GetProperty("siteMinutes").GetInt64()),
+            ["Idle Minutes"] = NotionProperties.Number(record.GetProperty("idleMinutes").GetInt64()),
+            ["Needs Review Minutes"] = NotionProperties.Number(record.GetProperty("needsReviewMinutes").GetInt64()),
             ["Miles"] = NotionProperties.Number(double.Parse(record.GetProperty("drivenMiles").ToString(), System.Globalization.CultureInfo.InvariantCulture)),
             ["Time Status"] = NotionProperties.Select(date == DateOnly.FromDateTime(DateTime.Now) ? "Provisional" : "Final"),
             ["Last Time Sync"] = NotionProperties.Date(DateTimeOffset.UtcNow.ToString("O"))

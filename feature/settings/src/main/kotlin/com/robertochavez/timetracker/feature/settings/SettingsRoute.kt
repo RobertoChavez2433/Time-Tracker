@@ -147,6 +147,7 @@ fun SettingsRoute(modifier: Modifier = Modifier, viewModel: SettingsViewModel = 
                 onSaveFallback = { viewModel.saveNotionFallback(notionToken, dailyLogId, projectsId, timeRecordsId) },
                 onSyncNow = viewModel::syncHubNow,
                 onFullResync = viewModel::fullResyncHub,
+                onDiscardFailed = viewModel::discardFailedHubRecords,
             )
         }
         item {
@@ -231,6 +232,7 @@ private fun WorkHubSyncSection(
     onSaveFallback: () -> Unit,
     onSyncNow: () -> Unit,
     onFullResync: () -> Unit,
+    onDiscardFailed: () -> Unit,
 ) {
     var activationInput by rememberSaveable(state.hubActivationDate) { mutableStateOf(state.hubActivationDate) }
     TimeTrackerSettingSection(
@@ -290,6 +292,9 @@ private fun WorkHubSyncSection(
             modifier = Modifier.testTag(TimeTrackerTestTags.SETTINGS_HUB_SYNC_NOW_BUTTON),
         )
         TimeTrackerQuietButton(text = "Full Resync from activation date", onClick = onFullResync)
+        if (state.hubFailedCount > 0) {
+            TimeTrackerQuietButton(text = "Discard failed sync records", onClick = onDiscardFailed)
+        }
     }
 }
 

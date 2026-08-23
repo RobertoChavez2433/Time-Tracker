@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.flowOf
 import java.time.LocalDate
 import javax.inject.Inject
 
-@Suppress("ComplexInterface")
+@Suppress("ComplexInterface", "TooManyFunctions")
 interface WorkHubSettingsGateway {
     val settings: Flow<HubSyncSettings>
     val status: Flow<HubSyncStatus>
@@ -25,6 +25,7 @@ interface WorkHubSettingsGateway {
     fun saveNotionFallback(token: String, dailyLogId: String, projectsId: String, timeRecordsId: String)
     suspend fun syncNow(): HubTransferResult?
     suspend fun fullResync(): HubTransferResult?
+    suspend fun discardFailed()
     suspend fun exportBackup(uri: Uri, passphrase: CharArray)
     suspend fun importBackup(uri: Uri, passphrase: CharArray)
 }
@@ -47,6 +48,7 @@ class RealWorkHubSettingsGateway @Inject constructor(
     }
     override suspend fun syncNow() = coordinator.syncNow()
     override suspend fun fullResync() = coordinator.fullResync()
+    override suspend fun discardFailed() = coordinator.discardFailed()
     override suspend fun exportBackup(uri: Uri, passphrase: CharArray) = backupService.export(uri, passphrase)
     override suspend fun importBackup(uri: Uri, passphrase: CharArray) = backupService.import(uri, passphrase)
 }
@@ -61,6 +63,7 @@ object NoopWorkHubSettingsGateway : WorkHubSettingsGateway {
     override fun saveNotionFallback(token: String, dailyLogId: String, projectsId: String, timeRecordsId: String) = Unit
     override suspend fun syncNow(): HubTransferResult? = null
     override suspend fun fullResync(): HubTransferResult? = null
+    override suspend fun discardFailed() = Unit
     override suspend fun exportBackup(uri: Uri, passphrase: CharArray) = Unit
     override suspend fun importBackup(uri: Uri, passphrase: CharArray) = Unit
 }

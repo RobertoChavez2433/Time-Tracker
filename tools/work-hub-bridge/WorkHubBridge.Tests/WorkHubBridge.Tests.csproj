@@ -11,5 +11,6 @@
     <PackageReference Include="xunit" Version="2.9.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" PrivateAssets="all" />
     <ProjectReference Include="..\WorkHubBridge.csproj" />
+    <Content Include="..\..\..\contracts\work-hub\v1\*.schema.json" Link="contracts\work-hub\v1\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

@@ -3,10 +3,11 @@
   "$id": "https://time-tracker.local/contracts/work-hub/v1/email-record.schema.json",
   "type": "object",
   "additionalProperties": false,
-  "required": ["sourceId", "type", "projectNumbers", "outlookFolder", "internetMessageId", "receivedAt", "from", "to", "subject", "preview", "bodyStatus"],
+  "required": ["type", "mailboxKey", "projectNumbers", "outlookFolder", "internetMessageId", "receivedAt", "from", "to", "subject", "preview", "bodyStatus"],
   "properties": {
     "sourceId": { "type": "string", "minLength": 32 },
     "type": { "const": "email" },
+    "mailboxKey": { "type": "string", "minLength": 1 },
     "projectNumbers": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
     "outlookFolder": { "type": "string", "minLength": 1 },
     "internetMessageId": { "type": "string", "minLength": 1 },

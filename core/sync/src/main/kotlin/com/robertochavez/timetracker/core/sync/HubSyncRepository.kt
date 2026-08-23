@@ -24,7 +24,7 @@ class HubSyncRepository @Inject constructor(private val dao: HubSyncRecordDao, p
         val now = clock.millis()
         val hash = sha256(json)
         val existing = dao.get(sourceId)
-        if (existing?.contentHash == hash && existing.state == HubSyncState.ACCEPTED.name) return
+        if (existing?.contentHash == hash && existing.state != HubSyncState.PENDING.name) return
         dao.upsert(
             HubSyncRecordEntity(
                 sourceId = sourceId,
@@ -44,6 +44,8 @@ class HubSyncRepository @Inject constructor(private val dao: HubSyncRecordDao, p
 
     suspend fun transferable(): List<HubSyncRecordEntity> = dao.getTransferable()
 
+    suspend fun requeueStaleTransfers() = dao.requeueStaleTransfers(clock.millis() - STALE_TRANSFER_MILLIS)
+
     suspend fun transferred(records: List<HubSyncRecordEntity>, transferId: String) =
         update(records, HubSyncState.TRANSFERRED, transferId, null)
 
@@ -61,6 +63,8 @@ class HubSyncRepository @Inject constructor(private val dao: HubSyncRecordDao, p
     suspend fun fullResync() {
         dao.markAllPending()
     }
+
+    suspend fun discardFailed() = dao.deleteFailed()
 
     private suspend fun update(records: List<HubSyncRecordEntity>, state: HubSyncState, transferId: String?, error: String?) {
         val now = clock.millis()
@@ -82,4 +86,8 @@ class HubSyncRepository @Inject constructor(private val dao: HubSyncRecordDao, p
         .digest(value.toByteArray()).joinToString("") { "%02x".format(it) }
 
     private fun sanitize(value: String): String = value.replace(Regex("[\\r\\n]+"), " ").take(240)
+
+    private companion object {
+        const val STALE_TRANSFER_MILLIS = 24L * 60L * 60L * 1_000L
+    }
 }

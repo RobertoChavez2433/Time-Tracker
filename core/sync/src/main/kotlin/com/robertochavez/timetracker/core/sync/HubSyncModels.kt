@@ -17,7 +17,7 @@ data class HubSyncSettings(
     val timeRecordsDatabaseId: String = "",
 )
 
-data class HubTransferResult(val transferId: String, val acceptedSourceIds: Set<String>)
+data class HubTransferResult(val transferId: String, val acceptedSourceIds: Set<String>, val rejected: Map<String, String> = emptyMap())
 
 data class HubReceipt(
     val transferId: String,

@@ -22,8 +22,13 @@ public static class WindowsCredentialStore
         {
             var credential = new Credential
             {
-                Type = 1, TargetName = target, CredentialBlobSize = (uint)(secret.Length * 2), CredentialBlob = blob,
-                Persist = 2, UserName = Environment.UserName, Comment = "Time Tracker Work Hub Notion integration"
+                Type = 1,
+                TargetName = target,
+                CredentialBlobSize = (uint)(secret.Length * 2),
+                CredentialBlob = blob,
+                Persist = 2,
+                UserName = Environment.UserName,
+                Comment = "Time Tracker Work Hub Notion integration"
             };
             if (!CredWrite(ref credential, 0)) throw new InvalidOperationException($"Credential Manager rejected the token ({Marshal.GetLastWin32Error()}).");
         }

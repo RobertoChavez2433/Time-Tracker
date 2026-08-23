@@ -27,7 +27,11 @@ dependencies {
     implementation(libs.room.ktx)
     implementation(libs.room.runtime)
     implementation(libs.work.runtime.ktx)
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
     ksp(libs.hilt.compiler)
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
+    testImplementation(libs.room.testing)
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
 }
