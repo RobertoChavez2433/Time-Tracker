@@ -10,12 +10,15 @@ import com.robertochavez.timetracker.core.location.geofence.WorkGeofenceRegistra
 import com.robertochavez.timetracker.core.logging.AppLogger
 import com.robertochavez.timetracker.core.logging.LogCategory
 import com.robertochavez.timetracker.core.logging.info
+import com.robertochavez.timetracker.core.sync.HubSyncSettingsStore
+import com.robertochavez.timetracker.core.sync.NotionTokenStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
+@Suppress("LongParameterList")
 class AppLocalDataResetter @Inject constructor(
     private val database: TimeTrackerDatabase,
     private val appSettingsRepository: AppSettingsRepository,
@@ -24,6 +27,8 @@ class AppLocalDataResetter @Inject constructor(
     private val workGeofenceRegistrar: WorkGeofenceRegistrar,
     private val activityTransitionRegistrar: ActivityTransitionRegistrar,
     private val logger: AppLogger,
+    private val hubSyncSettingsStore: HubSyncSettingsStore,
+    private val notionTokenStore: NotionTokenStore,
 ) : LocalDataResetter {
     override suspend fun deleteAllLocalData() {
         logger.info(LogCategory.SETTINGS, "Local data reset started")
@@ -36,6 +41,8 @@ class AppLocalDataResetter @Inject constructor(
             database.clearAllTables()
         }
         appSettingsRepository.resetSettings()
+        hubSyncSettingsStore.reset()
+        notionTokenStore.clear()
         logger.info(LogCategory.SETTINGS, "Local data reset finished")
     }
 }

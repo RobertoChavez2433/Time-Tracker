@@ -1,3 +1,5 @@
+@file:Suppress("MaxLineLength")
+
 package com.robertochavez.timetracker.core.database
 
 import android.content.Context
@@ -36,14 +38,14 @@ class TimeTrackerMigrationsTest {
     }
 
     @Test
-    fun `schema one has eleven upgrade migrations`() {
-        assertEquals(11, TimeTrackerMigrations.ALL.size)
+    fun `schema one has twelve upgrade migrations`() {
+        assertEquals(12, TimeTrackerMigrations.ALL.size)
     }
 
     @Test
     fun `database version includes cadence and radius migration`() {
-        assertEquals(12, TimeTrackerDatabase.VERSION)
-        TimeTrackerMigrations::class.java.getDeclaredField("MIGRATION_11_12")
+        assertEquals(13, TimeTrackerDatabase.VERSION)
+        TimeTrackerMigrations::class.java.getDeclaredField("MIGRATION_12_13")
     }
 
     @Test
@@ -67,12 +69,15 @@ class TimeTrackerMigrationsTest {
             TimeTrackerMigrations.MIGRATION_10_11.migrate(database)
             insertVersionElevenSettings(database)
             TimeTrackerMigrations.MIGRATION_11_12.migrate(database)
+            TimeTrackerMigrations.MIGRATION_12_13.migrate(database)
 
             database.query("SELECT id, label, address, latitude, longitude, radiusMeters, updatedAtEpochMillis FROM work_locations").close()
             database.query("SELECT id, atWork, updatedAtEpochMillis FROM work_presence").close()
             database.query(
-                "SELECT id, workLocationId, workLocationLabelSnapshot, startEpochMillis, endEpochMillis FROM work_site_sessions",
+                "SELECT id, workLocationId, workLocationLabelSnapshot, projectNumberSnapshot, startEpochMillis, endEpochMillis FROM work_site_sessions",
             ).close()
+            database.query("SELECT projectNumber FROM work_locations").close()
+            database.query("SELECT sourceId, state FROM hub_sync_records").close()
             database.query("SELECT id FROM work_site_sessions WHERE id LIKE 'legacy-site-%'").use { cursor ->
                 assertEquals(0, cursor.count)
             }

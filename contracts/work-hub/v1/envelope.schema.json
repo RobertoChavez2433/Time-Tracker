@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://time-tracker.local/contracts/work-hub/v1/envelope.schema.json",
+  "title": "Work Hub Outbox Envelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "transferId", "createdAt", "records"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "transferId": { "type": "string", "format": "uuid" },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "records": {
+      "type": "array",
+      "items": { "oneOf": [
+        { "$ref": "time-record.schema.json" },
+        { "$ref": "email-record.schema.json" }
+      ] }
+    }
+  }
+}

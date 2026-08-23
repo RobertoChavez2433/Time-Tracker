@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://time-tracker.local/contracts/work-hub/v1/time-record.schema.json",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourceId", "type", "date", "totalWorkMinutes", "driveMinutes", "siteMinutes", "idleMinutes", "needsReviewMinutes", "drivenMiles"],
+      "properties": {
+        "sourceId": { "type": "string", "pattern": "^day:v1:[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+        "type": { "const": "dailySummary" },
+        "date": { "type": "string", "format": "date" },
+        "totalWorkMinutes": { "type": "integer", "minimum": 0 },
+        "driveMinutes": { "type": "integer", "minimum": 0 },
+        "siteMinutes": { "type": "integer", "minimum": 0 },
+        "idleMinutes": { "type": "integer", "minimum": 0 },
+        "needsReviewMinutes": { "type": "integer", "minimum": 0 },
+        "drivenMiles": { "type": ["number", "string"] }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourceId", "type", "date", "workLocationId", "projectNumber", "siteLabel", "firstArrival", "lastDeparture", "onsiteMinutes", "visitCount", "status"],
+      "properties": {
+        "sourceId": { "type": "string", "pattern": "^project-day:v1:.+:[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+        "type": { "const": "projectDay" },
+        "date": { "type": "string", "format": "date" },
+        "workLocationId": { "type": "string", "minLength": 1 },
+        "projectNumber": { "type": "string", "minLength": 1 },
+        "siteLabel": { "type": "string", "minLength": 1 },
+        "firstArrival": { "type": "string", "format": "date-time" },
+        "lastDeparture": { "type": "string", "format": "date-time" },
+        "onsiteMinutes": { "type": "integer", "minimum": 0 },
+        "visitCount": { "type": "integer", "minimum": 1 },
+        "status": { "enum": ["provisional", "final", "needs_review"] }
+      }
+    }
+  ]
+}

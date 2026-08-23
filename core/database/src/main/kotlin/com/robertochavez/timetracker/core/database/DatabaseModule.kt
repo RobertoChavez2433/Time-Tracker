@@ -5,6 +5,7 @@ import androidx.room.Room
 import com.robertochavez.timetracker.core.database.dao.ActivityIntervalDao
 import com.robertochavez.timetracker.core.database.dao.AwaySessionDao
 import com.robertochavez.timetracker.core.database.dao.HomeLocationDao
+import com.robertochavez.timetracker.core.database.dao.HubSyncRecordDao
 import com.robertochavez.timetracker.core.database.dao.PayPeriodSettingsDao
 import com.robertochavez.timetracker.core.database.dao.WorkLocationDao
 import com.robertochavez.timetracker.core.database.dao.WorkPresenceDao
@@ -51,6 +52,9 @@ object DatabaseModule {
 
     @Provides
     fun providePayPeriodSettingsDao(database: TimeTrackerDatabase): PayPeriodSettingsDao = database.payPeriodSettingsDao()
+
+    @Provides
+    fun provideHubSyncRecordDao(database: TimeTrackerDatabase): HubSyncRecordDao = database.hubSyncRecordDao()
 
     @Provides
     fun provideClock(): Clock = Clock.systemDefaultZone()

@@ -1,8 +1,11 @@
 package com.robertochavez.timetracker.core.database.repository
 
+import androidx.room.withTransaction
 import com.robertochavez.timetracker.core.common.model.WorkLocation
 import com.robertochavez.timetracker.core.common.repository.WorkLocationRepository
+import com.robertochavez.timetracker.core.database.TimeTrackerDatabase
 import com.robertochavez.timetracker.core.database.dao.WorkLocationDao
+import com.robertochavez.timetracker.core.database.dao.WorkSiteSessionDao
 import com.robertochavez.timetracker.core.database.entity.WorkLocationEntity
 import com.robertochavez.timetracker.core.logging.AppLogger
 import com.robertochavez.timetracker.core.logging.LogCategory
@@ -13,8 +16,12 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class RoomWorkLocationRepository @Inject constructor(private val workLocationDao: WorkLocationDao, private val logger: AppLogger) :
-    WorkLocationRepository {
+class RoomWorkLocationRepository @Inject constructor(
+    private val database: TimeTrackerDatabase,
+    private val workLocationDao: WorkLocationDao,
+    private val workSiteSessionDao: WorkSiteSessionDao,
+    private val logger: AppLogger,
+) : WorkLocationRepository {
     override fun observeWorkLocation(): Flow<WorkLocation?> = workLocationDao.observeWorkLocation().map { it?.toModel() }
 
     override fun observeWorkLocations(): Flow<List<WorkLocation>> =
@@ -27,11 +34,23 @@ class RoomWorkLocationRepository @Inject constructor(private val workLocationDao
     override suspend fun getWorkLocations(): List<WorkLocation> = workLocationDao.getWorkLocations().map { it.toModel() }
 
     override suspend fun setWorkLocation(workLocation: WorkLocation) {
-        workLocationDao.upsert(WorkLocationEntity.fromModel(workLocation))
+        database.withTransaction {
+            val previous = workLocationDao.getWorkLocationById(workLocation.id)
+            workLocationDao.upsert(WorkLocationEntity.fromModel(workLocation))
+            val projectNumber = workLocation.projectNumber
+            if (previous?.projectNumber == null && projectNumber != null) {
+                workSiteSessionDao.backfillNullProjectNumberSnapshots(workLocation.id, projectNumber)
+            }
+        }
         logger.info(
             LogCategory.LOCATION,
             "Work location saved",
-            mapOf("id" to workLocation.id, "label" to workLocation.label, "radiusMeters" to workLocation.radiusMeters),
+            mapOf(
+                "id" to workLocation.id,
+                "label" to workLocation.label,
+                "projectNumber" to (workLocation.projectNumber ?: "unassigned"),
+                "radiusMeters" to workLocation.radiusMeters,
+            ),
         )
     }
 

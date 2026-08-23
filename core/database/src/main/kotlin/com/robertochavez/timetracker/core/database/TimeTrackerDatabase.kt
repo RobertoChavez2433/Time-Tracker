@@ -5,6 +5,7 @@ import androidx.room.RoomDatabase
 import com.robertochavez.timetracker.core.database.dao.ActivityIntervalDao
 import com.robertochavez.timetracker.core.database.dao.AwaySessionDao
 import com.robertochavez.timetracker.core.database.dao.HomeLocationDao
+import com.robertochavez.timetracker.core.database.dao.HubSyncRecordDao
 import com.robertochavez.timetracker.core.database.dao.PayPeriodSettingsDao
 import com.robertochavez.timetracker.core.database.dao.WorkLocationDao
 import com.robertochavez.timetracker.core.database.dao.WorkPresenceDao
@@ -13,6 +14,7 @@ import com.robertochavez.timetracker.core.database.dao.WorkSiteSessionDao
 import com.robertochavez.timetracker.core.database.entity.ActivityIntervalEntity
 import com.robertochavez.timetracker.core.database.entity.AwaySessionEntity
 import com.robertochavez.timetracker.core.database.entity.HomeLocationEntity
+import com.robertochavez.timetracker.core.database.entity.HubSyncRecordEntity
 import com.robertochavez.timetracker.core.database.entity.PayPeriodSettingsEntity
 import com.robertochavez.timetracker.core.database.entity.WorkLocationEntity
 import com.robertochavez.timetracker.core.database.entity.WorkPresenceEntity
@@ -29,13 +31,14 @@ import com.robertochavez.timetracker.core.database.entity.WorkSiteSessionEntity
         WorkLocationEntity::class,
         WorkPresenceEntity::class,
         WorkSiteSessionEntity::class,
+        HubSyncRecordEntity::class,
     ],
     version = TimeTrackerDatabase.VERSION,
     exportSchema = false,
 )
 abstract class TimeTrackerDatabase : RoomDatabase() {
     companion object {
-        const val VERSION = 12
+        const val VERSION = 13
     }
 
     abstract fun homeLocationDao(): HomeLocationDao
@@ -53,4 +56,6 @@ abstract class TimeTrackerDatabase : RoomDatabase() {
     abstract fun workScheduleDao(): WorkScheduleDao
 
     abstract fun payPeriodSettingsDao(): PayPeriodSettingsDao
+
+    abstract fun hubSyncRecordDao(): HubSyncRecordDao
 }

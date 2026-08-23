@@ -3,6 +3,7 @@ package com.robertochavez.timetracker.core.common.domain
 import com.robertochavez.timetracker.core.common.model.ActivityBucket
 import com.robertochavez.timetracker.core.common.model.ActivityInterval
 import com.robertochavez.timetracker.core.common.model.AwaySession
+import com.robertochavez.timetracker.core.common.model.WorkSiteSession
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
@@ -36,6 +37,20 @@ object SessionSplitter {
         )
     }
 
+    fun splitWorkSiteSessionByDay(session: WorkSiteSession, zoneId: ZoneId, now: Instant): List<DailyWorkSiteSlice> =
+        splitInstantRange(session.start, session.end ?: now, zoneId).map { slice ->
+            DailyWorkSiteSlice(
+                date = slice.date,
+                start = slice.start,
+                end = slice.end,
+                duration = slice.duration,
+                workLocationId = session.workLocationId,
+                siteLabel = session.workLocationLabelSnapshot,
+                projectNumber = session.projectNumberSnapshot,
+                provisional = session.end == null,
+            )
+        }
+
     private fun splitInstantRange(start: Instant, end: Instant, zoneId: ZoneId): List<RangeSlice> {
         require(end > start) { "Range end must be after start." }
 
@@ -64,6 +79,17 @@ data class DailyActivitySlice(
     val start: Instant,
     val end: Instant,
     val duration: Duration,
+)
+
+data class DailyWorkSiteSlice(
+    val date: LocalDate,
+    val start: Instant,
+    val end: Instant,
+    val duration: Duration,
+    val workLocationId: String,
+    val siteLabel: String,
+    val projectNumber: String?,
+    val provisional: Boolean,
 )
 
 private data class RangeSlice(val date: LocalDate, val start: Instant, val end: Instant) {

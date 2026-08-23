@@ -14,6 +14,7 @@ data class WorkSiteSessionEntity(
     @PrimaryKey val id: String,
     val workLocationId: String,
     val workLocationLabelSnapshot: String,
+    val projectNumberSnapshot: String?,
     val startEpochMillis: Long,
     val endEpochMillis: Long?,
 ) {
@@ -23,6 +24,7 @@ data class WorkSiteSessionEntity(
         start = Instant.ofEpochMilli(startEpochMillis),
         end = endEpochMillis?.let(Instant::ofEpochMilli),
         workLocationLabelSnapshot = workLocationLabelSnapshot,
+        projectNumberSnapshot = projectNumberSnapshot,
     )
 
     companion object {
@@ -30,6 +32,7 @@ data class WorkSiteSessionEntity(
             id = session.id,
             workLocationId = session.workLocationId,
             workLocationLabelSnapshot = session.workLocationLabelSnapshot,
+            projectNumberSnapshot = session.projectNumberSnapshot,
             startEpochMillis = session.start.toEpochMilli(),
             endEpochMillis = session.end?.toEpochMilli(),
         )

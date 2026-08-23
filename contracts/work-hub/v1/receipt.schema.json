@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://time-tracker.local/contracts/work-hub/v1/receipt.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "transferId", "createdAt", "acceptedSourceIds", "rejected"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "transferId": { "type": "string", "format": "uuid" },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "acceptedSourceIds": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
+    "rejected": { "type": "object", "additionalProperties": { "type": "string" } }
+  }
+}

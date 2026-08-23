@@ -33,6 +33,7 @@ dependencies {
     implementation(project(":core:designsystem"))
     implementation(project(":core:logging"))
     implementation(project(":core:location"))
+    implementation(project(":core:sync"))
     implementation(platform(libs.compose.bom))
     implementation(libs.activity.compose)
     implementation(libs.compose.foundation)

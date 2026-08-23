@@ -1,5 +1,6 @@
 package com.robertochavez.timetracker.feature.settings
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.robertochavez.timetracker.core.common.domain.payPeriodRangeFor
@@ -15,6 +16,9 @@ import com.robertochavez.timetracker.core.logging.AppLogger
 import com.robertochavez.timetracker.core.logging.LogCategory
 import com.robertochavez.timetracker.core.logging.info
 import com.robertochavez.timetracker.core.logging.warn
+import com.robertochavez.timetracker.core.sync.HubSyncSettings
+import com.robertochavez.timetracker.core.sync.HubSyncStatus
+import com.robertochavez.timetracker.core.sync.HubTransportKind
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -27,6 +31,7 @@ import java.time.LocalDate
 import javax.inject.Inject
 
 @HiltViewModel
+@Suppress("LargeClass", "TooManyFunctions")
 class SettingsViewModel @Inject constructor(
     private val workScheduleRepository: WorkScheduleRepository,
     private val payPeriodSettingsRepository: PayPeriodSettingsRepository,
@@ -34,19 +39,42 @@ class SettingsViewModel @Inject constructor(
     private val localDataResetter: LocalDataResetter,
     private val activityTransitionRegistrar: ActivityTransitionRegistrar,
     private val logger: AppLogger,
+    private val workHubSettingsGateway: WorkHubSettingsGateway,
 ) : ViewModel() {
+    constructor(
+        workScheduleRepository: WorkScheduleRepository,
+        payPeriodSettingsRepository: PayPeriodSettingsRepository,
+        appSettingsRepository: AppSettingsRepository,
+        localDataResetter: LocalDataResetter,
+        activityTransitionRegistrar: ActivityTransitionRegistrar,
+        logger: AppLogger,
+    ) : this(
+        workScheduleRepository,
+        payPeriodSettingsRepository,
+        appSettingsRepository,
+        localDataResetter,
+        activityTransitionRegistrar,
+        logger,
+        NoopWorkHubSettingsGateway,
+    )
     private val editedAnchorDate = MutableStateFlow<String?>(null)
     private val editedCadence = MutableStateFlow<PayPeriodCadence?>(null)
     private val statusMessage = MutableStateFlow("")
     private val payPeriodEdits = combine(editedAnchorDate, editedCadence, ::PayPeriodEdits)
+    private val syncState = combine(
+        statusMessage,
+        workHubSettingsGateway.settings,
+        workHubSettingsGateway.status,
+        ::SyncState,
+    )
 
     val uiState: StateFlow<SettingsUiState> = combine(
         workScheduleRepository.observeWorkSchedule(),
         payPeriodSettingsRepository.observeSettings(),
         appSettingsRepository.settings,
         payPeriodEdits,
-        statusMessage,
-    ) { schedule, payPeriod, appSettings, edits, status ->
+        syncState,
+    ) { schedule, payPeriod, appSettings, edits, sync ->
         val anchorDate = edits.anchorDate ?: payPeriod.anchorStartDate.toString()
         val cadence = edits.cadence ?: payPeriod.cadence
         val preview = runCatching {
@@ -64,7 +92,13 @@ class SettingsViewModel @Inject constructor(
             minimalActiveNotificationEnabled = appSettings.minimalActiveNotificationEnabled,
             liveTimerNotificationEnabled = appSettings.liveTimerNotificationEnabled,
             privacyDisclosureAccepted = appSettings.privacyDisclosureAccepted,
-            statusMessage = status,
+            hubActivationDate = sync.settings.activationDate?.toString().orEmpty(),
+            hubOutboxConfigured = sync.settings.outboxTreeUri != null,
+            hubProviderVerified = sync.settings.documentProviderVerified,
+            hubTransport = sync.settings.transportKind,
+            hubSyncStatus = "${sync.status.pending} pending · ${sync.status.failed} failed · " +
+                "${sync.status.accepted} accepted — ${sync.status.lastMessage}",
+            statusMessage = sync.message,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SettingsUiState())
 
@@ -212,6 +246,76 @@ class SettingsViewModel @Inject constructor(
             }
         }
     }
+
+    fun setHubActivationDate(value: String) {
+        runCatching { value.trim().ifBlank { null }?.let(LocalDate::parse) }
+            .onSuccess { workHubSettingsGateway.setActivationDate(it) }
+            .onFailure { statusMessage.value = "Use YYYY-MM-DD for the Work Hub activation date." }
+    }
+
+    fun setHubOutboxTree(uri: Uri) {
+        runCatching { workHubSettingsGateway.setOutboxTree(uri) }
+            .onSuccess { statusMessage.value = "Outbox folder selected. Run the provider test before enabling sync." }
+            .onFailure { statusMessage.value = it.message ?: "Could not retain access to that folder." }
+    }
+
+    fun verifyHubProvider() {
+        viewModelScope.launch {
+            val passed = runCatching { workHubSettingsGateway.verifyProvider() }.getOrDefault(false)
+            statusMessage.value = if (passed) {
+                "Outbox provider passed create, rename, and read checks."
+            } else {
+                "Provider test failed. Direct Notion fallback is available."
+            }
+        }
+    }
+
+    fun setHubTransport(kind: HubTransportKind) = workHubSettingsGateway.setTransport(kind)
+
+    fun saveNotionFallback(token: String, dailyLogId: String, projectsId: String, timeRecordsId: String) {
+        runCatching {
+            workHubSettingsGateway.saveNotionFallback(token, dailyLogId, projectsId, timeRecordsId)
+        }.onSuccess { statusMessage.value = "Direct Notion fallback credentials saved securely on this device." }
+            .onFailure { statusMessage.value = it.message ?: "Could not save the fallback connection." }
+    }
+
+    fun syncHubNow() {
+        viewModelScope.launch {
+            runCatching { workHubSettingsGateway.syncNow() }
+                .onSuccess {
+                    statusMessage.value = if (it == null) {
+                        "No eligible Work Hub records are pending."
+                    } else {
+                        "Work Hub transfer ${it.transferId.take(8)} created."
+                    }
+                }
+                .onFailure { statusMessage.value = it.message ?: "Work Hub sync failed." }
+        }
+    }
+
+    fun fullResyncHub() {
+        viewModelScope.launch {
+            runCatching { workHubSettingsGateway.fullResync() }
+                .onSuccess { statusMessage.value = "Full Work Hub resync queued from the activation date." }
+                .onFailure { statusMessage.value = it.message ?: "Full Work Hub resync failed." }
+        }
+    }
+
+    fun exportEncryptedBackup(uri: Uri, passphrase: String) {
+        viewModelScope.launch {
+            runCatching { workHubSettingsGateway.exportBackup(uri, passphrase.toCharArray()) }
+                .onSuccess { statusMessage.value = "Encrypted Time Tracker backup created." }
+                .onFailure { statusMessage.value = it.message ?: "Backup export failed." }
+        }
+    }
+
+    fun importEncryptedBackup(uri: Uri, passphrase: String) {
+        viewModelScope.launch {
+            runCatching { workHubSettingsGateway.importBackup(uri, passphrase.toCharArray()) }
+                .onSuccess { statusMessage.value = "Encrypted backup restored and work geofences registered." }
+                .onFailure { statusMessage.value = it.message ?: "Backup import failed. Check the passphrase and destination state." }
+        }
+    }
 }
 
 data class SettingsUiState(
@@ -222,9 +326,15 @@ data class SettingsUiState(
     val minimalActiveNotificationEnabled: Boolean = false,
     val liveTimerNotificationEnabled: Boolean = false,
     val privacyDisclosureAccepted: Boolean = false,
+    val hubActivationDate: String = "",
+    val hubOutboxConfigured: Boolean = false,
+    val hubProviderVerified: Boolean = false,
+    val hubTransport: HubTransportKind = HubTransportKind.DOCUMENT_TREE,
+    val hubSyncStatus: String = "Not configured",
     val statusMessage: String = "",
 )
 
 data class WorkdayUiModel(val name: String, val trackable: Boolean)
 
 private data class PayPeriodEdits(val anchorDate: String?, val cadence: PayPeriodCadence?)
+private data class SyncState(val message: String, val settings: HubSyncSettings, val status: HubSyncStatus)

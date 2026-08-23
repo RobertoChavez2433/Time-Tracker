@@ -20,7 +20,7 @@ import com.robertochavez.timetracker.core.designsystem.TimeTrackerSecondaryButto
 import com.robertochavez.timetracker.core.designsystem.TimeTrackerTestTags
 
 @Composable
-internal fun SavedPlacesSection(workLocations: List<SavedPlaceUiModel>) {
+internal fun SavedPlacesSection(workLocations: List<SavedPlaceUiModel>, onEditPlace: (String) -> Unit) {
     com.robertochavez.timetracker.core.designsystem.TimeTrackerSettingSection(
         title = "Saved places",
         subtitle = "Work sites and other places used for automatic tracking.",
@@ -33,6 +33,7 @@ internal fun SavedPlacesSection(workLocations: List<SavedPlaceUiModel>) {
         ) {
             workLocations.forEach { place ->
                 Surface(
+                    onClick = { onEditPlace(place.id) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag(TimeTrackerTestTags.savedPlaceItem(place.id)),
@@ -46,6 +47,7 @@ internal fun SavedPlacesSection(workLocations: List<SavedPlaceUiModel>) {
                         verticalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
                         Text(place.label, style = MaterialTheme.typography.titleSmall)
+                        TimeTrackerMutedText(place.projectNumber?.let { "Project $it" } ?: "Project number not assigned")
                         TimeTrackerMutedText(place.address ?: "Address not saved")
                         TimeTrackerMutedText("${place.radius} radius")
                     }
@@ -111,6 +113,14 @@ internal fun WorkPinEditor(state: HomeUiState, actions: LocationSectionActions) 
         label = { Text("Site name") },
         singleLine = true,
         modifier = Modifier.fillMaxWidth().testTag(TimeTrackerTestTags.WORK_LABEL_FIELD),
+    )
+    OutlinedTextField(
+        value = state.workProjectNumber,
+        onValueChange = { actions.onFieldChange(LocationField.PROJECT_NUMBER, it) },
+        label = { Text("Project number") },
+        supportingText = { Text("Required. This links the site to the same project in Notion and Outlook.") },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth().testTag(TimeTrackerTestTags.WORK_PROJECT_NUMBER_FIELD),
     )
     OutlinedTextField(
         value = state.workAddress,

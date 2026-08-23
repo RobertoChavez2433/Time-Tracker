@@ -6,6 +6,7 @@ import com.robertochavez.timetracker.core.logging.AppLogger
 import com.robertochavez.timetracker.core.logging.LogCategory
 import com.robertochavez.timetracker.core.logging.info
 import com.robertochavez.timetracker.core.notifications.TrackingNotificationCoordinator
+import com.robertochavez.timetracker.core.sync.HubSyncScheduler
 import com.robertochavez.timetracker.testing.DebugStateEndpointServer
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
@@ -24,12 +25,15 @@ class TimeTrackerApplication : Application() {
 
     @Inject lateinit var logger: AppLogger
 
+    @Inject lateinit var hubSyncScheduler: HubSyncScheduler
+
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onCreate() {
         super.onCreate()
         logger.info(LogCategory.LIFECYCLE, "Time Tracker application started")
         trackingNotificationCoordinator.ensureChannels()
+        hubSyncScheduler.ensureScheduled()
         applicationScope.launch {
             trackingRegistrationSynchronizer.synchronize("app_start")
         }

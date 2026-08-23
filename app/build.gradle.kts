@@ -111,6 +111,7 @@ dependencies {
     implementation(project(":core:logging"))
     implementation(project(":core:location"))
     implementation(project(":core:notifications"))
+    implementation(project(":core:sync"))
     implementation(project(":feature:home"))
     implementation(project(":feature:tracking"))
     implementation(project(":feature:reports"))

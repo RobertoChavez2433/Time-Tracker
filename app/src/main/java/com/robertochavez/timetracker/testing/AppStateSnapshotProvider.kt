@@ -59,6 +59,7 @@ class AppStateSnapshotProvider @Inject constructor(
                 mapOf(
                     "id" to it.id,
                     "label" to it.label,
+                    "projectNumber" to it.projectNumber,
                     "latitude" to it.latitude,
                     "longitude" to it.longitude,
                     "radiusMeters" to it.radiusMeters,

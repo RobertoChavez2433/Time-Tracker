@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://time-tracker.local/contracts/work-hub/v1/email-record.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["sourceId", "type", "projectNumbers", "outlookFolder", "internetMessageId", "receivedAt", "from", "to", "subject", "preview", "bodyStatus"],
+  "properties": {
+    "sourceId": { "type": "string", "minLength": 32 },
+    "type": { "const": "email" },
+    "projectNumbers": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+    "outlookFolder": { "type": "string", "minLength": 1 },
+    "internetMessageId": { "type": "string", "minLength": 1 },
+    "conversationId": { "type": ["string", "null"] },
+    "diagnosticItemId": { "type": ["string", "null"] },
+    "receivedAt": { "type": "string", "format": "date-time" },
+    "from": { "type": "string" },
+    "to": { "type": "array", "items": { "type": "string" } },
+    "cc": { "type": "array", "items": { "type": "string" } },
+    "subject": { "type": "string" },
+    "preview": { "type": "string" },
+    "body": { "type": ["string", "null"] },
+    "bodyStatus": { "enum": ["available", "protected", "missing", "truncated"] },
+    "hasAttachments": { "type": "boolean" },
+    "attachmentNames": { "type": "array", "items": { "type": "string" } }
+  }
+}

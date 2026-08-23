@@ -19,7 +19,8 @@ param(
     [string]$ActivityName = "com.robertochavez.timetracker.MainActivity",
     [switch]$SkipInstall,
     [switch]$ProbeSystemButtons,
-    [switch]$NewFeatureAcceptanceOnly
+    [switch]$NewFeatureAcceptanceOnly,
+    [switch]$WorkHubAcceptanceOnly
 )
 
 $ErrorActionPreference = "Stop"
@@ -346,9 +347,17 @@ function Stop-IsolatedAppPackages {
 function Start-DebugInfrastructure {
     if (-not $SkipInstall) {
         $gradle = Join-Path $projectRoot "gradlew.bat"
-        & $gradle "-PtimeTracker.e2eDebug=true" "installDebug" "--console=plain"
+        & $gradle "-PtimeTracker.e2eDebug=true" "assembleDebug" "--console=plain"
         if ($LASTEXITCODE -ne 0) {
-            throw "Debug install failed. The E2E build must be installed with -PtimeTracker.e2eDebug=true."
+            throw "Debug build failed. The E2E build must be assembled with -PtimeTracker.e2eDebug=true."
+        }
+        $apk = Join-Path $projectRoot "app/build/outputs/apk/debug/app-debug.apk"
+        if (-not (Test-Path $apk)) {
+            throw "Debug APK was not produced at $apk."
+        }
+        Invoke-Adb -Arguments @("install", "-r", $apk) | Out-Null
+        if ($LASTEXITCODE -ne 0) {
+            throw "Debug install failed for requested device $script:ResolvedDeviceId."
         }
     }
 
@@ -2238,12 +2247,87 @@ function Invoke-NewFeatureAcceptance {
     Invoke-E2EFlow -Name "new_feature_debug_log_audit" -Action { Invoke-DebugLogAudit }
 }
 
+function Invoke-WorkHubDebugLogAudit {
+    Assert-NoDebugErrors
+    $summary = Invoke-RestMethod -Uri "http://127.0.0.1:$LogPort/logs/summary" -Method Get -TimeoutSec 10
+    Save-Json -Value $summary -Path (Join-Path $OutputRoot "debug-summary.json")
+    if ([int]$summary.total -le 0) {
+        throw "[debug_log_empty] Debug log server did not capture app logs."
+    }
+    return @{ debugLogCount = [int]$summary.total }
+}
+
+function Invoke-WorkHubAcceptance {
+    Invoke-E2EFlow -Name "work_hub_bootstrap_reset" -Action { Invoke-BootstrapReset }
+    Invoke-E2EFlow -Name "work_hub_project_identity" -Action {
+        Tap-Tag -Tag "nav_places" -StepName "work-hub-places" | Out-Null
+        Tap-Tag -Tag "add_place_button" -StepName "work-hub-add-place" | Out-Null
+        Tap-Tag -Tag "add_place_address_button" -StepName "work-hub-add-by-address" | Out-Null
+        Enter-TextByTag -Tag "work_label_field" -Text "Work Hub Site" -StepName "work-hub-site-label" -Clear | Out-Null
+        Dismiss-Keyboard
+        Enter-TextByTag -Tag "work_project_number_field" -Text "test-001" -StepName "work-hub-project-number" -Clear | Out-Null
+        Dismiss-Keyboard
+        Enter-TextByTag -Tag "work_latitude_field" -Text "42.3320" -StepName "work-hub-latitude" -Clear | Out-Null
+        Dismiss-Keyboard
+        Enter-TextByTag -Tag "work_longitude_field" -Text "-83.0460" -StepName "work-hub-longitude" -Clear | Out-Null
+        Dismiss-Keyboard
+        Tap-Tag -Tag "work_save_pin_button" -StepName "work-hub-save-site" | Out-Null
+        $saved = Wait-State -Name "work-hub-site-saved" -Condition {
+            param($candidate)
+            [int]$candidate.snapshot.workLocationCount -eq 1 -and
+            [string]$candidate.snapshot.workLocations[0].projectNumber -eq "TEST-001"
+        }
+        $siteId = [string]$saved.snapshot.workLocations[0].id
+        $safeId = [regex]::Replace($siteId, "[^A-Za-z0-9_-]", "_")
+        Assert-TagVisible -Tag "saved_place_$safeId" -StepName "work-hub-saved-site-visible" | Out-Null
+        Save-Screenshot -Name "work-hub-site-saved" | Out-Null
+
+        Tap-Tag -Tag "saved_place_$safeId" -StepName "work-hub-edit-site" | Out-Null
+        Assert-TagVisible -Tag "work_project_number_field" -StepName "work-hub-edit-project-visible" | Out-Null
+        Enter-TextByTag -Tag "work_project_number_field" -Text "test-002" -StepName "work-hub-project-number-edit" -Clear | Out-Null
+        Dismiss-Keyboard
+        Tap-Tag -Tag "work_save_pin_button" -StepName "work-hub-save-edit" | Out-Null
+        $edited = Wait-State -Name "work-hub-site-edited" -Condition {
+            param($candidate)
+            [int]$candidate.snapshot.workLocationCount -eq 1 -and
+            [string]$candidate.snapshot.workLocations[0].id -eq $siteId -and
+            [string]$candidate.snapshot.workLocations[0].projectNumber -eq "TEST-002"
+        }
+        Save-Screenshot -Name "work-hub-site-edited" | Out-Null
+        return @{
+            siteId = $siteId
+            projectNumber = [string]$edited.snapshot.workLocations[0].projectNumber
+            stableIdPreserved = [string]$edited.snapshot.workLocations[0].id -eq $siteId
+        }
+    }
+    Invoke-E2EFlow -Name "work_hub_settings_surface" -Action {
+        Tap-Tag -Tag "nav_settings" -StepName "work-hub-settings" | Out-Null
+        Assert-TagVisible -Tag "settings_hub_activation_field" -StepName "work-hub-settings-visible" | Out-Null
+        Enter-TextByTag -Tag "settings_hub_activation_field" -Text "2026-08-23" -StepName "work-hub-activation" -Clear | Out-Null
+        Dismiss-Keyboard
+        Tap-Tag -Tag "settings_hub_save_activation_button" -StepName "work-hub-save-activation" | Out-Null
+        Assert-TagVisible -Tag "settings_hub_outbox_button" -StepName "work-hub-outbox-visible" | Out-Null
+        Assert-TagVisible -Tag "settings_hub_verify_provider_button" -StepName "work-hub-provider-test-visible" | Out-Null
+        Assert-TagVisible -Tag "settings_hub_sync_now_button" -StepName "work-hub-sync-visible" | Out-Null
+        Save-Screenshot -Name "work-hub-settings-surface" | Out-Null
+        $backupField = Assert-TagVisible -Tag "settings_backup_passphrase_field" -StepName "work-hub-backup-field-visible"
+        if ([string]$backupField.node.GetAttribute("password") -ne "true") {
+            throw "[secret_field_visible] Backup passphrase field is not masked."
+        }
+        Save-Screenshot -Name "work-hub-backup-secret-field" | Out-Null
+        return @{ activationDate = "2026-08-23"; controlsReachable = $true; backupMasked = $true }
+    }
+    Invoke-E2EFlow -Name "work_hub_debug_log_audit" -Action { Invoke-WorkHubDebugLogAudit }
+}
+
 try {
     $script:ResolvedDeviceId = Resolve-E2EDeviceId -RequestedDeviceId $DeviceId
     Update-DisplaySize
     Start-DebugInfrastructure
 
-    if ($NewFeatureAcceptanceOnly) {
+    if ($WorkHubAcceptanceOnly) {
+        Invoke-WorkHubAcceptance
+    } elseif ($NewFeatureAcceptanceOnly) {
         Invoke-NewFeatureAcceptance
     } else {
         Invoke-E2EFlow -Name "bootstrap_reset" -Action { Invoke-BootstrapReset }

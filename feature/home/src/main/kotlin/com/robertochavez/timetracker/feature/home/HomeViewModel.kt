@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.robertochavez.timetracker.core.common.model.GeofenceRadiusOptions
 import com.robertochavez.timetracker.core.common.model.HomeLocation
 import com.robertochavez.timetracker.core.common.model.WorkLocation
+import com.robertochavez.timetracker.core.common.model.normalizedProjectNumberOrNull
 import com.robertochavez.timetracker.core.common.repository.HomeLocationRepository
 import com.robertochavez.timetracker.core.common.repository.WorkLocationRepository
 import com.robertochavez.timetracker.core.location.AddressGeocoder
@@ -40,6 +41,7 @@ class HomeViewModel @Inject constructor(
 ) : ViewModel() {
     private val homeEditorState = MutableStateFlow(HomeEditorState())
     private val workEditorState = MutableStateFlow(WorkEditorState())
+    private val workEditorMode = MutableStateFlow<WorkEditorMode>(WorkEditorMode.Add)
     private val statusMessage = MutableStateFlow("")
     private val currentMapReference = MutableStateFlow<MapReferenceLocationUiModel?>(null)
 
@@ -115,6 +117,7 @@ class HomeViewModel @Inject constructor(
             workLongitude = workEditor.longitude,
             workRadiusMeters = workEditor.radiusMeters,
             workLabel = workEditor.label,
+            workProjectNumber = workEditor.projectNumber,
             workAddress = workEditor.address,
             workResolvedAddress = workEditor.resolvedAddress,
             latestWorkLocationLabel = latestWork?.label.orEmpty(),
@@ -139,8 +142,22 @@ class HomeViewModel @Inject constructor(
     }
 
     fun beginAddPlace() {
+        workEditorMode.value = WorkEditorMode.Add
         workEditorState.value = WorkEditorState()
         statusMessage.value = ""
+    }
+
+    fun beginEditPlace(id: String) {
+        viewModelScope.launch {
+            val location = workLocationRepository.getWorkLocation(id)
+            if (location == null) {
+                statusMessage.value = "That saved work site no longer exists."
+            } else {
+                workEditorMode.value = WorkEditorMode.Edit(id)
+                workEditorState.value = WorkEditorState.fromLocation(location)
+                statusMessage.value = "Editing ${location.label}. Its history will keep the same site identity."
+            }
+        }
     }
 
     fun prepareHomeMapFromCurrentLocation(onReady: (Double?, Double?) -> Unit) {
@@ -298,15 +315,20 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    fun useCurrentWorkLocation(replaceLatest: Boolean = false) {
+    fun useCurrentWorkLocation() {
         logger.info(LogCategory.UI, "Use current work location requested")
         statusMessage.value = "Getting current work location..."
         viewModelScope.launch {
             runCatching {
-                val target = resolveWorkTarget(replaceLatest)
+                val target = resolveWorkTarget()
                 val address = workEditorState.value.preferredAddress()
                 currentGeofenceLocationProvider.currentPreciseWorkLocation(workEditorState.value.radiusInput())
-                    ?.copy(id = target.id, label = target.label, address = address)
+                    ?.copy(
+                        id = target.id,
+                        label = target.label,
+                        address = address,
+                        projectNumber = workEditorState.value.projectNumber.normalizedProjectNumberOrNull(),
+                    )
             }.onSuccess { work ->
                 if (work == null) {
                     statusMessage.value =
@@ -337,10 +359,10 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    fun saveWorkPin(replaceLatest: Boolean = false) {
+    fun saveWorkPin() {
         logger.info(LogCategory.UI, "Save work pin requested")
         viewModelScope.launch {
-            val target = resolveWorkTarget(replaceLatest)
+            val target = resolveWorkTarget()
             workEditorState.value.toWorkLocation(clock, target.id, target.label).fold(
                 onSuccess = { work ->
                     statusMessage.value = saveWork(work)
@@ -439,22 +461,24 @@ class HomeViewModel @Inject constructor(
         )
     }
 
-    private suspend fun resolveWorkTarget(replaceLatest: Boolean): WorkTarget {
+    private suspend fun resolveWorkTarget(): WorkTarget {
         val workLocations = workLocationRepository.getWorkLocations()
-        val latest = workLocations.firstOrNull()
         val requestedLabel = workEditorState.value.label.trim()
-        return if (replaceLatest && latest != null) {
-            WorkTarget(latest.id, requestedLabel.ifBlank { latest.label })
-        } else {
-            val index = workLocations.size + 1
-            val defaultLabel = if (workLocations.isEmpty()) WorkLocation.DEFAULT_LABEL else "Work site $index"
-            val label = requestedLabel
-                .takeUnless { it.isBlank() || (latest != null && it == latest.label) }
-                ?: defaultLabel
-            WorkTarget(
-                id = if (workLocations.isEmpty()) WorkLocation.DEFAULT_ID else "work-${clock.millis()}-$index",
-                label = label,
-            )
+        return when (val mode = workEditorMode.value) {
+            is WorkEditorMode.Edit -> {
+                val existing = workLocationRepository.getWorkLocation(mode.id)
+                    ?: error("The work site being edited no longer exists.")
+                WorkTarget(existing.id, requestedLabel.ifBlank { existing.label })
+            }
+            WorkEditorMode.Add -> {
+                val index = workLocations.size + 1
+                val defaultLabel = if (workLocations.isEmpty()) WorkLocation.DEFAULT_LABEL else "Work site $index"
+                val label = requestedLabel.takeUnless { it.isBlank() } ?: defaultLabel
+                WorkTarget(
+                    id = if (workLocations.isEmpty()) WorkLocation.DEFAULT_ID else "work-${clock.millis()}-$index",
+                    label = label,
+                )
+            }
         }
     }
 }
@@ -475,6 +499,7 @@ data class HomeUiState(
     val workLongitude: String = "",
     val workRadiusMeters: String = WorkLocation.MINIMUM_RADIUS_METERS.toString(),
     val workLabel: String = WorkLocation.DEFAULT_LABEL,
+    val workProjectNumber: String = "",
     val workAddress: String = "",
     val workResolvedAddress: String = "",
     val latestWorkLocationLabel: String = "",
@@ -483,7 +508,12 @@ data class HomeUiState(
 
 private data class WorkTarget(val id: String, val label: String)
 
-data class SavedPlaceUiModel(val id: String, val label: String, val address: String?, val radius: String)
+data class SavedPlaceUiModel(val id: String, val label: String, val projectNumber: String?, val address: String?, val radius: String)
+
+private sealed interface WorkEditorMode {
+    data object Add : WorkEditorMode
+    data class Edit(val id: String) : WorkEditorMode
+}
 
 data class MapReferenceLocationUiModel(val id: String, val label: String, val latitude: Double, val longitude: Double) {
     companion object {
@@ -497,6 +527,7 @@ private data class Locations(val home: HomeLocation?, val work: List<WorkLocatio
 private fun WorkLocation.toSavedPlaceUiModel(): SavedPlaceUiModel = SavedPlaceUiModel(
     id = id,
     label = label,
+    projectNumber = projectNumber,
     address = address,
     radius = radiusLabel(),
 )

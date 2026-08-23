@@ -30,7 +30,6 @@ fun HomeRoute(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val mapDisclosureAccepted by mapDisclosureViewModel.accepted.collectAsStateWithLifecycle()
     var pendingHomeAction by rememberSaveable { mutableStateOf<HomeSaveAction?>(null) }
-    var pendingWorkAction by rememberSaveable { mutableStateOf<WorkSaveAction?>(null) }
     var homeEditMode by rememberSaveable { mutableStateOf(HomeEditMode.CLOSED) }
     var editingWorkPin by rememberSaveable { mutableStateOf(false) }
     var addingPlace by rememberSaveable { mutableStateOf(false) }
@@ -56,14 +55,13 @@ fun HomeRoute(
             showWorksiteMap = true
         }
     }
-    LaunchedEffect(showMapDisclosure, showHomeMap, showWorksiteMap, pendingHomeAction, pendingWorkAction) {
+    LaunchedEffect(showMapDisclosure, showHomeMap, showWorksiteMap, pendingHomeAction) {
         UiDebugState.setModal(
             when {
                 showMapDisclosure -> "map_disclosure"
                 showHomeMap -> "home_map"
                 showWorksiteMap -> "worksite_map"
                 pendingHomeAction != null -> "home_overwrite"
-                pendingWorkAction != null -> "worksite_save"
                 else -> null
             },
         )
@@ -108,22 +106,15 @@ fun HomeRoute(
     )
     val workActions = LocationSectionActions(
         onUseCurrentLocation = {
-            requestWorkAction(
-                action = WorkSaveAction.UseCurrent,
-                state = state,
-                viewModel = viewModel,
-                setPendingAction = { pendingWorkAction = it },
-                onPerformed = {
-                    editingWorkPin = false
-                    addingPlace = false
-                },
-            )
+            viewModel.useCurrentWorkLocation()
+            editingWorkPin = false
+            addingPlace = false
         },
         onEditPin = { editingWorkPin = true },
         onCancelEdit = { editingWorkPin = false },
         onFieldChange = viewModel::updateWorkField,
         onRadiusSelected = viewModel::updateWorkRadius,
-        onSaveRadius = { viewModel.saveWorkPin(replaceLatest = true) },
+        onSaveRadius = viewModel::saveWorkPin,
         onResolveAddress = viewModel::resolveWorkAddress,
         onOpenMap = {
             addingPlace = true
@@ -136,16 +127,9 @@ fun HomeRoute(
             }
         },
         onSave = {
-            requestWorkAction(
-                action = WorkSaveAction.SavePin,
-                state = state,
-                viewModel = viewModel,
-                setPendingAction = { pendingWorkAction = it },
-                onPerformed = {
-                    editingWorkPin = false
-                    addingPlace = false
-                },
-            )
+            viewModel.saveWorkPin()
+            editingWorkPin = false
+            addingPlace = false
         },
     )
 
@@ -166,6 +150,11 @@ fun HomeRoute(
             addingPlace = true
             editingWorkPin = false
         },
+        onEditPlace = { id ->
+            viewModel.beginEditPlace(id)
+            addingPlace = true
+            editingWorkPin = true
+        },
         onCloseAddPlace = {
             addingPlace = false
             editingWorkPin = false
@@ -175,20 +164,6 @@ fun HomeRoute(
     pendingHomeAction?.let { action ->
         PendingHomeActionDialog(action = action, viewModel = viewModel, onPinSaved = { homeEditMode = HomeEditMode.CLOSED }) {
             pendingHomeAction = null
-        }
-    }
-
-    pendingWorkAction?.let { action ->
-        PendingWorkActionDialog(
-            action = action,
-            state = state,
-            viewModel = viewModel,
-            onPinSaved = {
-                editingWorkPin = false
-                addingPlace = false
-            },
-        ) {
-            pendingWorkAction = null
         }
     }
 
@@ -272,6 +247,7 @@ private fun PlacesScreen(
     workActions: LocationSectionActions,
     onEditHome: () -> Unit,
     onAddPlace: () -> Unit,
+    onEditPlace: (String) -> Unit,
     onCloseAddPlace: () -> Unit,
 ) {
     TimeTrackerScreen(modifier = modifier, testTag = TimeTrackerTestTags.HOME_SCREEN) {
@@ -282,7 +258,7 @@ private fun PlacesScreen(
             )
         }
         item {
-            SavedPlacesSection(state.workLocations)
+            SavedPlacesSection(state.workLocations, onEditPlace)
         }
         item {
             HomeLocationSection(
@@ -324,30 +300,6 @@ private fun PendingHomeActionDialog(action: HomeSaveAction, viewModel: HomeViewM
     )
 }
 
-@Composable
-private fun PendingWorkActionDialog(
-    action: WorkSaveAction,
-    state: HomeUiState,
-    viewModel: HomeViewModel,
-    onPinSaved: () -> Unit,
-    clearAction: () -> Unit,
-) {
-    WorkLocationSaveDialog(
-        latestLabel = state.latestWorkLocationLabel.ifBlank { "the latest work site" },
-        onCancel = clearAction,
-        onAdd = {
-            clearAction()
-            action.perform(viewModel, replaceLatest = false)
-            onPinSaved()
-        },
-        onReplace = {
-            clearAction()
-            action.perform(viewModel, replaceLatest = true)
-            onPinSaved()
-        },
-    )
-}
-
 private fun requestHomeAction(
     action: HomeSaveAction,
     state: HomeUiState,
@@ -363,31 +315,9 @@ private fun requestHomeAction(
     }
 }
 
-private fun requestWorkAction(
-    action: WorkSaveAction,
-    state: HomeUiState,
-    viewModel: HomeViewModel,
-    setPendingAction: (WorkSaveAction) -> Unit,
-    onPerformed: () -> Unit,
-) {
-    if (state.workLocationCount > 0) {
-        setPendingAction(action)
-    } else {
-        action.perform(viewModel, replaceLatest = false)
-        onPerformed()
-    }
-}
-
 private fun HomeSaveAction.perform(viewModel: HomeViewModel) {
     when (this) {
         HomeSaveAction.UseCurrent -> viewModel.useCurrentHomeLocation()
         HomeSaveAction.SavePin -> viewModel.saveHomePin()
-    }
-}
-
-private fun WorkSaveAction.perform(viewModel: HomeViewModel, replaceLatest: Boolean) {
-    when (this) {
-        WorkSaveAction.UseCurrent -> viewModel.useCurrentWorkLocation(replaceLatest)
-        WorkSaveAction.SavePin -> viewModel.saveWorkPin(replaceLatest)
     }
 }

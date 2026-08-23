@@ -75,6 +75,7 @@ class HomeViewModelTest {
         assertEquals("39.7", viewModel.uiState.value.workLatitude)
         assertEquals("Map Address", viewModel.uiState.value.workAddress)
 
+        viewModel.updateWorkField(LocationField.PROJECT_NUMBER, "MAP-001")
         viewModel.saveWorkPin()
         advanceUntilIdle()
 
@@ -403,11 +404,13 @@ class HomeViewModelTest {
             logger = NoopAppLogger(),
         )
 
+        viewModel.updateWorkField(LocationField.PROJECT_NUMBER, "CURRENT-001")
         viewModel.useCurrentWorkLocation()
         advanceUntilIdle()
 
-        assertEquals(workLocation, workRepository.workLocation.value)
-        assertEquals(listOf(workLocation), workGeofenceRegistrar.registeredWorkLocations)
+        val expected = workLocation.copy(projectNumber = "CURRENT-001")
+        assertEquals(expected, workRepository.workLocation.value)
+        assertEquals(listOf(expected), workGeofenceRegistrar.registeredWorkLocations)
     }
 
     @Test
@@ -425,6 +428,7 @@ class HomeViewModelTest {
         )
 
         viewModel.updateWorkField(LocationField.LABEL, "North Yard")
+        viewModel.updateWorkField(LocationField.PROJECT_NUMBER, "NORTH-001")
         viewModel.updateWorkField(LocationField.LATITUDE, "39.7292")
         viewModel.updateWorkField(LocationField.LONGITUDE, "-104.9803")
         viewModel.updateWorkField(LocationField.RADIUS_METERS, WorkLocation.MINIMUM_RADIUS_METERS.toString())
@@ -462,9 +466,10 @@ class HomeViewModelTest {
             advanceUntilIdle()
 
             viewModel.updateWorkField(LocationField.LABEL, "North Yard")
+            viewModel.updateWorkField(LocationField.PROJECT_NUMBER, "NORTH-002")
             viewModel.updateWorkField(LocationField.LATITUDE, "39.8")
             viewModel.updateWorkField(LocationField.LONGITUDE, "-104.8")
-            viewModel.saveWorkPin(replaceLatest = false)
+            viewModel.saveWorkPin()
             advanceUntilIdle()
 
             assertEquals(2, workRepository.workLocations.value.size)
@@ -536,8 +541,11 @@ class HomeViewModelTest {
             viewModel.uiState.collect()
         }
         advanceUntilIdle()
+        viewModel.beginEditPlace("existing-work")
+        advanceUntilIdle()
         viewModel.updateWorkField(LocationField.LABEL, "Renamed work")
-        viewModel.saveWorkPin(replaceLatest = true)
+        viewModel.updateWorkField(LocationField.PROJECT_NUMBER, "EDIT-001")
+        viewModel.saveWorkPin()
         advanceUntilIdle()
 
         val savedWork = workRepository.workLocations.value.single()
@@ -573,8 +581,11 @@ class HomeViewModelTest {
             viewModel.uiState.collect()
         }
         advanceUntilIdle()
+        viewModel.beginEditPlace("existing-work")
+        advanceUntilIdle()
+        viewModel.updateWorkField(LocationField.PROJECT_NUMBER, "RADIUS-001")
         viewModel.updateWorkRadius(8_046.72f)
-        viewModel.saveWorkPin(replaceLatest = true)
+        viewModel.saveWorkPin()
         advanceUntilIdle()
 
         val savedWork = workRepository.workLocations.value.single()
@@ -635,6 +646,7 @@ class HomeViewModelTest {
             viewModel.uiState.collect()
         }
         viewModel.updateWorkField(LocationField.LABEL, "Office")
+        viewModel.updateWorkField(LocationField.PROJECT_NUMBER, "OFFICE-001")
         viewModel.updateWorkField(LocationField.ADDRESS, "123 Office Way")
         viewModel.resolveWorkAddress()
         advanceUntilIdle()

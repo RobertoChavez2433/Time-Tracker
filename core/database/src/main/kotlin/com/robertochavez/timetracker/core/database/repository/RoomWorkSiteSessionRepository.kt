@@ -39,12 +39,14 @@ class RoomWorkSiteSessionRepository @Inject constructor(
         val existing = workSiteSessionDao.getActiveForLocation(workLocationId)?.toModel()
         if (existing != null) return@withTransaction existing
 
+        val workLocation = workLocationDao.getWorkLocationById(workLocationId)
         WorkSiteSession(
             id = UUID.randomUUID().toString(),
             workLocationId = workLocationId,
             start = at,
             end = null,
-            workLocationLabelSnapshot = workLocationDao.getWorkLocationById(workLocationId)?.label ?: WorkLocation.DEFAULT_LABEL,
+            workLocationLabelSnapshot = workLocation?.label ?: WorkLocation.DEFAULT_LABEL,
+            projectNumberSnapshot = workLocation?.projectNumber,
         ).also { session ->
             workSiteSessionDao.upsert(WorkSiteSessionEntity.fromModel(session))
             logger.info(

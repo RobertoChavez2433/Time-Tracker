@@ -110,6 +110,35 @@ object TimeTrackerMigrations {
         }
     }
 
+    val MIGRATION_12_13: Migration = object : Migration(12, 13) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE `work_locations` ADD COLUMN `projectNumber` TEXT")
+            db.execSQL(
+                "CREATE UNIQUE INDEX IF NOT EXISTS `index_work_locations_projectNumber` " +
+                    "ON `work_locations` (`projectNumber`)",
+            )
+            db.execSQL("ALTER TABLE `work_site_sessions` ADD COLUMN `projectNumberSnapshot` TEXT")
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS `hub_sync_records` (
+                    `sourceId` TEXT NOT NULL,
+                    `payloadType` TEXT NOT NULL,
+                    `deterministicJson` TEXT NOT NULL,
+                    `contentHash` TEXT NOT NULL,
+                    `state` TEXT NOT NULL,
+                    `transferId` TEXT,
+                    `attemptCount` INTEGER NOT NULL,
+                    `createdAtEpochMillis` INTEGER NOT NULL,
+                    `updatedAtEpochMillis` INTEGER NOT NULL,
+                    `lastAttemptAtEpochMillis` INTEGER,
+                    `sanitizedError` TEXT,
+                    PRIMARY KEY(`sourceId`)
+                )
+                """.trimIndent(),
+            )
+        }
+    }
+
     val ALL: Array<Migration> =
         arrayOf(
             MIGRATION_1_2,
@@ -123,5 +152,6 @@ object TimeTrackerMigrations {
             MIGRATION_9_10,
             MIGRATION_10_11,
             MIGRATION_11_12,
+            MIGRATION_12_13,
         )
 }

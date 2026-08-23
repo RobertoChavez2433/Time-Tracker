@@ -29,7 +29,9 @@ class WorkLocationRepositoryTest {
             .allowMainThreadQueries()
             .build()
         repository = RoomWorkLocationRepository(
+            database = database,
             workLocationDao = database.workLocationDao(),
+            workSiteSessionDao = database.workSiteSessionDao(),
             logger = NoopAppLogger(),
         )
     }
@@ -124,6 +126,54 @@ class WorkLocationRepositoryTest {
 
         assertEquals("Original Site", session.workLocationLabelSnapshot)
         assertEquals("Original Site", stored.workLocationLabelSnapshot)
+    }
+
+    @Test
+    fun `session project snapshot is preserved after project edit`() = runTest {
+        val site = WorkLocation(
+            latitude = 35.0,
+            longitude = -80.0,
+            radiusMeters = WorkLocation.MAXIMUM_RADIUS_METERS,
+            updatedAt = Instant.parse("2026-05-03T12:00:00Z"),
+            id = "site",
+            label = "Site",
+            projectNumber = "PROJECT-001",
+        )
+        val sessions = RoomWorkSiteSessionRepository(
+            database,
+            database.workSiteSessionDao(),
+            database.workLocationDao(),
+            NoopAppLogger(),
+        )
+        repository.setWorkLocation(site)
+        sessions.startWorkSiteSession("site", Instant.parse("2026-05-03T13:00:00Z"))
+        repository.setWorkLocation(site.copy(projectNumber = "PROJECT-002"))
+
+        assertEquals("PROJECT-001", sessions.observeWorkSiteSessions().first().single().projectNumberSnapshot)
+    }
+
+    @Test
+    fun `first project assignment backfills only null historical snapshots`() = runTest {
+        val legacy = WorkLocation(
+            latitude = 35.0,
+            longitude = -80.0,
+            radiusMeters = WorkLocation.MAXIMUM_RADIUS_METERS,
+            updatedAt = Instant.parse("2026-05-03T12:00:00Z"),
+            id = "legacy",
+            label = "Legacy",
+        )
+        val sessions = RoomWorkSiteSessionRepository(
+            database,
+            database.workSiteSessionDao(),
+            database.workLocationDao(),
+            NoopAppLogger(),
+        )
+        repository.setWorkLocation(legacy)
+        sessions.startWorkSiteSession("legacy", Instant.parse("2026-05-03T13:00:00Z"))
+        sessions.stopActiveWorkSiteSession("legacy", Instant.parse("2026-05-03T14:00:00Z"))
+        repository.setWorkLocation(legacy.copy(projectNumber = "LEGACY-001"))
+
+        assertEquals("LEGACY-001", sessions.observeWorkSiteSessions().first().single().projectNumberSnapshot)
     }
 
     @Test

@@ -4,6 +4,7 @@
 build/
 **/build/
 **/bin/
+**/obj/
 
 # Local machine configuration
 local.properties
@@ -25,6 +26,7 @@ captures/
 *.log
 tools/testing/test-results/
 tools/testing/screenshots/
+tools/verification/results/
 
 # OS metadata
 .DS_Store

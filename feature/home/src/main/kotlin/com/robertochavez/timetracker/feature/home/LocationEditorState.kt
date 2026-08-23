@@ -3,12 +3,14 @@ package com.robertochavez.timetracker.feature.home
 import com.robertochavez.timetracker.core.common.model.GeofenceRadiusOptions
 import com.robertochavez.timetracker.core.common.model.HomeLocation
 import com.robertochavez.timetracker.core.common.model.WorkLocation
+import com.robertochavez.timetracker.core.common.model.normalizedProjectNumberOrNull
 import java.time.Clock
 import java.time.Instant
 import kotlin.math.roundToInt
 
 enum class LocationField {
     LABEL,
+    PROJECT_NUMBER,
     ADDRESS,
     LATITUDE,
     LONGITUDE,
@@ -35,6 +37,7 @@ internal fun HomeEditorState.hasCoordinates(): Boolean = latitude.isNotBlank() |
 
 internal fun HomeEditorState.updated(field: LocationField, value: String): HomeEditorState = when (field) {
     LocationField.LABEL -> this
+    LocationField.PROJECT_NUMBER -> this
     LocationField.ADDRESS -> copy(address = value, resolvedAddress = "")
     LocationField.LATITUDE -> copy(latitude = value)
     LocationField.LONGITUDE -> copy(longitude = value)
@@ -55,6 +58,7 @@ internal fun HomeEditorState.radiusInput(): Float = (radiusMeters.toFloatOrNull(
 
 internal data class WorkEditorState(
     val label: String = WorkLocation.DEFAULT_LABEL,
+    val projectNumber: String = "",
     val address: String = "",
     val resolvedAddress: String = "",
     val latitude: String = "",
@@ -64,6 +68,7 @@ internal data class WorkEditorState(
     companion object {
         fun fromLocation(workLocation: WorkLocation): WorkEditorState = WorkEditorState(
             label = workLocation.label,
+            projectNumber = workLocation.projectNumber.orEmpty(),
             address = workLocation.address.orEmpty(),
             resolvedAddress = workLocation.address.orEmpty(),
             latitude = workLocation.latitude.toString(),
@@ -80,10 +85,12 @@ internal fun WorkEditorState.hasCoordinates(): Boolean = latitude.isNotBlank() |
 internal fun WorkEditorState.isPristine(): Boolean = !hasCoordinates() &&
     label == WorkLocation.DEFAULT_LABEL &&
     address.isBlank() &&
-    resolvedAddress.isBlank()
+    resolvedAddress.isBlank() &&
+    projectNumber.isBlank()
 
 internal fun WorkEditorState.updated(field: LocationField, value: String): WorkEditorState = when (field) {
     LocationField.LABEL -> copy(label = value)
+    LocationField.PROJECT_NUMBER -> copy(projectNumber = value)
     LocationField.ADDRESS -> copy(address = value, resolvedAddress = "")
     LocationField.LATITUDE -> copy(latitude = value)
     LocationField.LONGITUDE -> copy(longitude = value)
@@ -93,6 +100,8 @@ internal fun WorkEditorState.updated(field: LocationField, value: String): WorkE
 internal fun WorkEditorState.toWorkLocation(clock: Clock, id: String, label: String): Result<WorkLocation> = runCatching {
     val trimmedResolvedAddress = resolvedAddress.trim()
     val trimmedAddress = address.trim()
+    val normalizedProjectNumber = projectNumber.normalizedProjectNumberOrNull()
+    requireNotNull(normalizedProjectNumber) { "Project number is required for a saved work site." }
     WorkLocation(
         latitude = requireNotNull(latitude.toDoubleOrNull()) { "Enter valid work latitude, longitude, and radius." },
         longitude = requireNotNull(longitude.toDoubleOrNull()) { "Enter valid work latitude, longitude, and radius." },
@@ -101,6 +110,7 @@ internal fun WorkEditorState.toWorkLocation(clock: Clock, id: String, label: Str
         id = id,
         label = label.trim(),
         address = trimmedResolvedAddress.ifBlank { trimmedAddress }.ifBlank { null },
+        projectNumber = normalizedProjectNumber,
     )
 }
 
