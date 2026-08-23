@@ -1,6 +1,8 @@
 package com.robertochavez.timetracker.core.common.model
 
 import java.time.Instant
+import kotlin.math.abs
+import kotlin.math.roundToInt
 
 data class WorkLocation(
     val latitude: Double,
@@ -23,12 +25,17 @@ data class WorkLocation(
         require(radiusMeters <= MAXIMUM_RADIUS_METERS) {
             "Work geofence radius must be no more than $MAXIMUM_RADIUS_METERS meters."
         }
+        val miles = radiusMeters / GeofenceRadiusOptions.ONE_MILE_METERS
+        require(abs(miles - miles.roundToInt()) < WHOLE_MILE_TOLERANCE) {
+            "Work geofence radius must be a whole-mile value."
+        }
     }
 
     companion object {
         const val DEFAULT_ID = "work"
         const val DEFAULT_LABEL = "Work site"
-        const val MINIMUM_RADIUS_METERS = GeofenceRadiusOptions.FIFTY_FEET_METERS
-        const val MAXIMUM_RADIUS_METERS = GeofenceRadiusOptions.FIVE_MILES_METERS
+        const val MINIMUM_RADIUS_METERS = GeofenceRadiusOptions.ONE_MILE_METERS
+        const val MAXIMUM_RADIUS_METERS = GeofenceRadiusOptions.TWENTY_FIVE_MILES_METERS
+        private const val WHOLE_MILE_TOLERANCE = 0.001f
     }
 }

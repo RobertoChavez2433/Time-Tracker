@@ -2,6 +2,8 @@ package com.robertochavez.timetracker.feature.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.robertochavez.timetracker.core.common.domain.payPeriodRangeFor
+import com.robertochavez.timetracker.core.common.model.PayPeriodCadence
 import com.robertochavez.timetracker.core.common.model.PayPeriodSettings
 import com.robertochavez.timetracker.core.common.model.WorkSchedule
 import com.robertochavez.timetracker.core.common.repository.AppSettingsRepository
@@ -34,17 +36,28 @@ class SettingsViewModel @Inject constructor(
     private val logger: AppLogger,
 ) : ViewModel() {
     private val editedAnchorDate = MutableStateFlow<String?>(null)
+    private val editedCadence = MutableStateFlow<PayPeriodCadence?>(null)
     private val statusMessage = MutableStateFlow("")
+    private val payPeriodEdits = combine(editedAnchorDate, editedCadence, ::PayPeriodEdits)
 
     val uiState: StateFlow<SettingsUiState> = combine(
         workScheduleRepository.observeWorkSchedule(),
         payPeriodSettingsRepository.observeSettings(),
         appSettingsRepository.settings,
-        editedAnchorDate,
+        payPeriodEdits,
         statusMessage,
-    ) { schedule, payPeriod, appSettings, editedAnchor, status ->
+    ) { schedule, payPeriod, appSettings, edits, status ->
+        val anchorDate = edits.anchorDate ?: payPeriod.anchorStartDate.toString()
+        val cadence = edits.cadence ?: payPeriod.cadence
+        val preview = runCatching {
+            PayPeriodSettings(LocalDate.parse(anchorDate), cadence).payPeriodRangeFor(LocalDate.now())
+        }.getOrNull()
         SettingsUiState(
-            anchorDate = editedAnchor ?: payPeriod.biweeklyAnchorStartDate.toString(),
+            anchorDate = anchorDate,
+            payPeriodCadence = cadence,
+            payPeriodPreview = preview?.let {
+                "${it.startInclusive} – ${it.endExclusive.minusDays(1)}"
+            } ?: "Enter a valid start date to preview this period.",
             workdays = DayOfWeek.entries.map { day ->
                 WorkdayUiModel(day.name, day in schedule.trackableDays)
             },
@@ -59,33 +72,65 @@ class SettingsViewModel @Inject constructor(
         editedAnchorDate.value = value
     }
 
+    fun selectPayPeriodCadence(cadence: PayPeriodCadence) {
+        editedCadence.value = cadence
+    }
+
     fun saveAnchorDate() {
         viewModelScope.launch {
+            val date = runCatching {
+                LocalDate.parse(editedAnchorDate.value ?: uiState.value.anchorDate)
+            }.getOrElse { error ->
+                statusMessage.value = "Use YYYY-MM-DD for the period start."
+                logger.warn(LogCategory.SETTINGS, "Pay period save rejected", error = error)
+                return@launch
+            }
+            val cadence = editedCadence.value ?: uiState.value.payPeriodCadence
             runCatching {
-                LocalDate.parse(uiState.value.anchorDate)
-            }.onSuccess { date ->
-                payPeriodSettingsRepository.setSettings(PayPeriodSettings(date))
+                payPeriodSettingsRepository.setSettings(PayPeriodSettings(date, cadence))
+            }.onSuccess {
                 editedAnchorDate.value = null
-                statusMessage.value = "Biweekly anchor saved."
-                logger.info(LogCategory.SETTINGS, "Biweekly anchor saved", mapOf("anchorDate" to date.toString()))
-            }.onFailure {
-                statusMessage.value = "Use YYYY-MM-DD for the biweekly anchor."
-                logger.info(LogCategory.SETTINGS, "Biweekly anchor save rejected")
+                editedCadence.value = null
+                statusMessage.value = "${cadence.label} pay period saved."
+                logger.info(
+                    LogCategory.SETTINGS,
+                    "Pay period saved",
+                    mapOf("anchorDate" to date.toString(), "cadence" to cadence.name),
+                )
+            }.onFailure { error ->
+                statusMessage.value = "Pay period could not be saved."
+                logger.warn(LogCategory.SETTINGS, "Pay period save rejected", error = error)
             }
         }
     }
 
     fun setDayTrackable(dayName: String, trackable: Boolean) {
         viewModelScope.launch {
-            val day = DayOfWeek.valueOf(dayName)
-            val current = workScheduleRepository.getWorkSchedule()
-            val updatedDays = if (trackable) {
-                current.trackableDays + day
-            } else {
-                current.trackableDays - day
+            runCatching {
+                val day = DayOfWeek.valueOf(dayName)
+                val current = workScheduleRepository.getWorkSchedule()
+                val updatedDays = if (trackable) {
+                    current.trackableDays + day
+                } else {
+                    current.trackableDays - day
+                }
+                workScheduleRepository.setWorkSchedule(WorkSchedule(updatedDays))
+                day
+            }.onSuccess { day ->
+                statusMessage.value = if (uiState.value.workdays.count { it.trackable } == 0 && !trackable) {
+                    "Automatic tracking paused because no days are selected."
+                } else {
+                    "${day.name.lowercase().replaceFirstChar(Char::uppercase)} tracking updated."
+                }
+                logger.info(
+                    LogCategory.SETTINGS,
+                    "Workday setting changed",
+                    mapOf("day" to day.name, "trackable" to trackable),
+                )
+            }.onFailure { error ->
+                statusMessage.value = "Workday change could not be saved."
+                logger.warn(LogCategory.SETTINGS, "Workday setting change failed", error = error)
             }
-            workScheduleRepository.setWorkSchedule(WorkSchedule(updatedDays))
-            logger.info(LogCategory.SETTINGS, "Workday setting changed", mapOf("day" to day.name, "trackable" to trackable))
         }
     }
 
@@ -171,6 +216,8 @@ class SettingsViewModel @Inject constructor(
 
 data class SettingsUiState(
     val anchorDate: String = LocalDate.now().toString(),
+    val payPeriodCadence: PayPeriodCadence = PayPeriodCadence.BIWEEKLY,
+    val payPeriodPreview: String = "",
     val workdays: List<WorkdayUiModel> = DayOfWeek.entries.map { WorkdayUiModel(it.name, it in WorkSchedule.DEFAULT_TRACKABLE_DAYS) },
     val minimalActiveNotificationEnabled: Boolean = false,
     val liveTimerNotificationEnabled: Boolean = false,
@@ -179,3 +226,5 @@ data class SettingsUiState(
 )
 
 data class WorkdayUiModel(val name: String, val trackable: Boolean)
+
+private data class PayPeriodEdits(val anchorDate: String?, val cadence: PayPeriodCadence?)

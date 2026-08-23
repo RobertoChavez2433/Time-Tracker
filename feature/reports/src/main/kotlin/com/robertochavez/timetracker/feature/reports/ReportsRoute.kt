@@ -15,10 +15,15 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.ExperimentalMaterialApi
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.pullrefresh.PullRefreshIndicator
 import androidx.compose.material.pullrefresh.pullRefresh
 import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -49,7 +54,7 @@ import com.robertochavez.timetracker.core.designsystem.TimeTrackerTestTags
 
 @OptIn(ExperimentalMaterialApi::class)
 @Composable
-fun ReportsRoute(modifier: Modifier = Modifier, viewModel: ReportsViewModel = hiltViewModel()) {
+fun ReportsRoute(modifier: Modifier = Modifier, onEditTrackedDays: () -> Unit = {}, viewModel: ReportsViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val pullRefreshState = rememberPullRefreshState(
         refreshing = state.isRefreshing,
@@ -76,7 +81,19 @@ fun ReportsRoute(modifier: Modifier = Modifier, viewModel: ReportsViewModel = hi
                 DashboardSummaryPanel(state.summaries)
             }
             item {
-                WeeklyLedgerPanel(state.weeklyLedger)
+                WeeklyLedgerPanel(
+                    ledger = state.weeklyLedger,
+                    canNavigateToNextWeek = state.canNavigateToNextWeek,
+                    onPreviousWeek = viewModel::previousWeek,
+                    onNextWeek = viewModel::nextWeek,
+                )
+            }
+            item {
+                TimeTrackerSecondaryButton(
+                    text = "Edit tracked days",
+                    onClick = onEditTrackedDays,
+                    modifier = Modifier.testTag(TimeTrackerTestTags.DASHBOARD_EDIT_WORKDAYS_BUTTON),
+                )
             }
             item {
                 HistoryPanel(
@@ -351,10 +368,41 @@ private fun SummaryColumn(summary: DashboardSummaryUiModel, modifier: Modifier =
 }
 
 @Composable
-private fun WeeklyLedgerPanel(ledger: WeeklyLedgerUiModel) {
+private fun WeeklyLedgerPanel(
+    ledger: WeeklyLedgerUiModel,
+    canNavigateToNextWeek: Boolean,
+    onPreviousWeek: () -> Unit,
+    onNextWeek: () -> Unit,
+) {
     TimeTrackerPanel(modifier = Modifier.testTag(TimeTrackerTestTags.DASHBOARD_WEEKLY_LEDGER)) {
-        Text(ledger.title, color = TimeTrackerColors.PrimaryOliveDark, style = MaterialTheme.typography.titleMedium)
-        TimeTrackerMutedText(ledger.dateRange)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            IconButton(
+                onClick = onPreviousWeek,
+                modifier = Modifier.testTag(TimeTrackerTestTags.DASHBOARD_PREVIOUS_WEEK_BUTTON),
+            ) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Previous week")
+            }
+            Text(
+                ledger.title,
+                color = TimeTrackerColors.PrimaryOliveDark,
+                style = MaterialTheme.typography.titleMedium,
+                textAlign = TextAlign.Center,
+            )
+            IconButton(
+                onClick = onNextWeek,
+                enabled = canNavigateToNextWeek,
+                modifier = Modifier.testTag(TimeTrackerTestTags.DASHBOARD_NEXT_WEEK_BUTTON),
+            ) {
+                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Next week")
+            }
+        }
+        if (ledger.title != ledger.dateRange) {
+            TimeTrackerMutedText(ledger.dateRange)
+        }
         Column(modifier = Modifier.fillMaxWidth()) {
             LedgerHeaderRow()
             ledger.rows.forEach { row ->

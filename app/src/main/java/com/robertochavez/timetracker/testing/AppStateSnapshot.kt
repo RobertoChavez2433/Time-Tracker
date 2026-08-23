@@ -3,6 +3,7 @@ package com.robertochavez.timetracker.testing
 import com.robertochavez.timetracker.core.common.model.AwaySession
 
 data class AppStateSnapshot(
+    val schemaVersion: Int = CURRENT_SCHEMA_VERSION,
     val runId: String,
     val actorId: String,
     val capturedAtEpochMillis: Long,
@@ -30,6 +31,15 @@ data class AppStateSnapshot(
     val workdayCount: Int,
     val workdays: Map<String, Boolean> = emptyMap(),
     val payPeriodAnchorDate: String,
+    val payPeriodCadence: String = "BIWEEKLY",
+    val payPeriodStartDate: String = "",
+    val payPeriodEndDate: String = "",
+    val mapDisclosureAccepted: Boolean = false,
+    val currentRoute: String = "dashboard",
+    val currentModal: String? = null,
+    val selectedWeekStart: String = "",
+    val selectedWeekEnd: String = "",
+    val selectedWeekMode: String = "CURRENT_WEEK",
     val privacyDisclosureAccepted: Boolean,
     val activityDetectionEnabled: Boolean,
     val minimalActiveNotificationEnabled: Boolean,
@@ -38,6 +48,7 @@ data class AppStateSnapshot(
     val recentLogCount: Int,
 ) {
     fun toMap(): Map<String, Any?> = mapOf(
+        "schemaVersion" to schemaVersion,
         "runId" to runId,
         "actorId" to actorId,
         "capturedAtEpochMillis" to capturedAtEpochMillis,
@@ -65,13 +76,48 @@ data class AppStateSnapshot(
         "workdayCount" to workdayCount,
         "workdays" to workdays,
         "payPeriodAnchorDate" to payPeriodAnchorDate,
+        "payPeriodCadence" to payPeriodCadence,
+        "payPeriodStartDate" to payPeriodStartDate,
+        "payPeriodEndDate" to payPeriodEndDate,
+        "mapDisclosureAccepted" to mapDisclosureAccepted,
+        "currentRoute" to currentRoute,
+        "currentModal" to currentModal,
+        "selectedWeekStart" to selectedWeekStart,
+        "selectedWeekEnd" to selectedWeekEnd,
+        "selectedWeekMode" to selectedWeekMode,
         "privacyDisclosureAccepted" to privacyDisclosureAccepted,
         "activityDetectionEnabled" to activityDetectionEnabled,
         "minimalActiveNotificationEnabled" to minimalActiveNotificationEnabled,
         "liveTimerNotificationEnabled" to liveTimerNotificationEnabled,
         "reportTotals" to reportTotals.mapValues { it.value.toMap() },
         "recentLogCount" to recentLogCount,
+        "ui" to mapOf(
+            "route" to currentRoute,
+            "modal" to currentModal,
+            "selectedWeekStart" to selectedWeekStart,
+            "selectedWeekEnd" to selectedWeekEnd,
+            "selectedWeekMode" to selectedWeekMode,
+        ),
+        "settings" to mapOf(
+            "workdays" to workdays,
+            "workdayCount" to workdayCount,
+            "payPeriodCadence" to payPeriodCadence,
+            "payPeriodAnchorDate" to payPeriodAnchorDate,
+            "payPeriodStartDate" to payPeriodStartDate,
+            "payPeriodEndDate" to payPeriodEndDate,
+            "mapDisclosureAccepted" to mapDisclosureAccepted,
+        ),
+        "location" to mapOf(
+            "homeRadiusMeters" to homeRadiusMeters,
+            "workRadiusMeters" to workRadiusMeters,
+            "workLocationCount" to workLocationCount,
+        ),
+        "reports" to reportTotals.mapValues { it.value.toMap() },
     )
+
+    companion object {
+        const val CURRENT_SCHEMA_VERSION = 2
+    }
 }
 
 data class AwaySessionSummary(val idPrefix: String, val startEpochMillis: Long, val endEpochMillis: Long?, val drivenMiles: Double) {

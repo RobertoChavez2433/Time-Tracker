@@ -18,7 +18,8 @@ param(
     [string]$PackageName = "com.robertochavez.timetracker.debug",
     [string]$ActivityName = "com.robertochavez.timetracker.MainActivity",
     [switch]$SkipInstall,
-    [switch]$ProbeSystemButtons
+    [switch]$ProbeSystemButtons,
+    [switch]$NewFeatureAcceptanceOnly
 )
 
 $ErrorActionPreference = "Stop"
@@ -75,14 +76,16 @@ $script:RequiredControlInventory = @(
     @{ id = "home_radius_option_quarter_mile"; tagPattern = "^home_radius_option_quarter_mile$"; kind = "dropdown_option"; screen = "places"; requiredMode = "state" },
     @{ id = "home_overwrite_confirm_button"; tagPattern = "^home_overwrite_confirm_button$"; kind = "button"; screen = "places_dialog"; requiredMode = "state" },
     @{ id = "home_save_pin_button"; tagPattern = "^home_save_pin_button$"; kind = "button"; screen = "places"; requiredMode = "state" },
-    @{ id = "work_use_current_button"; tagPattern = "^work_use_current_button$"; kind = "button"; screen = "places"; requiredMode = "state" },
-    @{ id = "work_edit_pin_button"; tagPattern = "^work_edit_pin_button$"; kind = "button"; screen = "places"; requiredMode = "state" },
+    @{ id = "places_saved_list"; tagPattern = "^places_saved_list$"; kind = "list"; screen = "places"; requiredMode = "state" },
+    @{ id = "add_place_button"; tagPattern = "^add_place_button$"; kind = "button"; screen = "places"; requiredMode = "state" },
+    @{ id = "add_place_current_button"; tagPattern = "^add_place_current_button$"; kind = "button"; screen = "places"; requiredMode = "state" },
+    @{ id = "add_place_map_button"; tagPattern = "^add_place_map_button$"; kind = "button"; screen = "places"; requiredMode = "state" },
+    @{ id = "add_place_address_button"; tagPattern = "^add_place_address_button$"; kind = "button"; screen = "places"; requiredMode = "state" },
     @{ id = "work_cancel_edit_button"; tagPattern = "^work_cancel_edit_button$"; kind = "button"; screen = "places"; requiredMode = "state" },
     @{ id = "work_label_field"; tagPattern = "^work_label_field$"; kind = "text_field"; screen = "places"; requiredMode = "input" },
     @{ id = "work_latitude_field"; tagPattern = "^work_latitude_field$"; kind = "text_field"; screen = "places"; requiredMode = "input" },
     @{ id = "work_longitude_field"; tagPattern = "^work_longitude_field$"; kind = "text_field"; screen = "places"; requiredMode = "input" },
-    @{ id = "work_radius_dropdown"; tagPattern = "^work_radius_dropdown$"; kind = "dropdown"; screen = "places"; requiredMode = "state" },
-    @{ id = "work_radius_option_five_miles"; tagPattern = "^work_radius_option_five_miles$"; kind = "dropdown_option"; screen = "places"; requiredMode = "state" },
+    @{ id = "work_radius_field"; tagPattern = "^work_radius_field$"; kind = "slider"; screen = "places"; requiredMode = "state" },
     @{ id = "work_save_pin_button"; tagPattern = "^work_save_pin_button$"; kind = "button"; screen = "places"; requiredMode = "state" },
     @{ id = "work_add_location_button"; tagPattern = "^work_add_location_button$"; kind = "button"; screen = "places_dialog"; requiredMode = "state" },
     @{ id = "work_replace_location_button"; tagPattern = "^work_replace_location_button$"; kind = "button"; screen = "places_dialog"; requiredMode = "state" },
@@ -472,21 +475,31 @@ function Wait-State {
     param(
         [Parameter(Mandatory = $true)][string]$Name,
         [Parameter(Mandatory = $true)][scriptblock]$Condition,
-        [int]$TimeoutMs = 12000
+        [int]$TimeoutMs = 12000,
+        [int]$StabilityWindowMs = 1200
     )
 
     $deadline = [DateTime]::UtcNow.AddMilliseconds($TimeoutMs)
     $lastState = $null
     $lastError = $null
+    $stableSince = $null
     do {
         try {
             $lastState = Request-State
             if (& $Condition $lastState) {
-                Save-Json -Value $lastState -Path (Get-StateArtifactPath -Name $Name)
-                return $lastState
+                if ($null -eq $stableSince) {
+                    $stableSince = [DateTime]::UtcNow
+                }
+                if (([DateTime]::UtcNow - $stableSince).TotalMilliseconds -ge $StabilityWindowMs) {
+                    Save-Json -Value $lastState -Path (Get-StateArtifactPath -Name $Name)
+                    return $lastState
+                }
+            } else {
+                $stableSince = $null
             }
         } catch {
             $lastError = $_.Exception.Message
+            $stableSince = $null
         }
         Start-Sleep -Milliseconds 400
     } while ([DateTime]::UtcNow -lt $deadline)
@@ -599,7 +612,6 @@ function Select-UiNodeByTag {
         "startup_enable_button" { "Agree and Enable Tracking" }
         "startup_background_button" { "Enable Background Location" }
         "home_radius_option_quarter_mile" { "1/4 mi" }
-        "work_radius_option_five_miles" { "5 mi" }
         "home_overwrite_confirm_button" { "Overwrite Home" }
         "home_overwrite_cancel_button" { "Cancel" }
         "work_add_location_button" { "Add Work Site" }
@@ -680,7 +692,7 @@ function Find-UiNodeByTag {
     param(
         [Parameter(Mandatory = $true)][string]$Tag,
         [Parameter(Mandatory = $true)][string]$StepName,
-        [int]$MaxScrolls = 6,
+        [int]$MaxScrolls = 14,
         [switch]$RequireTapTarget
     )
 
@@ -728,6 +740,28 @@ function Tap-Tag {
     $found = Find-UiNodeByTag -Tag $Tag -StepName $StepName -RequireTapTarget
     $center = Get-NodeCenter -Node $found.node
     Invoke-AdbShell -Arguments @("input", "tap", "$($center.x)", "$($center.y)") | Out-Null
+    Start-Sleep -Milliseconds $WaitMs
+    return $found
+}
+
+function Set-SliderByTag {
+    param(
+        [Parameter(Mandatory = $true)][string]$Tag,
+        [Parameter(Mandatory = $true)][double]$Fraction,
+        [Parameter(Mandatory = $true)][string]$StepName,
+        [int]$WaitMs = 700
+    )
+
+    $found = Find-UiNodeByTag -Tag $Tag -StepName $StepName
+    $bounds = Get-NodeBounds -Node $found.node
+    $guardedFraction = [Math]::Max(0.0, [Math]::Min(1.0, $Fraction))
+    # Compose keeps the slider thumb center roughly one 24 dp radius inside
+    # the semantics bounds. The S21's density resolves that to about 7%.
+    $trackInset = [Math]::Min(34, [int]($bounds.width * 0.07))
+    $trackWidth = $bounds.width - (2 * $trackInset)
+    $x = [int]($bounds.left + $trackInset + ($trackWidth * $guardedFraction))
+    $y = [int](($bounds.top + $bounds.bottom) / 2)
+    Invoke-AdbShell -Arguments @("input", "tap", "$x", "$y") | Out-Null
     Start-Sleep -Milliseconds $WaitMs
     return $found
 }
@@ -1371,8 +1405,7 @@ function Invoke-HomeLocationControls {
         } | Out-Null
 
     foreach ($probe in @(
-            @{ tag = "home_use_current_button"; message = "Use current home location requested"; label = "home current-location probe" },
-            @{ tag = "work_use_current_button"; message = "Use current work location requested"; label = "work current-location probe" }
+            @{ tag = "home_use_current_button"; message = "Use current home location requested"; label = "home current-location probe" }
         )) {
         Invoke-VerifiedControl -TestTag $probe.tag -Flow $flow -ActionPerformed "tap $($probe.label)" `
             -ExpectedStateDelta "request log is captured; deterministic manual values are saved afterward" `
@@ -1383,6 +1416,20 @@ function Invoke-HomeLocationControls {
                 return @{ uiDump = Get-RelativeArtifactPath $tap.dumpPath; state = "$(New-SafeName "04-after-$($probe.tag)")-state.json" }
             } | Out-Null
     }
+    Invoke-VerifiedControl -TestTag "add_place_button" -Flow $flow -ActionPerformed "open add place flow" `
+        -ExpectedStateDelta "three streamlined location methods become visible" -PersistenceExpectation "navigation state only" -Action {
+            $tap = Tap-Tag -Tag "add_place_button" -StepName "add-place-open"
+            Assert-TagVisible -Tag "add_place_current_button" -StepName "add-place-methods-visible" | Out-Null
+            return @{ uiDump = Get-RelativeArtifactPath $tap.dumpPath }
+        } | Out-Null
+    Invoke-VerifiedControl -TestTag "add_place_current_button" -Flow $flow -ActionPerformed "tap work current-location probe" `
+        -ExpectedStateDelta "request log is captured; deterministic manual values are saved afterward" `
+        -PersistenceExpectation "manual work pin saved later in this flow remains authoritative" -Action {
+            $tap = Tap-Tag -Tag "add_place_current_button" -StepName "add-place-current-probe"
+            Wait-RecentLogMessage -Name "04-after-add-place-current" -Message "Use current work location requested" | Out-Null
+            Wait-RecentLogMessage -Name "04-after-add-place-current-accuracy" -Message "Current location result" -TimeoutMs 30000 | Out-Null
+            return @{ uiDump = Get-RelativeArtifactPath $tap.dumpPath; state = "04-after-add-place-current-state.json" }
+        } | Out-Null
 
     Invoke-VerifiedControl -TestTag "home_edit_pin_button" -Flow $flow -ActionPerformed "open manual home pin editor" `
         -ExpectedStateDelta "home coordinate fields become visible" -PersistenceExpectation "editor visibility only" -Action {
@@ -1442,9 +1489,10 @@ function Invoke-HomeLocationControls {
             return @{ uiDump = Get-RelativeArtifactPath $tap.dumpPath; state = "04-after-home-pin-state.json" }
         } | Out-Null
 
-    Invoke-VerifiedControl -TestTag "work_edit_pin_button" -Flow $flow -ActionPerformed "open manual work pin editor" `
+    Tap-Tag -Tag "add_place_button" -StepName "work-add-flow-open" | Out-Null
+    Invoke-VerifiedControl -TestTag "add_place_address_button" -Flow $flow -ActionPerformed "open address worksite editor" `
         -ExpectedStateDelta "work coordinate fields become visible" -PersistenceExpectation "editor visibility only" -Action {
-            $tap = Tap-Tag -Tag "work_edit_pin_button" -StepName "work-edit-pin-open"
+            $tap = Tap-Tag -Tag "add_place_address_button" -StepName "work-edit-pin-open"
             Assert-TagVisible -Tag "work_latitude_field" -StepName "work-editor-visible" | Out-Null
             return @{ uiDump = Get-RelativeArtifactPath $tap.dumpPath }
         } | Out-Null
@@ -1452,11 +1500,11 @@ function Invoke-HomeLocationControls {
     Invoke-VerifiedControl -TestTag "work_cancel_edit_button" -Flow $flow -ActionPerformed "cancel manual work pin editing" `
         -ExpectedStateDelta "work current-location action returns" -PersistenceExpectation "editor visibility only" -Action {
             $tap = Tap-Tag -Tag "work_cancel_edit_button" -StepName "work-edit-pin-cancel"
-            Assert-TagVisible -Tag "work_use_current_button" -StepName "work-current-visible" | Out-Null
+            Assert-TagVisible -Tag "add_place_current_button" -StepName "work-current-visible" | Out-Null
             return @{ uiDump = Get-RelativeArtifactPath $tap.dumpPath }
         } | Out-Null
 
-    Tap-Tag -Tag "work_edit_pin_button" -StepName "work-edit-pin-reopen" | Out-Null
+    Tap-Tag -Tag "add_place_address_button" -StepName "work-edit-pin-reopen" | Out-Null
 
     Invoke-VerifiedControl -TestTag "work_label_field" -Flow $flow -ActionPerformed "enter work site name" `
         -ExpectedStateDelta "work site label text changes" -PersistenceExpectation "saved with work pin" -Action {
@@ -1477,13 +1525,9 @@ function Invoke-HomeLocationControls {
             } | Out-Null
     }
 
-    Invoke-VerifiedControl -TestTag "work_radius_option_five_miles" -Flow $flow -ActionPerformed "select work radius" `
-        -ExpectedStateDelta "work radius option is selected" -PersistenceExpectation "saved by work pin button" -Action {
-            $dropdownTap = Tap-Tag -Tag "work_radius_dropdown" -StepName "work-radius-dropdown-open"
-            Add-ControlResult -TestTag "work_radius_dropdown" -Flow $flow -ActionPerformed "open work radius dropdown" `
-                -ExpectedStateDelta "work radius options are visible" -PersistenceExpectation "selected option is saved by work pin button" `
-                -Result "passed" -ArtifactPaths @{ uiDump = Get-RelativeArtifactPath $dropdownTap.dumpPath }
-            $tap = Tap-Tag -Tag "work_radius_option_five_miles" -StepName "work-radius-five-miles"
+    Invoke-VerifiedControl -TestTag "work_radius_field" -Flow $flow -ActionPerformed "select five-mile work radius" `
+        -ExpectedStateDelta "work radius draft becomes five miles" -PersistenceExpectation "saved only by work pin button" -Action {
+            $tap = Set-SliderByTag -Tag "work_radius_field" -Fraction (4.0 / 24.0) -StepName "work-radius-five-miles"
             return @{ uiDump = Get-RelativeArtifactPath $tap.dumpPath }
         } | Out-Null
 
@@ -1509,7 +1553,8 @@ function Invoke-HomeLocationControls {
             return @{ uiDump = Get-RelativeArtifactPath $tap.dumpPath; state = "04-after-work-pin-state.json" }
         } | Out-Null
 
-    Tap-Tag -Tag "work_edit_pin_button" -StepName "work-edit-pin-add-reopen" | Out-Null
+    Tap-Tag -Tag "add_place_button" -StepName "work-edit-pin-add-flow" | Out-Null
+    Tap-Tag -Tag "add_place_address_button" -StepName "work-edit-pin-add-reopen" | Out-Null
     Tap-Tag -Tag "work_save_pin_button" -StepName "work-save-pin-add-open" | Out-Null
     Invoke-VerifiedControl -TestTag "work_add_location_button" -Flow $flow -ActionPerformed "add another work location" `
         -ExpectedStateDelta "workLocationCount becomes at least 2" -PersistenceExpectation "multiple work locations must survive relaunch" -Action {
@@ -1840,23 +1885,380 @@ function Invoke-UiControlCoverageAudit {
     return Assert-RequiredControlCoverage
 }
 
+function Assert-UiText {
+    param(
+        [Parameter(Mandatory = $true)][string]$Text,
+        [Parameter(Mandatory = $true)][string]$StepName,
+        [switch]$Absent
+    )
+
+    $path = Save-UiDump -Name $StepName
+    [xml]$ui = Get-Content -LiteralPath $path -Raw
+    $matchingNodes = @($ui.SelectNodes("//node") | Where-Object {
+            [string]$_.GetAttribute("text") -eq $Text -or
+            [string]$_.GetAttribute("content-desc") -eq $Text
+        })
+    if ($Absent -and $matchingNodes.Count -gt 0) {
+        throw "[unexpected_ui_text] '$Text' was visible during $StepName."
+    }
+    if (-not $Absent -and $matchingNodes.Count -eq 0) {
+        throw "[missing_ui_text] '$Text' was not visible during $StepName."
+    }
+    return $path
+}
+
+function Assert-TagEnabledState {
+    param(
+        [Parameter(Mandatory = $true)][string]$Tag,
+        [Parameter(Mandatory = $true)][bool]$ExpectedEnabled,
+        [Parameter(Mandatory = $true)][string]$StepName
+    )
+
+    $found = Find-UiNodeByTag -Tag $Tag -StepName $StepName
+    $actual = [string]$found.node.GetAttribute("enabled") -eq "true"
+    if ($actual -ne $ExpectedEnabled) {
+        throw "[enabled_state_mismatch] $Tag enabled=$actual, expected $ExpectedEnabled."
+    }
+    return $found.dumpPath
+}
+
+function Invoke-NewWeekAcceptance {
+    Tap-Tag -Tag "nav_home" -StepName "week-open-dashboard" | Out-Null
+    $current = Wait-State -Name "new-week-current" -Condition {
+        param($candidate)
+        [string]$candidate.snapshot.selectedWeekMode -eq "CURRENT_WEEK"
+    }
+    Assert-UiText -Text "Today" -StepName "new-week-current-today" | Out-Null
+    Assert-UiText -Text "Week" -StepName "new-week-current-week" | Out-Null
+    Assert-UiText -Text "Pay Period" -StepName "new-week-current-pay-period" | Out-Null
+    Assert-TagEnabledState -Tag "dashboard_next_week_button" -ExpectedEnabled $false -StepName "new-week-forward-disabled" | Out-Null
+    Save-Screenshot -Name "new-week-current" | Out-Null
+
+    Tap-Tag -Tag "dashboard_previous_week_button" -StepName "new-week-previous-one" | Out-Null
+    $past = Wait-State -Name "new-week-past-one" -Condition {
+        param($candidate)
+        [string]$candidate.snapshot.selectedWeekMode -eq "SELECTED_WEEK" -and
+        [string]$candidate.snapshot.selectedWeekStart -ne [string]$current.snapshot.selectedWeekStart
+    }
+    Assert-UiText -Text "Selected Week" -StepName "new-week-no-selected-label" -Absent | Out-Null
+    Assert-UiText -Text ([DateTime]::Parse([string]$past.snapshot.selectedWeekStart).ToString("MMM d") + " - " +
+        [DateTime]::Parse([string]$past.snapshot.selectedWeekEnd).ToString("MMM d, yyyy")) -StepName "new-week-selected-date-title" | Out-Null
+    Assert-UiText -Text "Today" -StepName "new-week-no-current-card" -Absent | Out-Null
+    Assert-TagEnabledState -Tag "dashboard_next_week_button" -ExpectedEnabled $true -StepName "new-week-forward-enabled" | Out-Null
+
+    Tap-Tag -Tag "dashboard_previous_week_button" -StepName "new-week-previous-two" -WaitMs 80 | Out-Null
+    Tap-Tag -Tag "dashboard_previous_week_button" -StepName "new-week-previous-three" -WaitMs 80 | Out-Null
+    $farPast = Wait-State -Name "new-week-repeated-previous" -Condition {
+        param($candidate)
+        [DateTime]::Parse([string]$candidate.snapshot.selectedWeekStart) -le
+        [DateTime]::Parse([string]$past.snapshot.selectedWeekStart).AddDays(-14)
+    }
+    Save-Screenshot -Name "new-week-far-past" | Out-Null
+
+    Invoke-AdbShell -Arguments @("settings", "put", "system", "accelerometer_rotation", "0") | Out-Null
+    Invoke-AdbShell -Arguments @("settings", "put", "system", "user_rotation", "1") | Out-Null
+    Start-Sleep -Seconds 2
+    $rotated = Capture-State -Name "new-week-after-rotation"
+    if (
+        [string]$rotated.snapshot.selectedWeekStart -ne [string]$farPast.snapshot.selectedWeekStart -or
+        [string]$rotated.snapshot.selectedWeekEnd -ne [string]$farPast.snapshot.selectedWeekEnd
+    ) {
+        throw "[week_rotation_stale] Selected week changed during rotation."
+    }
+    Save-Screenshot -Name "new-week-landscape" | Out-Null
+    Invoke-AdbShell -Arguments @("settings", "put", "system", "user_rotation", "0") | Out-Null
+    Invoke-AdbShell -Arguments @("settings", "put", "system", "accelerometer_rotation", "1") | Out-Null
+    Start-Sleep -Seconds 2
+
+    for ($i = 0; $i -lt 8; $i++) {
+        Tap-Tag -Tag "dashboard_next_week_button" -StepName "new-week-next-$i" -WaitMs 80 | Out-Null
+    }
+    $returned = Wait-State -Name "new-week-returned-current" -Condition {
+        param($candidate)
+        [string]$candidate.snapshot.selectedWeekMode -eq "CURRENT_WEEK" -and
+        [string]$candidate.snapshot.selectedWeekStart -eq [string]$current.snapshot.selectedWeekStart
+    }
+    Assert-TagEnabledState -Tag "dashboard_next_week_button" -ExpectedEnabled $false -StepName "new-week-returned-forward-disabled" | Out-Null
+    Start-App
+    $relaunched = Wait-State -Name "new-week-after-relaunch" -Condition {
+        param($candidate)
+        [string]$candidate.snapshot.selectedWeekMode -eq "CURRENT_WEEK"
+    }
+    if ([DateTime]::Parse([string]$relaunched.snapshot.selectedWeekStart) -gt (Get-Date)) {
+        throw "[future_week_after_relaunch] Relaunch restored a future selected week."
+    }
+    return @{ current = $current.snapshot.selectedWeekStart; past = $past.snapshot.selectedWeekStart; returned = $returned.snapshot.selectedWeekStart }
+}
+
+function Invoke-NewScheduleAcceptance {
+    Tap-Tag -Tag "dashboard_edit_workdays_button" -StepName "new-schedule-dashboard-shortcut" | Out-Null
+    Assert-TagVisible -Tag "screen_settings" -StepName "new-schedule-settings-from-shortcut" | Out-Null
+
+    foreach ($day in @("saturday", "sunday")) {
+        Tap-Tag -Tag "settings_workday_${day}_switch" -StepName "new-schedule-enable-$day" | Out-Null
+    }
+    Wait-State -Name "new-schedule-seven-days" -Condition {
+        param($candidate)
+        [int]$candidate.snapshot.workdayCount -eq 7
+    } | Out-Null
+    Start-App
+    $persisted = Wait-State -Name "new-schedule-seven-days-relaunch" -Condition {
+        param($candidate)
+        [int]$candidate.snapshot.workdayCount -eq 7
+    }
+    if (-not (Get-WorkdayState -State $persisted -DayName "SATURDAY") -or -not (Get-WorkdayState -State $persisted -DayName "SUNDAY")) {
+        throw "[weekend_not_persisted] Enabled weekend days were lost after relaunch."
+    }
+
+    Tap-Tag -Tag "nav_settings" -StepName "new-schedule-return-settings" | Out-Null
+    foreach ($day in @("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")) {
+        Tap-Tag -Tag "settings_workday_${day}_switch" -StepName "new-schedule-disable-$day" | Out-Null
+    }
+    $none = Wait-State -Name "new-schedule-zero-days" -Condition {
+        param($candidate)
+        [int]$candidate.snapshot.workdayCount -eq 0 -and -not [bool]$candidate.snapshot.trackableToday
+    }
+    for ($i = 0; $i -lt 16; $i++) {
+        Invoke-Scroll -Direction "Down"
+    }
+    Assert-UiText -Text "Automatic tracking is paused until at least one day is selected." -StepName "new-schedule-paused-warning" | Out-Null
+    Save-Screenshot -Name "new-schedule-zero-days" | Out-Null
+
+    $sessionCount = [int]$none.snapshot.sessionCount
+    Invoke-AdbShell -Arguments @(
+        "am", "broadcast",
+        "-a", "$PackageName.E2E_GEOFENCE_TRANSITION",
+        "-n", "$PackageName/com.robertochavez.timetracker.core.location.geofence.GeofenceBroadcastReceiver",
+        "--es", "requestId", "home",
+        "--es", "transition", "EXIT"
+    ) | Out-Null
+    Start-Sleep -Seconds 2
+    $offDay = Capture-State -Name "new-schedule-off-day-geofence-exit"
+    if ([int]$offDay.snapshot.sessionCount -ne $sessionCount -or $null -ne $offDay.snapshot.activeSession) {
+        throw "[off_day_automatic_start] Automatic session started with zero tracked days."
+    }
+
+    Start-App
+    Wait-State -Name "new-schedule-zero-days-relaunch" -Condition {
+        param($candidate)
+        [int]$candidate.snapshot.workdayCount -eq 0
+    } | Out-Null
+    return @{ weekendPersisted = $true; zeroDaysPersisted = $true; offDaySessionRejected = $true }
+}
+
+function Invoke-NewPayPeriodAcceptance {
+    Tap-Tag -Tag "nav_settings" -StepName "new-pay-settings" | Out-Null
+    $baseline = Capture-State -Name "new-pay-baseline"
+    Tap-Tag -Tag "settings_weekly_cadence_button" -StepName "new-pay-select-weekly" | Out-Null
+    Enter-TextByTag -Tag "settings_anchor_date_field" -Text "2026-07-06" -StepName "new-pay-weekly-anchor" -Clear | Out-Null
+    Assert-TagVisible -Tag "settings_pay_period_preview" -StepName "new-pay-weekly-preview" | Out-Null
+    $draft = Capture-State -Name "new-pay-draft-not-persisted"
+    if ([string]$draft.snapshot.payPeriodCadence -ne [string]$baseline.snapshot.payPeriodCadence) {
+        throw "[pay_preview_persisted_early] Changing the preview persisted cadence before Save."
+    }
+    Tap-Tag -Tag "settings_save_anchor_button" -StepName "new-pay-save-weekly" | Out-Null
+    $weekly = Wait-State -Name "new-pay-weekly-persisted" -Condition {
+        param($candidate)
+        [string]$candidate.snapshot.payPeriodCadence -eq "WEEKLY" -and
+        [string]$candidate.snapshot.payPeriodAnchorDate -eq "2026-07-06" -and
+        [string]$candidate.snapshot.payPeriodStartDate -eq "2026-07-27" -and
+        [string]$candidate.snapshot.payPeriodEndDate -eq "2026-08-02"
+    }
+    Save-Screenshot -Name "new-pay-weekly" | Out-Null
+
+    Enter-TextByTag -Tag "settings_anchor_date_field" -Text "2026-02-30" -StepName "new-pay-invalid-anchor" -Clear | Out-Null
+    Tap-Tag -Tag "settings_save_anchor_button" -StepName "new-pay-invalid-save" | Out-Null
+    Start-Sleep -Seconds 2
+    $invalid = Capture-State -Name "new-pay-invalid-rejected"
+    if (
+        [string]$invalid.snapshot.payPeriodAnchorDate -ne "2026-07-06" -or
+        [string]$invalid.snapshot.payPeriodCadence -ne "WEEKLY"
+    ) {
+        throw "[invalid_pay_period_saved] Invalid anchor changed persisted pay-period behavior."
+    }
+
+    Enter-TextByTag -Tag "settings_anchor_date_field" -Text "2026-07-06" -StepName "new-pay-biweekly-anchor" -Clear | Out-Null
+    Tap-Tag -Tag "settings_biweekly_cadence_button" -StepName "new-pay-select-biweekly" | Out-Null
+    Tap-Tag -Tag "settings_save_anchor_button" -StepName "new-pay-save-biweekly" | Out-Null
+    $biweekly = Wait-State -Name "new-pay-biweekly-persisted" -Condition {
+        param($candidate)
+        [string]$candidate.snapshot.payPeriodCadence -eq "BIWEEKLY" -and
+        [string]$candidate.snapshot.payPeriodStartDate -eq "2026-07-20" -and
+        [string]$candidate.snapshot.payPeriodEndDate -eq "2026-08-02"
+    }
+    Start-App
+    Wait-State -Name "new-pay-biweekly-relaunch" -Condition {
+        param($candidate)
+        [string]$candidate.snapshot.payPeriodCadence -eq "BIWEEKLY" -and
+        [string]$candidate.snapshot.payPeriodAnchorDate -eq "2026-07-06"
+    } | Out-Null
+    return @{ weekly = "$($weekly.snapshot.payPeriodStartDate)..$($weekly.snapshot.payPeriodEndDate)"; biweekly = "$($biweekly.snapshot.payPeriodStartDate)..$($biweekly.snapshot.payPeriodEndDate)" }
+}
+
+function Invoke-NewMapAcceptance {
+    Tap-Tag -Tag "nav_places" -StepName "new-map-places" | Out-Null
+    Assert-TagVisible -Tag "places_saved_list" -StepName "new-map-saved-list" | Out-Null
+    Tap-Tag -Tag "add_place_button" -StepName "new-map-add-place-open" | Out-Null
+    Assert-TagVisible -Tag "add_place_current_button" -StepName "new-map-three-methods" | Out-Null
+    Invoke-AdbShell -Arguments @("logcat", "-c") | Out-Null
+    Tap-Tag -Tag "add_place_map_button" -StepName "new-map-disclosure-open" | Out-Null
+    Assert-TagVisible -Tag "work_map_disclosure_dialog" -StepName "new-map-disclosure-visible" | Out-Null
+    Save-Screenshot -Name "new-map-disclosure" | Out-Null
+    Tap-Tag -Tag "work_map_disclosure_decline_button" -StepName "new-map-disclosure-decline" | Out-Null
+    $declined = Wait-State -Name "new-map-declined" -Condition {
+        param($candidate)
+        -not [bool]$candidate.snapshot.mapDisclosureAccepted -and $null -eq $candidate.snapshot.currentModal
+    }
+    Assert-TagVisible -Tag "work_address_field" -StepName "new-map-manual-after-decline" | Out-Null
+    $declineLogs = @(Invoke-AdbShell -Arguments @("logcat", "-d", "-v", "brief"))
+    $declineLogPath = Join-Path $OutputRoot "new-map-decline-logcat.txt"
+    $declineLogs | Set-Content -LiteralPath $declineLogPath -Encoding UTF8
+    if (($declineLogs -join "`n") -match "Google Maps Android API|MapsInitializer|GoogleMapRenderer") {
+        throw "[map_loaded_after_decline] Google Maps initialized after disclosure decline."
+    }
+
+    Invoke-AdbShell -Arguments @("svc", "wifi", "disable") | Out-Null
+    Invoke-AdbShell -Arguments @("svc", "data", "disable") | Out-Null
+    try {
+        Tap-Tag -Tag "work_open_map_button" -StepName "new-map-disclosure-reopen" | Out-Null
+        Tap-Tag -Tag "work_map_disclosure_accept_button" -StepName "new-map-disclosure-accept" | Out-Null
+        Assert-TagVisible -Tag "work_map_picker" -StepName "new-map-offline-picker" | Out-Null
+        Save-Screenshot -Name "new-map-offline-picker" | Out-Null
+        Tap-Tag -Tag "work_map_cancel_button" -StepName "new-map-offline-cancel" | Out-Null
+        Assert-TagVisible -Tag "work_address_field" -StepName "new-map-offline-manual-fallback" | Out-Null
+    } finally {
+        Invoke-AdbShell -Arguments @("svc", "wifi", "enable") -AllowFailure | Out-Null
+        Invoke-AdbShell -Arguments @("svc", "data", "enable") -AllowFailure | Out-Null
+    }
+    $afterOffline = Capture-State -Name "new-map-offline-cancel-state"
+    if ([int]$afterOffline.snapshot.workLocationCount -ne [int]$declined.snapshot.workLocationCount) {
+        throw "[map_cancel_persisted] Canceling the offline map changed persisted worksites."
+    }
+
+    Tap-Tag -Tag "work_open_map_button" -StepName "new-map-picker-reopen" | Out-Null
+    Assert-TagVisible -Tag "work_map_picker" -StepName "new-map-picker-online" | Out-Null
+    Invoke-AdbShell -Arguments @("input", "tap", "540", "620") | Out-Null
+    Start-Sleep -Seconds 1
+    Set-SliderByTag -Tag "work_radius_field" -Fraction 1.0 -StepName "new-map-radius-25-draft" | Out-Null
+    Assert-UiText -Text "25 mile worksite radius" -StepName "new-map-radius-25-label" | Out-Null
+    Assert-TagEnabledState -Tag "work_map_confirm_button" -ExpectedEnabled $true -StepName "new-map-confirm-enabled" | Out-Null
+    Save-Screenshot -Name "new-map-pin-radius-circle" | Out-Null
+    Tap-Tag -Tag "work_map_cancel_button" -StepName "new-map-cancel-draft" | Out-Null
+    $cancelled = Capture-State -Name "new-map-cancel-draft-state"
+    if ([int]$cancelled.snapshot.workLocationCount -ne 0) {
+        throw "[map_draft_saved_on_cancel] A map draft was persisted after Cancel."
+    }
+
+    Tap-Tag -Tag "work_open_map_button" -StepName "new-map-confirm-reopen" | Out-Null
+    Invoke-AdbShell -Arguments @("input", "tap", "540", "620") | Out-Null
+    Start-Sleep -Milliseconds 800
+    Set-SliderByTag -Tag "work_radius_field" -Fraction 1.0 -StepName "new-map-confirm-radius-25" | Out-Null
+    Tap-Tag -Tag "work_map_confirm_button" -StepName "new-map-use-pin" | Out-Null
+    $draftConfirmed = Capture-State -Name "new-map-confirm-still-draft"
+    if ([int]$draftConfirmed.snapshot.workLocationCount -ne 0) {
+        throw "[map_confirm_saved_worksite] Confirming a pin persisted before Save Work Site."
+    }
+    Tap-Tag -Tag "work_save_pin_button" -StepName "new-map-save-worksite" | Out-Null
+    $saved = Wait-State -Name "new-map-worksite-saved-25" -Condition {
+        param($candidate)
+        [int]$candidate.snapshot.workLocationCount -eq 1 -and
+        [Math]::Abs([double]$candidate.snapshot.workRadiusMeters - 40233.6) -lt 0.2
+    }
+    Save-Screenshot -Name "new-map-saved-25" | Out-Null
+
+    Tap-Tag -Tag "add_place_button" -StepName "new-map-edit-existing-flow" | Out-Null
+    Tap-Tag -Tag "add_place_address_button" -StepName "new-map-edit-existing" | Out-Null
+    Set-SliderByTag -Tag "work_radius_field" -Fraction 0.0 -StepName "new-map-radius-one-draft" | Out-Null
+    $beforeExplicitSave = Capture-State -Name "new-map-slider-not-saved"
+    if ([Math]::Abs([double]$beforeExplicitSave.snapshot.workRadiusMeters - 40233.6) -ge 0.2) {
+        throw "[slider_saved_early] Main worksite slider persisted before explicit save."
+    }
+    Tap-Tag -Tag "work_save_pin_button" -StepName "new-map-save-one-mile" | Out-Null
+    Tap-Tag -Tag "work_replace_location_button" -StepName "new-map-replace-one-mile" | Out-Null
+    $oneMile = Wait-State -Name "new-map-one-mile-saved" -Condition {
+        param($candidate)
+        [int]$candidate.snapshot.workLocationCount -eq 1 -and
+        [Math]::Abs([double]$candidate.snapshot.workRadiusMeters - 1609.344) -lt 0.02
+    }
+
+    Tap-Tag -Tag "add_place_button" -StepName "new-map-second-place-flow" | Out-Null
+    Tap-Tag -Tag "add_place_map_button" -StepName "new-map-second-place-map" | Out-Null
+    Invoke-AdbShell -Arguments @("input", "tap", "690", "720") | Out-Null
+    Start-Sleep -Milliseconds 800
+    Set-SliderByTag -Tag "work_radius_field" -Fraction (11.0 / 24.0) -StepName "new-map-second-place-radius" | Out-Null
+    Tap-Tag -Tag "work_map_confirm_button" -StepName "new-map-second-place-confirm" | Out-Null
+    Tap-Tag -Tag "work_save_pin_button" -StepName "new-map-second-place-save" | Out-Null
+    Tap-Tag -Tag "work_add_location_button" -StepName "new-map-second-place-add-not-replace" | Out-Null
+    $multiple = Wait-State -Name "new-map-multiple-places" -Condition {
+        param($candidate)
+        [int]$candidate.snapshot.workLocationCount -eq 2
+    }
+    $savedIds = @($multiple.snapshot.workLocations | ForEach-Object { [string]$_.id })
+    if (@($savedIds | Select-Object -Unique).Count -ne 2) {
+        throw "[worksite_replaced_instead_of_added] Multiple saved places did not retain distinct IDs."
+    }
+    foreach ($id in $savedIds) {
+        $safeId = [regex]::Replace($id, "[^A-Za-z0-9_-]", "_")
+        Assert-TagVisible -Tag "saved_place_$safeId" -StepName "new-map-saved-list-$safeId" | Out-Null
+    }
+    Save-Screenshot -Name "new-map-multiple-saved-places" | Out-Null
+
+    $newId = @($savedIds | Where-Object { $_ -ne "work" })[0]
+    $beforeSiteCount = [int]$multiple.snapshot.workSiteSessionCount
+    foreach ($transition in @("ENTER", "EXIT")) {
+        Invoke-AdbShell -Arguments @(
+            "am", "broadcast",
+            "-a", "$PackageName.E2E_GEOFENCE_TRANSITION",
+            "-n", "$PackageName/com.robertochavez.timetracker.core.location.geofence.GeofenceBroadcastReceiver",
+            "--es", "requestId", "work:$newId",
+            "--es", "transition", $transition
+        ) | Out-Null
+        Start-Sleep -Seconds 1
+    }
+    Wait-State -Name "new-map-second-site-allocation" -Condition {
+        param($candidate)
+        [int]$candidate.snapshot.workSiteSessionCount -gt $beforeSiteCount
+    } | Out-Null
+    return @{
+        declinedWithoutLoad = $true
+        offlineManualFallback = $true
+        saved25Meters = $saved.snapshot.workRadiusMeters
+        saved1Meters = $oneMile.snapshot.workRadiusMeters
+        savedPlaceCount = [int]$multiple.snapshot.workLocationCount
+        allocatedWorkLocationId = $newId
+    }
+}
+
+function Invoke-NewFeatureAcceptance {
+    Invoke-E2EFlow -Name "new_feature_bootstrap_reset" -Action { Invoke-BootstrapReset }
+    Invoke-E2EFlow -Name "new_week_navigation" -Action { Invoke-NewWeekAcceptance }
+    Invoke-E2EFlow -Name "new_workday_schedule" -Action { Invoke-NewScheduleAcceptance }
+    Invoke-E2EFlow -Name "new_pay_periods" -Action { Invoke-NewPayPeriodAcceptance }
+    Invoke-E2EFlow -Name "new_map_and_radius" -Action { Invoke-NewMapAcceptance }
+    Invoke-E2EFlow -Name "new_feature_debug_log_audit" -Action { Invoke-DebugLogAudit }
+}
+
 try {
     $script:ResolvedDeviceId = Resolve-E2EDeviceId -RequestedDeviceId $DeviceId
     Update-DisplaySize
     Start-DebugInfrastructure
 
-    Invoke-E2EFlow -Name "bootstrap_reset" -Action { Invoke-BootstrapReset }
-    Invoke-E2EFlow -Name "settings_tracking_setup" -Action { Invoke-SettingsTrackingSetup }
-    Invoke-E2EFlow -Name "settings_timesheet_rules" -Action { Invoke-SettingsTimesheetRules }
-    Invoke-E2EFlow -Name "home_location_controls" -Action { Invoke-HomeLocationControls }
-    Invoke-E2EFlow -Name "tracking_session_correction" -Action { Invoke-TrackingSessionCorrection }
-    Invoke-E2EFlow -Name "jobsite_geofence_mileage_policy" -Action { Invoke-JobsiteGeofenceMileagePolicy }
-    Invoke-E2EFlow -Name "dashboard_navigation_and_totals" -Action { Invoke-DashboardNavigationAndTotals }
-    Invoke-E2EFlow -Name "bottom_nav_switching" -Action { Invoke-BottomNavSwitching }
-    Invoke-E2EFlow -Name "persistence_relaunch" -Action { Run-PersistenceRelaunch }
-    Invoke-E2EFlow -Name "destructive_reset_confirmation" -Action { Invoke-DestructiveResetConfirmation }
-    Invoke-E2EFlow -Name "ui_control_coverage_audit" -Action { Invoke-UiControlCoverageAudit }
-    Invoke-E2EFlow -Name "debug_log_audit" -Action { Invoke-DebugLogAudit }
+    if ($NewFeatureAcceptanceOnly) {
+        Invoke-NewFeatureAcceptance
+    } else {
+        Invoke-E2EFlow -Name "bootstrap_reset" -Action { Invoke-BootstrapReset }
+        Invoke-E2EFlow -Name "settings_tracking_setup" -Action { Invoke-SettingsTrackingSetup }
+        Invoke-E2EFlow -Name "settings_timesheet_rules" -Action { Invoke-SettingsTimesheetRules }
+        Invoke-E2EFlow -Name "home_location_controls" -Action { Invoke-HomeLocationControls }
+        Invoke-E2EFlow -Name "tracking_session_correction" -Action { Invoke-TrackingSessionCorrection }
+        Invoke-E2EFlow -Name "jobsite_geofence_mileage_policy" -Action { Invoke-JobsiteGeofenceMileagePolicy }
+        Invoke-E2EFlow -Name "dashboard_navigation_and_totals" -Action { Invoke-DashboardNavigationAndTotals }
+        Invoke-E2EFlow -Name "bottom_nav_switching" -Action { Invoke-BottomNavSwitching }
+        Invoke-E2EFlow -Name "persistence_relaunch" -Action { Run-PersistenceRelaunch }
+        Invoke-E2EFlow -Name "destructive_reset_confirmation" -Action { Invoke-DestructiveResetConfirmation }
+        Invoke-E2EFlow -Name "ui_control_coverage_audit" -Action { Invoke-UiControlCoverageAudit }
+        Invoke-E2EFlow -Name "debug_log_audit" -Action { Invoke-DebugLogAudit }
+    }
 } catch {
     if ($_.Exception -and -not [string]::IsNullOrWhiteSpace($_.Exception.Message)) {
         $script:RunFailure = $_.Exception.Message

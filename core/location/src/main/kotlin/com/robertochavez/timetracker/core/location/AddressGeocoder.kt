@@ -16,6 +16,8 @@ data class GeocodedAddress(val latitude: Double, val longitude: Double, val disp
 
 interface AddressGeocoder {
     suspend fun findAddress(query: String): GeocodedAddress?
+
+    suspend fun reverseGeocode(latitude: Double, longitude: Double): String? = null
 }
 
 @Singleton
@@ -36,12 +38,29 @@ class AndroidAddressGeocoder @Inject constructor(@ApplicationContext private val
                         address.getAddressLine(index)?.takeIf(String::isNotBlank)?.let(::add)
                     }
                 }.firstOrNull() ?: normalizedQuery
-                logger.info(LogCategory.LOCATION, "Work address geocoded")
+                logger.info(LogCategory.LOCATION, "Address geocoded")
                 GeocodedAddress(
                     latitude = address.latitude,
                     longitude = address.longitude,
                     displayAddress = displayAddress,
                 )
+            }
+        }
+    }
+
+    override suspend fun reverseGeocode(latitude: Double, longitude: Double): String? {
+        require(latitude in -90.0..90.0 && longitude in -180.0..180.0) { "Invalid map coordinates." }
+        return withContext(Dispatchers.IO) {
+            @Suppress("DEPRECATION")
+            val address = Geocoder(context, Locale.getDefault())
+                .getFromLocation(latitude, longitude, ADDRESS_RESULT_LIMIT)
+                ?.firstOrNull()
+            address?.let {
+                buildList {
+                    repeat(it.maxAddressLineIndex + 1) { index ->
+                        it.getAddressLine(index)?.takeIf(String::isNotBlank)?.let(::add)
+                    }
+                }.firstOrNull()
             }
         }
     }

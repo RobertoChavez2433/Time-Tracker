@@ -6,6 +6,9 @@ import com.robertochavez.timetracker.BuildConfig
 import com.robertochavez.timetracker.core.common.domain.ActivityBucketPolicy
 import com.robertochavez.timetracker.core.common.domain.MotionActivity
 import com.robertochavez.timetracker.core.common.domain.MotionTransition
+import com.robertochavez.timetracker.core.common.domain.payPeriodRangeFor
+import com.robertochavez.timetracker.core.common.model.PayPeriodCadence
+import com.robertochavez.timetracker.core.common.model.PayPeriodSettings
 import com.robertochavez.timetracker.core.common.repository.TrackingRepository
 import com.robertochavez.timetracker.core.logging.AppLogger
 import com.robertochavez.timetracker.core.logging.JsonEncoding
@@ -25,7 +28,9 @@ import java.net.URI
 import java.net.URLDecoder
 import java.time.Clock
 import java.time.Instant
+import java.time.LocalDate
 import java.time.temporal.ChronoUnit
+import java.time.temporal.TemporalAdjusters
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -40,7 +45,7 @@ class DebugStateEndpointServer @Inject constructor(
     private val clock: Clock,
 ) {
     private val debuggable = context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
-    private val enabled = debuggable && BuildConfig.E2E_DEBUG_ENABLED
+    private val enabled = endpointEnabled(debuggable, BuildConfig.E2E_DEBUG_ENABLED)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var serverSocket: ServerSocket? = null
 
@@ -86,6 +91,7 @@ class DebugStateEndpointServer @Inject constructor(
             val actorId = query["actorId"] ?: "local"
             val payload = when (uri.path) {
                 STATE_PATH -> statePayload(runId = runId, actorId = actorId)
+                FIXTURES_PATH -> fixtureContract()
                 SEED_JOBSITE_DRIVE_PATH -> seedJobsiteDrivePayload(runId = runId, actorId = actorId)
                 PREPARE_MOCK_DRIVE_PATH -> mockDriveSimulator.prepare(query.mockDriveConfig(), runId, actorId)
                 INJECT_MOCK_DRIVE_PATH -> mockDriveSimulator.inject(query.mockDriveConfig(), runId, actorId)
@@ -94,6 +100,7 @@ class DebugStateEndpointServer @Inject constructor(
                     "error" to "Unknown endpoint",
                     "endpoints" to listOf(
                         STATE_PATH,
+                        FIXTURES_PATH,
                         SEED_JOBSITE_DRIVE_PATH,
                         PREPARE_MOCK_DRIVE_PATH,
                         INJECT_MOCK_DRIVE_PATH,
@@ -208,8 +215,11 @@ class DebugStateEndpointServer @Inject constructor(
     private fun Map<String, String>.longValue(name: String, defaultValue: Long): Long = this[name]?.toLongOrNull() ?: defaultValue
 
     companion object {
+        internal fun endpointEnabled(debuggable: Boolean, e2eDebugEnabled: Boolean): Boolean = debuggable && e2eDebugEnabled
+
         const val DEFAULT_PORT = 4958
         const val STATE_PATH = "/testing/state"
+        const val FIXTURES_PATH = "/testing/fixtures"
         const val SEED_JOBSITE_DRIVE_PATH = "/testing/seed-jobsite-drive"
         const val PREPARE_MOCK_DRIVE_PATH = "/testing/prepare-mock-drive"
         const val INJECT_MOCK_DRIVE_PATH = "/testing/inject-mock-drive"
@@ -225,5 +235,32 @@ class DebugStateEndpointServer @Inject constructor(
         private const val DEFAULT_MOCK_DURATION_SECONDS = 240L
         private const val DEFAULT_MOCK_POINT_COUNT = 8
         private const val DEFAULT_MOCK_ACCURACY_METERS = 5f
+
+        internal fun fixtureContract(): Map<String, Any?> {
+            val referenceDate = LocalDate.parse("2026-07-27")
+            val currentWeekStart = referenceDate.with(TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY))
+            val weekly = PayPeriodSettings(LocalDate.parse("2026-07-06"), PayPeriodCadence.WEEKLY)
+                .payPeriodRangeFor(referenceDate)
+            val biweekly = PayPeriodSettings(LocalDate.parse("2026-07-06"), PayPeriodCadence.BIWEEKLY)
+                .payPeriodRangeFor(referenceDate)
+            val beforeAnchor = PayPeriodSettings(LocalDate.parse("2026-01-05"), PayPeriodCadence.WEEKLY)
+                .payPeriodRangeFor(LocalDate.parse("2025-12-31"))
+            return mapOf(
+                "schemaVersion" to AppStateSnapshot.CURRENT_SCHEMA_VERSION,
+                "referenceDate" to referenceDate.toString(),
+                "previousWeek" to mapOf(
+                    "start" to currentWeekStart.minusWeeks(1).toString(),
+                    "end" to currentWeekStart.minusDays(1).toString(),
+                ),
+                "weeklyPayPeriod" to weekly.inclusiveMap(),
+                "biweeklyPayPeriod" to biweekly.inclusiveMap(),
+                "beforeAnchorPayPeriod" to beforeAnchor.inclusiveMap(),
+            )
+        }
     }
 }
+
+private fun com.robertochavez.timetracker.core.common.model.DateRange.inclusiveMap(): Map<String, String> = mapOf(
+    "start" to startInclusive.toString(),
+    "end" to endExclusive.minusDays(1).toString(),
+)

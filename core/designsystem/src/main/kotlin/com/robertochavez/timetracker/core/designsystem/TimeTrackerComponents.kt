@@ -124,8 +124,13 @@ fun TimeTrackerMetricRow(label: String, value: String, modifier: Modifier = Modi
 }
 
 @Composable
-fun TimeTrackerSettingSection(title: String, subtitle: String? = null, content: @Composable ColumnScope.() -> Unit) {
-    TimeTrackerPanel {
+fun TimeTrackerSettingSection(
+    title: String,
+    subtitle: String? = null,
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    TimeTrackerPanel(modifier = modifier) {
         Text(title, color = TimeTrackerColors.PrimaryOliveDark, style = MaterialTheme.typography.titleMedium)
         if (!subtitle.isNullOrBlank()) {
             TimeTrackerMutedText(subtitle)

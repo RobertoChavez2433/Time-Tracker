@@ -1,5 +1,6 @@
 package com.robertochavez.timetracker.feature.reports
 
+import androidx.lifecycle.SavedStateHandle
 import com.robertochavez.timetracker.core.common.model.ActivityBucket
 import com.robertochavez.timetracker.core.common.model.ActivityInterval
 import com.robertochavez.timetracker.core.common.model.AwaySession
@@ -17,9 +18,11 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import java.time.Clock
+import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZoneOffset
@@ -27,12 +30,65 @@ import java.time.ZoneOffset
 @OptIn(ExperimentalCoroutinesApi::class)
 @Suppress("LargeClass")
 class ReportsViewModelTest {
+    @Test
+    fun `reports expose guarded week navigation contract`() {
+        val viewModelMethods = ReportsViewModel::class.java.methods.map { it.name }.toSet()
+        val stateMethods = ReportsUiState::class.java.methods.map { it.name }.toSet()
+
+        assertTrue("ReportsViewModel must expose previousWeek", "previousWeek" in viewModelMethods)
+        assertTrue("ReportsViewModel must expose nextWeek", "nextWeek" in viewModelMethods)
+        assertTrue("ReportsUiState must expose selected week offset", "getSelectedWeekOffset" in stateMethods)
+        assertTrue("ReportsUiState must expose next-week availability", "getCanNavigateToNextWeek" in stateMethods)
+    }
+
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
 
     private val zone = ZoneId.of("America/New_York")
     private val now = Instant.parse("2026-05-04T16:00:00Z")
     private val clock = Clock.fixed(now, zone)
+
+    @Test
+    fun `week browsing is bounded and uses independent fixed-size queries`() = runTest(mainDispatcherRule.testDispatcher) {
+        val trackingRepository = FakeTrackingRepository()
+        val viewModel = ReportsViewModel(
+            trackingRepository = trackingRepository,
+            workScheduleRepository = FakeWorkScheduleRepository(),
+            payPeriodSettingsRepository = FakePayPeriodSettingsRepository(),
+            workSiteSessionRepository = FakeWorkSiteSessionRepository(),
+            clock = clock,
+            logger = NoopAppLogger(),
+            savedStateHandle = SavedStateHandle(mapOf("selected_week_offset" to 4)),
+        )
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.uiState.collect()
+        }
+        advanceUntilIdle()
+
+        assertEquals(0, viewModel.uiState.value.selectedWeekOffset)
+        assertTrue(!viewModel.uiState.value.canNavigateToNextWeek)
+
+        repeat(30) { viewModel.previousWeek() }
+        advanceUntilIdle()
+
+        assertEquals(-30, viewModel.uiState.value.selectedWeekOffset)
+        assertEquals(listOf("Oct 6 - Oct 12, 2025"), viewModel.uiState.value.summaries.map { it.title })
+        assertEquals("Oct 6 - Oct 12, 2025", viewModel.uiState.value.weeklyLedger.title)
+        assertEquals(DashboardSummaryMode.SELECTED_WEEK, viewModel.uiState.value.summaryMode)
+        assertTrue(viewModel.uiState.value.canNavigateToNextWeek)
+        assertTrue(
+            trackingRepository.sessionRangeRequests.all { (start, end) ->
+                Duration.between(start, end) <= Duration.ofDays(14)
+            },
+        )
+
+        repeat(40) { viewModel.nextWeek() }
+        advanceUntilIdle()
+
+        assertEquals(0, viewModel.uiState.value.selectedWeekOffset)
+        assertTrue(!viewModel.uiState.value.canNavigateToNextWeek)
+        assertEquals(listOf("Today", "Week", "Pay Period"), viewModel.uiState.value.summaries.map { it.title })
+    }
 
     @Test
     fun `dashboard partitions outside home time into drive site and idle buckets`() = runTest(mainDispatcherRule.testDispatcher) {

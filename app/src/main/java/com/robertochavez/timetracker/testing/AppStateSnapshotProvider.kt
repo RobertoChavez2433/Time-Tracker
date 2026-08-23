@@ -1,10 +1,12 @@
 package com.robertochavez.timetracker.testing
 
 import com.robertochavez.timetracker.core.common.domain.ReportCalculator
+import com.robertochavez.timetracker.core.common.domain.payPeriodRangeFor
 import com.robertochavez.timetracker.core.common.model.ActivityInterval
 import com.robertochavez.timetracker.core.common.model.AwaySession
 import com.robertochavez.timetracker.core.common.model.DailyReport
 import com.robertochavez.timetracker.core.common.model.PeriodReport
+import com.robertochavez.timetracker.core.common.model.UiDebugState
 import com.robertochavez.timetracker.core.common.model.WorkSiteSession
 import com.robertochavez.timetracker.core.common.repository.TrackingRepository
 import com.robertochavez.timetracker.core.logging.AppLogger
@@ -40,6 +42,8 @@ class AppStateSnapshotProvider @Inject constructor(
         val recentLogs = logger.recentEvents(limit = 50)
         val latestSession = sessions.firstOrNull()
         val reportCalculator = ReportCalculator(clock.zone, schedule, payPeriod)
+        val payPeriodRange = payPeriod.payPeriodRangeFor(today)
+        val uiDebug = UiDebugState.snapshot
 
         return AppStateSnapshot(
             runId = runId,
@@ -76,7 +80,16 @@ class AppStateSnapshotProvider @Inject constructor(
             todayDayOfWeek = today.dayOfWeek.name,
             workdayCount = schedule.trackableDays.size,
             workdays = DayOfWeek.entries.associate { day -> day.name to (day in schedule.trackableDays) },
-            payPeriodAnchorDate = payPeriod.biweeklyAnchorStartDate.toString(),
+            payPeriodAnchorDate = payPeriod.anchorStartDate.toString(),
+            payPeriodCadence = payPeriod.cadence.name,
+            payPeriodStartDate = payPeriodRange.startInclusive.toString(),
+            payPeriodEndDate = payPeriodRange.endExclusive.minusDays(1).toString(),
+            mapDisclosureAccepted = settings.mapDisclosureAccepted,
+            currentRoute = uiDebug.currentRoute,
+            currentModal = uiDebug.currentModal,
+            selectedWeekStart = uiDebug.selectedWeekStart,
+            selectedWeekEnd = uiDebug.selectedWeekEnd,
+            selectedWeekMode = uiDebug.selectedWeekMode,
             privacyDisclosureAccepted = settings.privacyDisclosureAccepted,
             activityDetectionEnabled = settings.activityDetectionEnabled,
             minimalActiveNotificationEnabled = settings.minimalActiveNotificationEnabled,
@@ -96,7 +109,7 @@ class AppStateSnapshotProvider @Inject constructor(
     ): Map<String, ReportSnapshot> = mapOf(
         "today" to calculator.daily(today, sessions, intervals, now, workSiteSessions).toSnapshot(),
         "weekly" to calculator.weekly(today, sessions, intervals, now, workSiteSessions).toSnapshot(),
-        "biweekly" to calculator.biweekly(today, sessions, intervals, now, workSiteSessions).toSnapshot(),
+        "payPeriod" to calculator.payPeriod(today, sessions, intervals, now, workSiteSessions).toSnapshot(),
         "monthly" to calculator.monthly(YearMonth.from(today), sessions, intervals, now, workSiteSessions).toSnapshot(),
         "yearly" to calculator.yearly(today.year, sessions, intervals, now, workSiteSessions).toSnapshot(),
     )

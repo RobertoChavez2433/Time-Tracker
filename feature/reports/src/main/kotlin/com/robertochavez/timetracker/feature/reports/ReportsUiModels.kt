@@ -27,6 +27,11 @@ data class ReportsUiState(
     val isRefreshing: Boolean = false,
     val summaries: List<DashboardSummaryUiModel> = emptyList(),
     val weeklyLedger: WeeklyLedgerUiModel = WeeklyLedgerUiModel(),
+    val selectedWeekOffset: Int = 0,
+    val canNavigateToNextWeek: Boolean = false,
+    val selectedWeekStart: String = "",
+    val selectedWeekEnd: String = "",
+    val summaryMode: DashboardSummaryMode = DashboardSummaryMode.CURRENT_WEEK,
     val historyRangeMode: HistoryRangeMode = HistoryRangeMode.PAY_PERIOD,
     val customStartDate: String = "",
     val customEndDate: String = "",
@@ -37,6 +42,11 @@ data class ReportsUiState(
     val siteHistory: List<SiteHistoryGroupUiModel> = emptyList(),
     val historyMessage: String = "",
 )
+
+enum class DashboardSummaryMode {
+    CURRENT_WEEK,
+    SELECTED_WEEK,
+}
 
 internal data class ReportInputs(
     val sessions: List<AwaySession>,
@@ -246,9 +256,13 @@ internal fun PeriodReport.toWeeklyLedger(today: LocalDate, schedule: WorkSchedul
             isToday = report.date == today,
         )
     }
+    val weekEnd = range.endExclusive.minusDays(1)
     return WeeklyLedgerUiModel(
-        dateRange = "${range.startInclusive.format(RANGE_DATE_FORMATTER)} - " +
-            range.endExclusive.minusDays(1).format(RANGE_DATE_FORMATTER),
+        dateRange = if (range.startInclusive.year == weekEnd.year) {
+            "${range.startInclusive.format(RANGE_DATE_FORMATTER)} - ${weekEnd.format(RANGE_DATE_WITH_YEAR_FORMATTER)}"
+        } else {
+            "${range.startInclusive.format(RANGE_DATE_WITH_YEAR_FORMATTER)} - ${weekEnd.format(RANGE_DATE_WITH_YEAR_FORMATTER)}"
+        },
         rows = rows,
         total = WeeklyLedgerRowUiModel(
             day = "Total",
@@ -316,6 +330,7 @@ private fun Double.formatLedgerMiles(hasData: Boolean): String = if (hasData) fo
 private val DAY_DATE_FORMATTER: DateTimeFormatter = DateTimeFormatter.ofPattern("M/d", Locale.US)
 
 private val RANGE_DATE_FORMATTER: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM d", Locale.US)
+private val RANGE_DATE_WITH_YEAR_FORMATTER: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.US)
 
 private val DAY_HISTORY_FORMATTER: DateTimeFormatter = DateTimeFormatter.ofPattern("EEE, MMM d", Locale.US)
 

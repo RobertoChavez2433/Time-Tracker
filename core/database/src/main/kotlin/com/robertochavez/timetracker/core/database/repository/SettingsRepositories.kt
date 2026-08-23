@@ -43,10 +43,14 @@ class RoomPayPeriodSettingsRepository @Inject constructor(
 
     override suspend fun setSettings(settings: PayPeriodSettings) {
         payPeriodSettingsDao.upsert(PayPeriodSettingsEntity.fromModel(settings))
-        logger.info(LogCategory.SETTINGS, "Pay period settings saved", mapOf("anchorDate" to settings.biweeklyAnchorStartDate.toString()))
+        logger.info(
+            LogCategory.SETTINGS,
+            "Pay period settings saved",
+            mapOf("anchorDate" to settings.anchorStartDate.toString(), "cadence" to settings.cadence.name),
+        )
     }
 
     private fun defaultSettings(): PayPeriodSettings = PayPeriodSettings(
-        biweeklyAnchorStartDate = LocalDate.now().with(java.time.DayOfWeek.MONDAY),
+        anchorStartDate = LocalDate.now().with(java.time.DayOfWeek.MONDAY),
     )
 }

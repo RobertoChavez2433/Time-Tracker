@@ -6,6 +6,40 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class TestingStateMachineTest {
+    @Test(expected = IllegalArgumentException::class)
+    fun `unknown snapshot schema is rejected`() {
+        TestingStateMachine.evaluate(snapshot().copy(schemaVersion = 999))
+    }
+
+    @Test
+    fun `release posture never enables debug endpoint`() {
+        assertFalse(DebugStateEndpointServer.endpointEnabled(debuggable = false, e2eDebugEnabled = true))
+        assertFalse(DebugStateEndpointServer.endpointEnabled(debuggable = false, e2eDebugEnabled = false))
+        assertTrue(DebugStateEndpointServer.endpointEnabled(debuggable = true, e2eDebugEnabled = true))
+    }
+
+    @Test
+    fun `debug fixtures pin previous week and pay period boundaries`() {
+        val fixtures = DebugStateEndpointServer.fixtureContract()
+
+        assertEquals(
+            mapOf("start" to "2026-07-20", "end" to "2026-07-26"),
+            fixtures["previousWeek"],
+        )
+        assertEquals(
+            mapOf("start" to "2026-07-27", "end" to "2026-08-02"),
+            fixtures["weeklyPayPeriod"],
+        )
+        assertEquals(
+            mapOf("start" to "2026-07-20", "end" to "2026-08-02"),
+            fixtures["biweeklyPayPeriod"],
+        )
+        assertEquals(
+            mapOf("start" to "2025-12-29", "end" to "2026-01-04"),
+            fixtures["beforeAnchorPayPeriod"],
+        )
+    }
+
     @Test
     fun `state blocks verification when setup is incomplete`() {
         val state = TestingStateMachine.evaluate(snapshot(homeSet = false, privacyAccepted = false))

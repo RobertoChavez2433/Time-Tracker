@@ -272,6 +272,10 @@ class FakeAppSettingsRepository(
         settings.value = settings.value.copy(activityDetectionEnabled = enabled)
     }
 
+    override suspend fun setMapDisclosureAccepted(accepted: Boolean) {
+        settings.value = settings.value.copy(mapDisclosureAccepted = accepted)
+    }
+
     override suspend fun resetSettings() {
         settings.value = AppSettings(
             minimalActiveNotificationEnabled = false,

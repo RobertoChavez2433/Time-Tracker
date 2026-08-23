@@ -30,10 +30,14 @@ import com.robertochavez.timetracker.core.database.entity.WorkSiteSessionEntity
         WorkPresenceEntity::class,
         WorkSiteSessionEntity::class,
     ],
-    version = 11,
+    version = TimeTrackerDatabase.VERSION,
     exportSchema = false,
 )
 abstract class TimeTrackerDatabase : RoomDatabase() {
+    companion object {
+        const val VERSION = 12
+    }
+
     abstract fun homeLocationDao(): HomeLocationDao
 
     abstract fun workLocationDao(): WorkLocationDao

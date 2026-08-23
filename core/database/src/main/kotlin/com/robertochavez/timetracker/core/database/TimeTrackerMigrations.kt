@@ -99,6 +99,17 @@ object TimeTrackerMigrations {
         }
     }
 
+    val MIGRATION_11_12: Migration = object : Migration(11, 12) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "ALTER TABLE `pay_period_settings` ADD COLUMN `cadence` TEXT NOT NULL DEFAULT 'BIWEEKLY'",
+            )
+            db.execSQL(
+                "UPDATE `work_locations` SET `radiusMeters` = 1609.344 WHERE `radiusMeters` < 1609.344",
+            )
+        }
+    }
+
     val ALL: Array<Migration> =
         arrayOf(
             MIGRATION_1_2,
@@ -111,5 +122,6 @@ object TimeTrackerMigrations {
             MIGRATION_8_9,
             MIGRATION_9_10,
             MIGRATION_10_11,
+            MIGRATION_11_12,
         )
 }

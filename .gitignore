@@ -7,6 +7,7 @@ build/
 
 # Local machine configuration
 local.properties
+secrets.properties
 *.iml
 .idea/
 .vscode/

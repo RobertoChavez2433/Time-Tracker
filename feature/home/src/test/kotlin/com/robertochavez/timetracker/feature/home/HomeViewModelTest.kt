@@ -2,6 +2,7 @@ package com.robertochavez.timetracker.feature.home
 
 import com.robertochavez.timetracker.core.common.model.HomeLocation
 import com.robertochavez.timetracker.core.common.model.WorkLocation
+import com.robertochavez.timetracker.core.designsystem.TimeTrackerTestTags
 import com.robertochavez.timetracker.core.location.AddressGeocoder
 import com.robertochavez.timetracker.core.location.CurrentGeofenceLocationProvider
 import com.robertochavez.timetracker.core.location.GeocodedAddress
@@ -32,6 +33,235 @@ class HomeViewModelTest {
     val mainDispatcherRule = MainDispatcherRule()
 
     private val clock = Clock.fixed(Instant.parse("2026-05-04T12:00:00Z"), ZoneOffset.UTC)
+
+    @Test
+    fun `places exposes one streamlined add flow with stable automation controls`() {
+        val fields = TimeTrackerTestTags::class.java.fields.map { it.name }.toSet()
+
+        assertTrue("Saved places needs a stable list tag", "PLACES_SAVED_LIST" in fields)
+        assertTrue("Places needs one add button", "ADD_PLACE_BUTTON" in fields)
+        assertTrue("Add flow needs current-location control", "ADD_PLACE_CURRENT_BUTTON" in fields)
+        assertTrue("Add flow needs map control", "ADD_PLACE_MAP_BUTTON" in fields)
+        assertTrue("Add flow needs address control", "ADD_PLACE_ADDRESS_BUTTON" in fields)
+        assertTrue("Home edit needs current-location control", "HOME_EDIT_CURRENT_BUTTON" in fields)
+        assertTrue("Home edit needs map control", "HOME_EDIT_MAP_BUTTON" in fields)
+        assertTrue("Home edit needs address control", "HOME_EDIT_ADDRESS_BUTTON" in fields)
+        assertTrue("Home address needs a stable field", "HOME_ADDRESS_FIELD" in fields)
+        assertTrue("Home map needs a stable picker tag", "HOME_MAP_PICKER" in fields)
+    }
+
+    @Test
+    fun `map pin remains a draft until explicit worksite save`() = runTest(mainDispatcherRule.testDispatcher) {
+        val workRepository = FakeWorkLocationRepository()
+        val geocoder = StaticAddressGeocoder(reverseResult = "Map Address")
+        val viewModel = HomeViewModel(
+            homeLocationRepository = FakeHomeLocationRepository(),
+            workLocationRepository = workRepository,
+            currentGeofenceLocationProvider = StaticCurrentGeofenceLocationProvider(),
+            addressGeocoder = geocoder,
+            homeGeofenceRegistrar = RecordingHomeGeofenceRegistrar(),
+            workGeofenceRegistrar = RecordingWorkGeofenceRegistrar(),
+            clock = clock,
+            logger = NoopAppLogger(),
+        )
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.uiState.collect()
+        }
+
+        viewModel.selectWorkMapPin(39.7, -104.9, 5 * WorkLocation.MINIMUM_RADIUS_METERS)
+        advanceUntilIdle()
+
+        assertTrue(workRepository.workLocations.value.isEmpty())
+        assertEquals("39.7", viewModel.uiState.value.workLatitude)
+        assertEquals("Map Address", viewModel.uiState.value.workAddress)
+
+        viewModel.saveWorkPin()
+        advanceUntilIdle()
+
+        assertEquals(1, workRepository.workLocations.value.size)
+        assertEquals(5 * WorkLocation.MINIMUM_RADIUS_METERS, workRepository.workLocations.value.single().radiusMeters)
+    }
+
+    @Test
+    fun `opening the map centers its draft on current location without saving a place`() = runTest(mainDispatcherRule.testDispatcher) {
+        val current = WorkLocation(
+            latitude = 40.7128,
+            longitude = -74.0060,
+            radiusMeters = WorkLocation.MINIMUM_RADIUS_METERS,
+            updatedAt = Instant.parse("2026-05-04T12:00:00Z"),
+        )
+        val workRepository = FakeWorkLocationRepository()
+        val viewModel = HomeViewModel(
+            homeLocationRepository = FakeHomeLocationRepository(),
+            workLocationRepository = workRepository,
+            currentGeofenceLocationProvider = StaticCurrentGeofenceLocationProvider(workLocation = current),
+            addressGeocoder = StaticAddressGeocoder(),
+            homeGeofenceRegistrar = RecordingHomeGeofenceRegistrar(),
+            workGeofenceRegistrar = RecordingWorkGeofenceRegistrar(),
+            clock = clock,
+            logger = NoopAppLogger(),
+        )
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.uiState.collect()
+        }
+        advanceUntilIdle()
+
+        var mapCenter: Pair<Double?, Double?>? = null
+        viewModel.prepareWorkMapFromCurrentLocation { latitude, longitude ->
+            mapCenter = latitude to longitude
+        }
+        advanceUntilIdle()
+
+        assertEquals(40.7128 to -74.0060, mapCenter)
+        assertEquals("40.7128", viewModel.uiState.value.workLatitude)
+        assertEquals("-74.006", viewModel.uiState.value.workLongitude)
+        assertTrue(workRepository.workLocations.value.isEmpty())
+    }
+
+    @Test
+    fun `map references label current home and every saved worksite without changing the draft`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            val home = HomeLocation(
+                latitude = 39.7392,
+                longitude = -104.9903,
+                radiusMeters = HomeLocation.MINIMUM_RADIUS_METERS,
+                updatedAt = Instant.parse("2026-05-04T12:00:00Z"),
+            )
+            val office = WorkLocation(
+                id = "office",
+                label = "Office",
+                latitude = 39.7292,
+                longitude = -104.9803,
+                radiusMeters = WorkLocation.MINIMUM_RADIUS_METERS,
+                updatedAt = Instant.parse("2026-05-03T12:00:00Z"),
+            )
+            val current = WorkLocation(
+                latitude = 39.7492,
+                longitude = -104.9703,
+                radiusMeters = WorkLocation.MINIMUM_RADIUS_METERS,
+                updatedAt = Instant.parse("2026-05-04T12:00:00Z"),
+            )
+            val workRepository = FakeWorkLocationRepository(office)
+            val viewModel = HomeViewModel(
+                homeLocationRepository = FakeHomeLocationRepository(initialHomeLocation = home),
+                workLocationRepository = workRepository,
+                currentGeofenceLocationProvider = StaticCurrentGeofenceLocationProvider(workLocation = current),
+                addressGeocoder = StaticAddressGeocoder(),
+                homeGeofenceRegistrar = RecordingHomeGeofenceRegistrar(),
+                workGeofenceRegistrar = RecordingWorkGeofenceRegistrar(),
+                clock = clock,
+                logger = NoopAppLogger(),
+            )
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect()
+            }
+            advanceUntilIdle()
+
+            viewModel.prepareWorkMapFromCurrentLocation { _, _ -> }
+            advanceUntilIdle()
+
+            assertEquals(
+                listOf("Current location", "Home", "Office"),
+                viewModel.uiState.value.mapReferenceLocations.map { it.label },
+            )
+            assertEquals(office, workRepository.workLocations.value.single())
+            assertEquals("39.7492", viewModel.uiState.value.workLatitude)
+            assertEquals("-104.9703", viewModel.uiState.value.workLongitude)
+        }
+
+    @Test
+    fun `opening the home map centers its draft on current location without saving home`() = runTest(mainDispatcherRule.testDispatcher) {
+        val current = HomeLocation(
+            latitude = 39.7492,
+            longitude = -104.9703,
+            radiusMeters = 150f,
+            updatedAt = Instant.parse("2026-05-04T12:00:00Z"),
+        )
+        val homeRepository = FakeHomeLocationRepository()
+        val viewModel = HomeViewModel(
+            homeLocationRepository = homeRepository,
+            workLocationRepository = FakeWorkLocationRepository(),
+            currentGeofenceLocationProvider = StaticCurrentGeofenceLocationProvider(homeLocation = current),
+            addressGeocoder = StaticAddressGeocoder(),
+            homeGeofenceRegistrar = RecordingHomeGeofenceRegistrar(),
+            workGeofenceRegistrar = RecordingWorkGeofenceRegistrar(),
+            clock = clock,
+            logger = NoopAppLogger(),
+        )
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.uiState.collect()
+        }
+        advanceUntilIdle()
+
+        var mapCenter: Pair<Double?, Double?>? = null
+        viewModel.prepareHomeMapFromCurrentLocation { latitude, longitude ->
+            mapCenter = latitude to longitude
+        }
+        advanceUntilIdle()
+
+        assertEquals(39.7492 to -104.9703, mapCenter)
+        assertEquals("39.7492", viewModel.uiState.value.homeLatitude)
+        assertEquals("-104.9703", viewModel.uiState.value.homeLongitude)
+        assertEquals(null, homeRepository.homeLocation.value)
+    }
+
+    @Test
+    fun `home address lookup and map pin remain drafts until explicit save`() = runTest(mainDispatcherRule.testDispatcher) {
+        val original = HomeLocation(
+            latitude = 39.7392,
+            longitude = -104.9903,
+            radiusMeters = 15.24f,
+            updatedAt = Instant.parse("2026-05-03T12:00:00Z"),
+        )
+        val homeRepository = FakeHomeLocationRepository(initialHomeLocation = original)
+        val viewModel = HomeViewModel(
+            homeLocationRepository = homeRepository,
+            workLocationRepository = FakeWorkLocationRepository(),
+            currentGeofenceLocationProvider = StaticCurrentGeofenceLocationProvider(),
+            addressGeocoder = StaticAddressGeocoder(
+                GeocodedAddress(
+                    latitude = 39.7292,
+                    longitude = -104.9803,
+                    displayAddress = "123 Home Way, Denver, CO",
+                ),
+                reverseResult = "456 Map Way, Denver, CO",
+            ),
+            homeGeofenceRegistrar = RecordingHomeGeofenceRegistrar(),
+            workGeofenceRegistrar = RecordingWorkGeofenceRegistrar(),
+            clock = clock,
+            logger = NoopAppLogger(),
+        )
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.uiState.collect()
+        }
+        advanceUntilIdle()
+
+        viewModel.updateHomeField(LocationField.ADDRESS, "123 Home Way")
+        viewModel.resolveHomeAddress()
+        advanceUntilIdle()
+
+        assertEquals(original, homeRepository.homeLocation.value)
+        assertEquals("123 Home Way, Denver, CO", viewModel.uiState.value.homeResolvedAddress)
+        assertEquals("39.7292", viewModel.uiState.value.homeLatitude)
+
+        viewModel.selectHomeMapPin(39.7192, -104.9603, 402.336f)
+        advanceUntilIdle()
+
+        assertEquals(original, homeRepository.homeLocation.value)
+        assertEquals("456 Map Way, Denver, CO", viewModel.uiState.value.homeResolvedAddress)
+        assertEquals("39.7192", viewModel.uiState.value.homeLatitude)
+        assertEquals("402.336", viewModel.uiState.value.homeRadiusMeters)
+
+        viewModel.cancelHomeEdit()
+        advanceUntilIdle()
+
+        assertEquals(original, homeRepository.homeLocation.value)
+        assertEquals("", viewModel.uiState.value.homeAddress)
+        assertEquals("", viewModel.uiState.value.homeResolvedAddress)
+        assertEquals("39.7392", viewModel.uiState.value.homeLatitude)
+        assertEquals("-104.9903", viewModel.uiState.value.homeLongitude)
+        assertEquals("15.24", viewModel.uiState.value.homeRadiusMeters)
+    }
 
     @Test
     fun `saved home location hydrates pin editor fields`() = runTest(mainDispatcherRule.testDispatcher) {
@@ -157,7 +387,7 @@ class HomeViewModelTest {
         val workLocation = WorkLocation(
             latitude = 39.7292,
             longitude = -104.9803,
-            radiusMeters = 500f,
+            radiusMeters = WorkLocation.MINIMUM_RADIUS_METERS,
             updatedAt = Instant.parse("2026-05-04T12:00:00Z"),
         )
         val workRepository = FakeWorkLocationRepository()
@@ -197,11 +427,86 @@ class HomeViewModelTest {
         viewModel.updateWorkField(LocationField.LABEL, "North Yard")
         viewModel.updateWorkField(LocationField.LATITUDE, "39.7292")
         viewModel.updateWorkField(LocationField.LONGITUDE, "-104.9803")
-        viewModel.updateWorkField(LocationField.RADIUS_METERS, "150")
+        viewModel.updateWorkField(LocationField.RADIUS_METERS, WorkLocation.MINIMUM_RADIUS_METERS.toString())
         viewModel.saveWorkPin()
         advanceUntilIdle()
 
         assertEquals("North Yard", workRepository.workLocation.value?.label)
+    }
+
+    @Test
+    fun `adding a worksite appends a distinct saved place instead of replacing the existing one`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            val existing = WorkLocation(
+                id = "office",
+                label = "Office",
+                latitude = 39.7292,
+                longitude = -104.9803,
+                radiusMeters = WorkLocation.MINIMUM_RADIUS_METERS,
+                updatedAt = Instant.parse("2026-05-03T12:00:00Z"),
+            )
+            val workRepository = FakeWorkLocationRepository(existing)
+            val viewModel = HomeViewModel(
+                homeLocationRepository = FakeHomeLocationRepository(),
+                workLocationRepository = workRepository,
+                currentGeofenceLocationProvider = StaticCurrentGeofenceLocationProvider(),
+                addressGeocoder = StaticAddressGeocoder(),
+                homeGeofenceRegistrar = RecordingHomeGeofenceRegistrar(),
+                workGeofenceRegistrar = RecordingWorkGeofenceRegistrar(),
+                clock = clock,
+                logger = NoopAppLogger(),
+            )
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect()
+            }
+            advanceUntilIdle()
+
+            viewModel.updateWorkField(LocationField.LABEL, "North Yard")
+            viewModel.updateWorkField(LocationField.LATITUDE, "39.8")
+            viewModel.updateWorkField(LocationField.LONGITUDE, "-104.8")
+            viewModel.saveWorkPin(replaceLatest = false)
+            advanceUntilIdle()
+
+            assertEquals(2, workRepository.workLocations.value.size)
+            assertEquals(existing, workRepository.workLocations.value.first { it.id == existing.id })
+            assertEquals(setOf("Office", "North Yard"), viewModel.uiState.value.workLocations.map { it.label }.toSet())
+        }
+
+    @Test
+    fun `starting add place never reuses the existing place draft`() = runTest(mainDispatcherRule.testDispatcher) {
+        val existing = WorkLocation(
+            id = "office",
+            label = "Office",
+            latitude = 39.7292,
+            longitude = -104.9803,
+            address = "100 Existing Way",
+            radiusMeters = 5 * WorkLocation.MINIMUM_RADIUS_METERS,
+            updatedAt = Instant.parse("2026-05-03T12:00:00Z"),
+        )
+        val viewModel = HomeViewModel(
+            homeLocationRepository = FakeHomeLocationRepository(),
+            workLocationRepository = FakeWorkLocationRepository(existing),
+            currentGeofenceLocationProvider = StaticCurrentGeofenceLocationProvider(),
+            addressGeocoder = StaticAddressGeocoder(),
+            homeGeofenceRegistrar = RecordingHomeGeofenceRegistrar(),
+            workGeofenceRegistrar = RecordingWorkGeofenceRegistrar(),
+            clock = clock,
+            logger = NoopAppLogger(),
+        )
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.uiState.collect()
+        }
+        advanceUntilIdle()
+
+        assertEquals("Office", viewModel.uiState.value.workLabel)
+        viewModel.beginAddPlace()
+        advanceUntilIdle()
+
+        assertEquals(WorkLocation.DEFAULT_LABEL, viewModel.uiState.value.workLabel)
+        assertEquals("", viewModel.uiState.value.workLatitude)
+        assertEquals("", viewModel.uiState.value.workLongitude)
+        assertEquals("", viewModel.uiState.value.workAddress)
+        assertEquals(WorkLocation.MINIMUM_RADIUS_METERS.toString(), viewModel.uiState.value.workRadiusMeters)
     }
 
     @Test
@@ -268,14 +573,14 @@ class HomeViewModelTest {
             viewModel.uiState.collect()
         }
         advanceUntilIdle()
-        viewModel.updateWorkRadius(804.672f)
+        viewModel.updateWorkRadius(8_046.72f)
         viewModel.saveWorkPin(replaceLatest = true)
         advanceUntilIdle()
 
         val savedWork = workRepository.workLocations.value.single()
         assertEquals("existing-work", savedWork.id)
         assertEquals("Existing work", savedWork.label)
-        assertEquals(804.672f, savedWork.radiusMeters, 0.001f)
+        assertEquals(8_046.72f, savedWork.radiusMeters, 0.001f)
         assertEquals(listOf(savedWork), workGeofenceRegistrar.registeredWorkLocationBatches.last())
     }
 
@@ -409,13 +714,22 @@ private class StaticCurrentGeofenceLocationProvider(
     override suspend fun currentPreciseWorkLocation(radiusMeters: Float): WorkLocation? = workLocation
 }
 
-private class StaticAddressGeocoder(private val result: GeocodedAddress? = null, private val failure: Throwable? = null) : AddressGeocoder {
+private class StaticAddressGeocoder(
+    private val result: GeocodedAddress? = null,
+    private val failure: Throwable? = null,
+    private val reverseResult: String? = null,
+) : AddressGeocoder {
     val queries = mutableListOf<String>()
 
     override suspend fun findAddress(query: String): GeocodedAddress? {
         queries += query
         failure?.let { throw it }
         return result
+    }
+
+    override suspend fun reverseGeocode(latitude: Double, longitude: Double): String? {
+        failure?.let { throw it }
+        return reverseResult
     }
 }
 

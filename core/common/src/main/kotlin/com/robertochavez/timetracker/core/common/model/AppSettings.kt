@@ -5,4 +5,5 @@ data class AppSettings(
     val liveTimerNotificationEnabled: Boolean,
     val privacyDisclosureAccepted: Boolean,
     val activityDetectionEnabled: Boolean,
+    val mapDisclosureAccepted: Boolean = false,
 )

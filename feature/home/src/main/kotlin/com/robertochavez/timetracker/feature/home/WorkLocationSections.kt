@@ -1,9 +1,13 @@
 package com.robertochavez.timetracker.feature.home
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -16,9 +20,87 @@ import com.robertochavez.timetracker.core.designsystem.TimeTrackerSecondaryButto
 import com.robertochavez.timetracker.core.designsystem.TimeTrackerTestTags
 
 @Composable
-internal fun WorkLocationSummaryList(workLocations: List<String>) {
-    workLocations.forEach { summary -> TimeTrackerMutedText(summary) }
-    if (workLocations.isEmpty()) TimeTrackerMutedText("No work location set")
+internal fun SavedPlacesSection(workLocations: List<SavedPlaceUiModel>) {
+    com.robertochavez.timetracker.core.designsystem.TimeTrackerSettingSection(
+        title = "Saved places",
+        subtitle = "Work sites and other places used for automatic tracking.",
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag(TimeTrackerTestTags.PLACES_SAVED_LIST),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            workLocations.forEach { place ->
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag(TimeTrackerTestTags.savedPlaceItem(place.id)),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    shape = MaterialTheme.shapes.medium,
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Text(place.label, style = MaterialTheme.typography.titleSmall)
+                        TimeTrackerMutedText(place.address ?: "Address not saved")
+                        TimeTrackerMutedText("${place.radius} radius")
+                    }
+                }
+            }
+            if (workLocations.isEmpty()) TimeTrackerMutedText("No saved places yet")
+        }
+    }
+}
+
+@Composable
+internal fun AddPlaceButton(onClick: () -> Unit) {
+    TimeTrackerPrimaryButton(
+        text = "Add new work site or place",
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag(TimeTrackerTestTags.ADD_PLACE_BUTTON),
+    )
+}
+
+@Composable
+internal fun AddPlaceSection(state: HomeUiState, editingPin: Boolean, actions: LocationSectionActions, onClose: () -> Unit) {
+    com.robertochavez.timetracker.core.designsystem.TimeTrackerSettingSection(
+        title = "Add new work site or place",
+        subtitle = "Choose the quickest way to locate this place.",
+        modifier = Modifier.testTag(TimeTrackerTestTags.ADD_PLACE_FLOW),
+    ) {
+        if (editingPin) {
+            WorkPinEditor(state, actions)
+        } else {
+            TimeTrackerPrimaryButton(
+                text = "Use the current location",
+                onClick = actions.onUseCurrentLocation,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag(TimeTrackerTestTags.ADD_PLACE_CURRENT_BUTTON),
+            )
+            TimeTrackerSecondaryButton(
+                text = "Drop a pin on the map",
+                onClick = actions.onOpenMap,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag(TimeTrackerTestTags.ADD_PLACE_MAP_BUTTON),
+            )
+            TimeTrackerSecondaryButton(
+                text = "Add by address",
+                onClick = actions.onEditPin,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag(TimeTrackerTestTags.ADD_PLACE_ADDRESS_BUTTON),
+            )
+            TimeTrackerQuietButton(text = "Cancel", onClick = onClose)
+        }
+    }
 }
 
 @Composable
@@ -55,13 +137,16 @@ internal fun WorkPinEditor(state: HomeUiState, actions: LocationSectionActions) 
         latitudeTag = TimeTrackerTestTags.WORK_LATITUDE_FIELD,
         longitudeTag = TimeTrackerTestTags.WORK_LONGITUDE_FIELD,
     )
-    RadiusSelector(
-        title = "Work radius",
+    WorkRadiusSlider(
         selectedRadiusMeters = state.workRadiusMeters,
-        tagPrefix = "work",
         onRadiusSelected = actions.onRadiusSelected,
     )
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        TimeTrackerSecondaryButton(
+            text = "Drop Pin on Map",
+            onClick = actions.onOpenMap,
+            modifier = Modifier.testTag(TimeTrackerTestTags.WORK_OPEN_MAP_BUTTON),
+        )
         TimeTrackerQuietButton(
             text = "Cancel",
             onClick = actions.onCancelEdit,
@@ -77,16 +162,19 @@ internal fun WorkPinEditor(state: HomeUiState, actions: LocationSectionActions) 
 
 @Composable
 internal fun WorkLocationActions(state: HomeUiState, actions: LocationSectionActions) {
-    RadiusSelector(
-        title = if (state.workLocationCount > 0) "Latest work radius" else "Work radius",
+    WorkRadiusSlider(
         selectedRadiusMeters = state.workRadiusMeters,
-        tagPrefix = "work",
         onRadiusSelected = actions.onRadiusSelected,
     )
     TimeTrackerPrimaryButton(
         text = "Use Current Location",
         onClick = actions.onUseCurrentLocation,
         modifier = Modifier.testTag(TimeTrackerTestTags.WORK_USE_CURRENT_BUTTON),
+    )
+    TimeTrackerSecondaryButton(
+        text = "Drop Pin on Map",
+        onClick = actions.onOpenMap,
+        modifier = Modifier.testTag(TimeTrackerTestTags.WORK_OPEN_MAP_BUTTON),
     )
     if (state.workLocationCount > 0) {
         TimeTrackerSecondaryButton(

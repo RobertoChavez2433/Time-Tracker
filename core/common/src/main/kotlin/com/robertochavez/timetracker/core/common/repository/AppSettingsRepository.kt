@@ -14,5 +14,7 @@ interface AppSettingsRepository {
 
     suspend fun setActivityDetectionEnabled(enabled: Boolean)
 
+    suspend fun setMapDisclosureAccepted(accepted: Boolean)
+
     suspend fun resetSettings()
 }

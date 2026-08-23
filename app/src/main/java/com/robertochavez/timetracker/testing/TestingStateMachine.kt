@@ -16,6 +16,9 @@ data class TestingState(
 
 object TestingStateMachine {
     fun evaluate(snapshot: AppStateSnapshot): TestingState {
+        require(snapshot.schemaVersion == AppStateSnapshot.CURRENT_SCHEMA_VERSION) {
+            "Unknown snapshot schema version ${snapshot.schemaVersion}."
+        }
         val blockers = buildList {
             if (!snapshot.privacyDisclosureAccepted) add("privacy_disclosure_pending")
             if (!snapshot.homeSet) add("home_location_missing")
@@ -50,6 +53,10 @@ object TestingStateMachine {
                 "todayDayOfWeek" to snapshot.todayDayOfWeek,
                 "workdayCount" to snapshot.workdayCount,
                 "workdays" to snapshot.workdays,
+                "payPeriodCadence" to snapshot.payPeriodCadence,
+                "payPeriodStartDate" to snapshot.payPeriodStartDate,
+                "payPeriodEndDate" to snapshot.payPeriodEndDate,
+                "selectedWeekMode" to snapshot.selectedWeekMode,
                 "reportTotals" to snapshot.reportTotals.mapValues { it.value.toMap() },
                 "recentLogCount" to snapshot.recentLogCount,
             ),

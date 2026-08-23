@@ -18,6 +18,22 @@ val compatibleDebugSigningEnabled =
         .map(String::toBoolean)
         .orElse(false)
 
+val defaultMapsApiKey =
+    providers
+        .gradleProperty("timeTracker.mapsApiKey")
+        .orElse(providers.environmentVariable("TIME_TRACKER_MAPS_API_KEY"))
+        .orElse("UNCONFIGURED")
+val debugMapsApiKey =
+    providers
+        .gradleProperty("timeTracker.mapsApiKey.debug")
+        .orElse(providers.environmentVariable("TIME_TRACKER_MAPS_API_KEY_DEBUG"))
+        .orElse(defaultMapsApiKey)
+val releaseMapsApiKey =
+    providers
+        .gradleProperty("timeTracker.mapsApiKey.release")
+        .orElse(providers.environmentVariable("TIME_TRACKER_MAPS_API_KEY_RELEASE"))
+        .orElse(defaultMapsApiKey)
+
 val releaseSigningPropertiesFile = file("${System.getProperty("user.home")}/.android/time-tracker-release.properties")
 val releaseSigningProperties =
     if (releaseSigningPropertiesFile.isFile) {
@@ -42,6 +58,7 @@ android {
         versionCode = 7
         versionName = "0.2.5"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        manifestPlaceholders["MAPS_API_KEY"] = defaultMapsApiKey.get()
     }
 
     buildFeatures {
@@ -63,9 +80,11 @@ android {
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
+            manifestPlaceholders["MAPS_API_KEY"] = debugMapsApiKey.get()
             buildConfigField("boolean", "E2E_DEBUG_ENABLED", e2eDebugEnabled.get().toString())
         }
         release {
+            manifestPlaceholders["MAPS_API_KEY"] = releaseMapsApiKey.get()
             when {
                 compatibleDebugSigningEnabled.get() -> signingConfig = signingConfigs.getByName("debug")
                 hasReleaseSigningProperties -> signingConfig = signingConfigs.getByName("release")

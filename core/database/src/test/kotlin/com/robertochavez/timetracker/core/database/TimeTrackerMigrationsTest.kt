@@ -36,8 +36,14 @@ class TimeTrackerMigrationsTest {
     }
 
     @Test
-    fun `schema one has ten upgrade migrations`() {
-        assertEquals(10, TimeTrackerMigrations.ALL.size)
+    fun `schema one has eleven upgrade migrations`() {
+        assertEquals(11, TimeTrackerMigrations.ALL.size)
+    }
+
+    @Test
+    fun `database version includes cadence and radius migration`() {
+        assertEquals(12, TimeTrackerDatabase.VERSION)
+        TimeTrackerMigrations::class.java.getDeclaredField("MIGRATION_11_12")
     }
 
     @Test
@@ -59,6 +65,8 @@ class TimeTrackerMigrationsTest {
             insertVersionNineMovementHistory(database)
             TimeTrackerMigrations.MIGRATION_9_10.migrate(database)
             TimeTrackerMigrations.MIGRATION_10_11.migrate(database)
+            insertVersionElevenSettings(database)
+            TimeTrackerMigrations.MIGRATION_11_12.migrate(database)
 
             database.query("SELECT id, label, address, latitude, longitude, radiusMeters, updatedAtEpochMillis FROM work_locations").close()
             database.query("SELECT id, atWork, updatedAtEpochMillis FROM work_presence").close()
@@ -75,6 +83,21 @@ class TimeTrackerMigrationsTest {
                 assertEquals(1, cursor.count)
             }
             database.query("SELECT address FROM work_locations").close()
+            database.query("SELECT cadence FROM pay_period_settings WHERE id = 1").use { cursor ->
+                cursor.moveToFirst()
+                assertEquals("BIWEEKLY", cursor.getString(0))
+            }
+            database.query(
+                "SELECT id, label, address, latitude, longitude, radiusMeters FROM work_locations WHERE id = 'legacy-small'",
+            ).use { cursor ->
+                cursor.moveToFirst()
+                assertEquals("legacy-small", cursor.getString(0))
+                assertEquals("Legacy client", cursor.getString(1))
+                assertEquals("123 Existing Street", cursor.getString(2))
+                assertEquals(42.1, cursor.getDouble(3), 0.0)
+                assertEquals(-85.2, cursor.getDouble(4), 0.0)
+                assertEquals(1609.344, cursor.getDouble(5), 0.001)
+            }
         } finally {
             database.close()
         }
@@ -139,6 +162,22 @@ class TimeTrackerMigrationsTest {
                 `vehicleLike` INTEGER NOT NULL,
                 `atWork` INTEGER NOT NULL,
                 PRIMARY KEY(`id`)
+            )
+            """.trimIndent(),
+        )
+    }
+
+    private fun insertVersionElevenSettings(database: SupportSQLiteDatabase) {
+        database.execSQL("DELETE FROM pay_period_settings")
+        database.execSQL(
+            "INSERT INTO pay_period_settings (id, biweeklyAnchorEpochDay) VALUES (1, 19000)",
+        )
+        database.execSQL(
+            """
+            INSERT INTO work_locations (
+                id, latitude, longitude, radiusMeters, updatedAtEpochMillis, label, address
+            ) VALUES (
+                'legacy-small', 42.1, -85.2, 500.0, 1234, 'Legacy client', '123 Existing Street'
             )
             """.trimIndent(),
         )

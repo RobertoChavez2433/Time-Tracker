@@ -5,6 +5,7 @@ import com.robertochavez.timetracker.core.common.model.HomeLocation
 import com.robertochavez.timetracker.core.common.model.WorkLocation
 import com.robertochavez.timetracker.core.location.activity.ActivityTransitionRegistrar
 import com.robertochavez.timetracker.core.location.geofence.HomeGeofenceRegistrar
+import com.robertochavez.timetracker.core.location.geofence.TimeTrackerGeofenceIds
 import com.robertochavez.timetracker.core.location.geofence.WorkGeofenceRegistrar
 import com.robertochavez.timetracker.core.logging.NoopAppLogger
 import com.robertochavez.timetracker.core.testing.FakeAppSettingsRepository
@@ -12,10 +13,28 @@ import com.robertochavez.timetracker.core.testing.FakeHomeLocationRepository
 import com.robertochavez.timetracker.core.testing.FakeWorkLocationRepository
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.Instant
 
 class TrackingRegistrationSynchronizerTest {
+    @Test
+    fun `multiple worksite geofences retain distinct allocation identifiers`() {
+        val officeRequestId = TimeTrackerGeofenceIds.workLocation("office")
+        val yardRequestId = TimeTrackerGeofenceIds.workLocation("north-yard")
+
+        assertTrue(officeRequestId != yardRequestId)
+        assertEquals("office", TimeTrackerGeofenceIds.workLocationId(officeRequestId))
+        assertEquals("north-yard", TimeTrackerGeofenceIds.workLocationId(yardRequestId))
+    }
+
+    @Test
+    fun `address geocoder contract supports reverse lookup`() {
+        val methodNames = AddressGeocoder::class.java.methods.map { it.name }.toSet()
+
+        assertTrue("AddressGeocoder must expose reverseGeocode", "reverseGeocode" in methodNames)
+    }
+
     @Test
     fun `sync registers saved geofences and enabled activity transitions`() = runTest {
         val home = homeLocation()
@@ -127,6 +146,6 @@ private fun workLocation(): WorkLocation = WorkLocation(
     label = "Work",
     latitude = 42.335,
     longitude = -83.050,
-    radiusMeters = 150f,
+    radiusMeters = WorkLocation.MINIMUM_RADIUS_METERS,
     updatedAt = Instant.parse("2026-05-04T12:00:00Z"),
 )

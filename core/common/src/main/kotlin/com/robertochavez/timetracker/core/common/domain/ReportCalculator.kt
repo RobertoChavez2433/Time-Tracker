@@ -51,19 +51,28 @@ class ReportCalculator(
         return period(DateRange(weekStart, weekStart.plusWeeks(1)), sessions, intervals, now, workSiteSessions)
     }
 
-    fun biweekly(
+    fun payPeriod(
         dateInPeriod: LocalDate,
         sessions: List<AwaySession>,
         intervals: List<ActivityInterval>,
         now: Instant,
         workSiteSessions: List<WorkSiteSession> = emptyList(),
     ): PeriodReport = period(
-        payPeriodSettings.biweeklyRangeFor(dateInPeriod),
+        payPeriodSettings.payPeriodRangeFor(dateInPeriod),
         sessions,
         intervals,
         now,
         workSiteSessions,
     )
+
+    @Deprecated("Use payPeriod so the configured cadence is respected.")
+    fun biweekly(
+        dateInPeriod: LocalDate,
+        sessions: List<AwaySession>,
+        intervals: List<ActivityInterval>,
+        now: Instant,
+        workSiteSessions: List<WorkSiteSession> = emptyList(),
+    ): PeriodReport = payPeriod(dateInPeriod, sessions, intervals, now, workSiteSessions)
 
     fun monthly(
         month: YearMonth,

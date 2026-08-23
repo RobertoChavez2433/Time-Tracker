@@ -43,6 +43,7 @@ class SettingsDataStore @Inject constructor(@ApplicationContext private val cont
                 activityDetectionEnabled = preferences[ACTIVITY_DETECTION_ENABLED]
                     ?: preferences[PRIVACY_DISCLOSURE_ACCEPTED]
                     ?: false,
+                mapDisclosureAccepted = preferences[MAP_DISCLOSURE_ACCEPTED] ?: false,
             )
         }
 
@@ -66,6 +67,11 @@ class SettingsDataStore @Inject constructor(@ApplicationContext private val cont
         logger.info(LogCategory.SETTINGS, "Activity detection setting changed", mapOf("enabled" to enabled))
     }
 
+    override suspend fun setMapDisclosureAccepted(accepted: Boolean) {
+        context.timeTrackerSettingsDataStore.edit { it[MAP_DISCLOSURE_ACCEPTED] = accepted }
+        logger.info(LogCategory.SETTINGS, "Map network disclosure setting changed", mapOf("accepted" to accepted))
+    }
+
     override suspend fun resetSettings() {
         context.timeTrackerSettingsDataStore.edit { it.clear() }
         logger.info(LogCategory.SETTINGS, "App settings reset")
@@ -76,5 +82,6 @@ class SettingsDataStore @Inject constructor(@ApplicationContext private val cont
         val LIVE_TIMER_NOTIFICATION = booleanPreferencesKey("live_timer_notification")
         val PRIVACY_DISCLOSURE_ACCEPTED = booleanPreferencesKey("privacy_disclosure_accepted")
         val ACTIVITY_DETECTION_ENABLED = booleanPreferencesKey("activity_detection_enabled")
+        val MAP_DISCLOSURE_ACCEPTED = booleanPreferencesKey("map_disclosure_accepted")
     }
 }

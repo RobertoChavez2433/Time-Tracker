@@ -8,8 +8,11 @@ import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
@@ -24,6 +27,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.robertochavez.timetracker.core.common.model.PayPeriodCadence
 import com.robertochavez.timetracker.core.designsystem.TimeTrackerDestructiveButton
 import com.robertochavez.timetracker.core.designsystem.TimeTrackerPrimaryButton
 import com.robertochavez.timetracker.core.designsystem.TimeTrackerQuietButton
@@ -61,6 +65,9 @@ fun SettingsRoute(modifier: Modifier = Modifier, viewModel: SettingsViewModel = 
             )
         }
         item {
+            WorkdaysSection(workdays = state.workdays, onTrackableChange = viewModel::setDayTrackable)
+        }
+        item {
             PermissionCard(
                 backgroundPermissionLabel = backgroundPermissionOptionLabel(context),
                 onRequestForegroundPermissions = {
@@ -84,12 +91,12 @@ fun SettingsRoute(modifier: Modifier = Modifier, viewModel: SettingsViewModel = 
         item {
             PayPeriodCard(
                 anchorDate = state.anchorDate,
+                cadence = state.payPeriodCadence,
+                preview = state.payPeriodPreview,
                 onAnchorDateChange = viewModel::updateAnchorDate,
+                onCadenceSelected = viewModel::selectPayPeriodCadence,
                 onSaveAnchorDate = viewModel::saveAnchorDate,
             )
-        }
-        item {
-            WorkdaysSection(workdays = state.workdays, onTrackableChange = viewModel::setDayTrackable)
         }
         item {
             NotificationsCard(
@@ -165,19 +172,56 @@ private fun AutomationCard(onEnableActivityDetection: () -> Unit, onDisableActiv
 }
 
 @Composable
-private fun PayPeriodCard(anchorDate: String, onAnchorDateChange: (String) -> Unit, onSaveAnchorDate: () -> Unit) {
-    TimeTrackerSettingSection(title = "Pay period") {
+private fun PayPeriodCard(
+    anchorDate: String,
+    cadence: PayPeriodCadence,
+    preview: String,
+    onAnchorDateChange: (String) -> Unit,
+    onCadenceSelected: (PayPeriodCadence) -> Unit,
+    onSaveAnchorDate: () -> Unit,
+) {
+    TimeTrackerSettingSection(
+        title = "Pay period",
+        subtitle = "Choose how often a period starts. The date is the inclusive first day of a known period.",
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(com.robertochavez.timetracker.core.designsystem.TimeTrackerSpacing.Small),
+        ) {
+            FilterChip(
+                selected = cadence == PayPeriodCadence.WEEKLY,
+                onClick = { onCadenceSelected(PayPeriodCadence.WEEKLY) },
+                label = { Text("Weekly") },
+                modifier = Modifier
+                    .weight(1f)
+                    .testTag(TimeTrackerTestTags.SETTINGS_WEEKLY_CADENCE_BUTTON),
+            )
+            FilterChip(
+                selected = cadence == PayPeriodCadence.BIWEEKLY,
+                onClick = { onCadenceSelected(PayPeriodCadence.BIWEEKLY) },
+                label = { Text("Biweekly") },
+                modifier = Modifier
+                    .weight(1f)
+                    .testTag(TimeTrackerTestTags.SETTINGS_BIWEEKLY_CADENCE_BUTTON),
+            )
+        }
         OutlinedTextField(
             value = anchorDate,
             onValueChange = onAnchorDateChange,
-            label = { Text("Biweekly anchor date") },
+            label = { Text("Known period start (YYYY-MM-DD)") },
             singleLine = true,
             modifier = Modifier
                 .fillMaxWidth()
                 .testTag(TimeTrackerTestTags.SETTINGS_ANCHOR_DATE_FIELD),
         )
+        Text(
+            text = "Current period: $preview",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.testTag(TimeTrackerTestTags.SETTINGS_PAY_PERIOD_PREVIEW),
+        )
         TimeTrackerPrimaryButton(
-            text = "Save Anchor",
+            text = "Save Pay Period",
             onClick = onSaveAnchorDate,
             modifier = Modifier.testTag(TimeTrackerTestTags.SETTINGS_SAVE_ANCHOR_BUTTON),
         )
@@ -186,9 +230,19 @@ private fun PayPeriodCard(anchorDate: String, onAnchorDateChange: (String) -> Un
 
 @Composable
 private fun WorkdaysSection(workdays: List<WorkdayUiModel>, onTrackableChange: (String, Boolean) -> Unit) {
-    TimeTrackerSettingSection(title = "Workdays") {
+    TimeTrackerSettingSection(
+        title = "Tracked days",
+        subtitle = "Automatic sessions can start only on selected days.",
+    ) {
+        if (workdays.none { it.trackable }) {
+            Text(
+                "Automatic tracking is paused until at least one day is selected.",
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
         workdays.forEach { day ->
-            TimeTrackerSettingRow(label = day.name) {
+            TimeTrackerSettingRow(label = day.name.lowercase().replaceFirstChar(Char::uppercase)) {
                 Switch(
                     checked = day.trackable,
                     onCheckedChange = { onTrackableChange(day.name, it) },

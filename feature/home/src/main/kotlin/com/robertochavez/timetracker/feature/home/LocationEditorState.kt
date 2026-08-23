@@ -5,6 +5,7 @@ import com.robertochavez.timetracker.core.common.model.HomeLocation
 import com.robertochavez.timetracker.core.common.model.WorkLocation
 import java.time.Clock
 import java.time.Instant
+import kotlin.math.roundToInt
 
 enum class LocationField {
     LABEL,
@@ -15,6 +16,8 @@ enum class LocationField {
 }
 
 internal data class HomeEditorState(
+    val address: String = "",
+    val resolvedAddress: String = "",
     val latitude: String = "",
     val longitude: String = "",
     val radiusMeters: String = GeofenceRadiusOptions.default.meters.toString(),
@@ -32,7 +35,7 @@ internal fun HomeEditorState.hasCoordinates(): Boolean = latitude.isNotBlank() |
 
 internal fun HomeEditorState.updated(field: LocationField, value: String): HomeEditorState = when (field) {
     LocationField.LABEL -> this
-    LocationField.ADDRESS -> this
+    LocationField.ADDRESS -> copy(address = value, resolvedAddress = "")
     LocationField.LATITUDE -> copy(latitude = value)
     LocationField.LONGITUDE -> copy(longitude = value)
     LocationField.RADIUS_METERS -> copy(radiusMeters = value)
@@ -56,7 +59,7 @@ internal data class WorkEditorState(
     val resolvedAddress: String = "",
     val latitude: String = "",
     val longitude: String = "",
-    val radiusMeters: String = GeofenceRadiusOptions.default.meters.toString(),
+    val radiusMeters: String = WorkLocation.MINIMUM_RADIUS_METERS.toString(),
 ) {
     companion object {
         fun fromLocation(workLocation: WorkLocation): WorkEditorState = WorkEditorState(
@@ -65,7 +68,9 @@ internal data class WorkEditorState(
             resolvedAddress = workLocation.address.orEmpty(),
             latitude = workLocation.latitude.toString(),
             longitude = workLocation.longitude.toString(),
-            radiusMeters = GeofenceRadiusOptions.nearest(workLocation.radiusMeters).meters.toString(),
+            radiusMeters = workLocation.radiusMeters
+                .coerceIn(WorkLocation.MINIMUM_RADIUS_METERS, WorkLocation.MAXIMUM_RADIUS_METERS)
+                .toString(),
         )
     }
 }
@@ -111,6 +116,9 @@ internal fun WorkLocation.summary(): String {
 
 internal fun HomeLocation.radiusLabel(): String = GeofenceRadiusOptions.nearest(radiusMeters).label
 
-internal fun WorkLocation.radiusLabel(): String = GeofenceRadiusOptions.nearest(radiusMeters).label
+internal fun WorkLocation.radiusLabel(): String {
+    val miles = (radiusMeters / GeofenceRadiusOptions.ONE_MILE_METERS).roundToInt()
+    return "$miles ${if (miles == 1) "mile" else "miles"}"
+}
 
 private fun Double.formatCoordinate(): String = "%.5f".format(this)

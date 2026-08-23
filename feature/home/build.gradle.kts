@@ -43,6 +43,7 @@ dependencies {
     implementation(libs.lifecycle.runtime.compose)
     implementation(libs.lifecycle.viewmodel.compose)
     implementation(libs.lifecycle.viewmodel.ktx)
+    implementation(libs.maps.compose)
     ksp(libs.hilt.compiler)
 
     testImplementation(project(":core:testing"))
