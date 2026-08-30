@@ -1,5 +1,7 @@
 # Privacy Notes
 
+August 30 classification update: Review is retained only in old stored records. Reports include all remaining away time in Idle. See [bucket rules](BUCKET_CLASSIFICATION.md) and [implementation evidence](../plan/REVIEW_TIME_REMOVAL_IMPLEMENTATION.md). Never reset a live S24/S25 installation for verification.
+
 Time Tracker is local-only by default. Work Hub export is optional, user-configured, and begins only from the chosen activation date.
 
 Bucket and movement privacy rules are defined in [BUCKET_CLASSIFICATION.md](BUCKET_CLASSIFICATION.md).
@@ -49,7 +51,7 @@ When the app is already tracking away-from-home time, adjacent location samples 
 
 ## Activity Recognition Use
 
-Activity Recognition transitions are used only to classify time within an away session into Drive, Idle, Site, or Needs review reporting buckets. The primary timesheet total remains away-from-home Work time.
+Activity Recognition transitions are used only to classify time within an away session into Drive, Site, or Idle reporting buckets. The primary timesheet total remains away-from-home Work time.
 
 ## Texting and Device Input Non-Interference
 
@@ -59,7 +61,7 @@ The manifest privacy guard test fails if future manifests introduce texting or d
 
 ## In-App Disclosure Text
 
-Automatic tracking uses precise and background location for the home geofence. Activity recognition and privacy-limited movement checks classify away time as Drive, Site, Idle, or Needs review. Data stays on this device unless the user explicitly configures Work Hub summary export or creates an encrypted phone-transfer backup.
+Automatic tracking uses precise and background location for the home geofence. Activity recognition and privacy-limited movement checks classify away time as Drive, Site, or Idle. Data stays on this device unless the user explicitly configures Work Hub summary export or creates an plain JSON phone-transfer backup.
 
 ## Policy References
 

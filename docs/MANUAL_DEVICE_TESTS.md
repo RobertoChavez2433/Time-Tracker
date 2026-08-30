@@ -1,5 +1,7 @@
 # Manual Device Test Checklist
 
+August 30 classification update: Review is retained only in old stored records. Reports include all remaining away time in Idle. See [bucket rules](BUCKET_CLASSIFICATION.md) and [implementation evidence](../plan/REVIEW_TIME_REMOVAL_IMPLEMENTATION.md). Never reset a live S24/S25 installation for verification.
+
 Run these on a physical Android device with Google Play services.
 
 Bucket expectations must follow [BUCKET_CLASSIFICATION.md](BUCKET_CLASSIFICATION.md).
@@ -39,7 +41,7 @@ Bucket expectations must follow [BUCKET_CLASSIFICATION.md](BUCKET_CLASSIFICATION
 - Start or trigger an away session.
 - Drive long enough for an `IN_VEHICLE` transition.
 - Stop and remain still long enough for a `STILL` transition.
-- Open Reports and confirm Work, Drive, Site, Idle, Needs review, and Miles are shown separately where evidence exists.
+- Open Reports and confirm Work, Drive, Site, Idle, and Miles are shown separately where evidence exists.
 - Confirm a saved work-site drive counts miles but remains Site time rather than Drive time.
 
 ## S21 Bucket Repair Verification
@@ -48,7 +50,7 @@ Bucket expectations must follow [BUCKET_CLASSIFICATION.md](BUCKET_CLASSIFICATION
 - Treat the mock-drive script as smoke-only; it is not bucket acceptance evidence because endpoint mode can bypass the full lifecycle.
 - Run `tools/testing/Invoke-FullDayBucketVerification.ps1` against the S21 debug app and confirm speed-inferred Drive starts only after 15 mph is sustained for at least 1 minute.
 - Optionally run the job-site drive debug scenario as smoke-only plumbing evidence and confirm miles increase, Drive minutes do not increase, and Site minutes increase.
-- For a real-drive check, start away from Home, drive for more than 1 minute above city-street speed, stop outside a saved Site, and confirm the report shows Drive for the vehicle segment and Needs review rather than Idle for uncertain gaps.
+- For a real-drive check, start away from Home, drive for more than 1 minute above city-street speed, stop outside a saved Site, and confirm the report shows Drive for the vehicle segment and Idle for other away time.
 - Repeat a short saved-Site drive and confirm the same movement increases Miles while remaining Site time.
 
 ## Manual Corrections

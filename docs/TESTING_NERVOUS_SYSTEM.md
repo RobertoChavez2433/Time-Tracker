@@ -1,5 +1,7 @@
 # Testing Nervous System
 
+August 30 classification update: Review is retained only in old stored records. Reports include all remaining away time in Idle. See [bucket rules](BUCKET_CLASSIFICATION.md) and [implementation evidence](../plan/REVIEW_TIME_REMOVAL_IMPLEMENTATION.md). Never reset a live S24/S25 installation for verification.
+
 Time Tracker uses a small Field Guide-inspired verification loop:
 
 - App logs go through `:core:logging`.
@@ -18,7 +20,7 @@ Endpoint mock-drive checks are smoke-only. They prove that debug plumbing can se
 .\tools\testing\Invoke-FullDayBucketVerification.ps1
 ```
 
-The verifier defaults to S21 `RFCNC0Y975L` and package `com.robertochavez.timetracker.debug`. It installs with `-PtimeTracker.e2eDebug=true`, resets app data, grants location and activity-recognition permissions, configures Home and a saved Site through the UI, then uses Android test-provider locations for Home exit, commute Drive, Site, Site mileage, Needs review, Idle, return Drive, and Home return. Its acceptance path only reads `/testing/state`; direct mock-drive endpoints remain smoke-only.
+The verifier defaults to S21 `RFCNC0Y975L` and package `com.robertochavez.timetracker.debug`. It installs with `-PtimeTracker.e2eDebug=true`, resets app data, grants location and activity-recognition permissions, configures Home and a saved Site through the UI, then uses Android test-provider locations for Home exit, commute Drive, Site, Site mileage, Idle at an unsaved location, return Drive, and Home return. Its acceptance path only reads `/testing/state`; direct mock-drive endpoints remain smoke-only.
 
 ## Full E2E Flow
 
