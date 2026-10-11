@@ -14,13 +14,13 @@ class HubBackupService @Inject constructor(
     private val exporter: BackupExporter,
     private val restoreCoordinator: LocalDataRestoreCoordinator,
 ) {
-    suspend fun export(uri: Uri, passphrase: CharArray) = withContext(Dispatchers.IO) {
-        val encrypted = exporter.export(passphrase)
-        context.contentResolver.openOutputStream(uri, "wt")!!.use { it.write(encrypted) }
+    suspend fun export(uri: Uri) = withContext(Dispatchers.IO) {
+        val backup = exporter.export()
+        context.contentResolver.openOutputStream(uri, "wt")!!.use { it.write(backup) }
     }
 
     suspend fun import(uri: Uri, passphrase: CharArray) = withContext(Dispatchers.IO) {
-        val encrypted = context.contentResolver.openInputStream(uri)!!.use { it.readBytes() }
-        restoreCoordinator.restore(encrypted, passphrase)
+        val backup = context.contentResolver.openInputStream(uri)!!.use { it.readBytes() }
+        restoreCoordinator.restore(backup, passphrase)
     }
 }

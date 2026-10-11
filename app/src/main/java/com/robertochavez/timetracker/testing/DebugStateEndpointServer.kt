@@ -20,8 +20,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
-import java.net.InetAddress
-import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
 import java.net.URI
@@ -53,11 +51,9 @@ class DebugStateEndpointServer @Inject constructor(
         if (!enabled || serverSocket != null) return
         scope.launch {
             runCatching {
-                val socket = ServerSocket()
-                socket.reuseAddress = true
-                socket.bind(InetSocketAddress(InetAddress.getByName(LOOPBACK), port))
+                val socket = openDebugStateSocket(port)
                 serverSocket = socket
-                logger.info(LogCategory.TESTING, "Debug state endpoint listening", mapOf("port" to port))
+                logger.info(LogCategory.TESTING, "Debug state endpoint listening", mapOf("port" to socket.localPort))
                 acceptLoop(socket)
             }.onFailure { error ->
                 logger.log(LogLevel.ERROR, LogCategory.TESTING, "Debug state endpoint failed", error = error)
@@ -124,6 +120,7 @@ class DebugStateEndpointServer @Inject constructor(
         return mapOf(
             "transportReady" to true,
             "debugHarness" to mapOf(
+                "applicationId" to BuildConfig.APPLICATION_ID,
                 "debuggable" to debuggable,
                 "e2eDebugEnabled" to BuildConfig.E2E_DEBUG_ENABLED,
             ),

@@ -8,12 +8,11 @@ import android.location.Location
 import android.os.Build
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationRequest
+import com.robertochavez.timetracker.core.common.domain.DriveMileageCalculation
 import com.robertochavez.timetracker.core.common.domain.DriveMileageCalculator
 import com.robertochavez.timetracker.core.common.domain.DriveMileagePoint
-import com.robertochavez.timetracker.core.common.domain.DriveMovementSegment
-import com.robertochavez.timetracker.core.common.domain.MovementDriveInference
 import com.robertochavez.timetracker.core.common.model.TrackingSessionController
-import com.robertochavez.timetracker.core.common.repository.WorkPresenceRepository
+import com.robertochavez.timetracker.core.location.activity.ActivityClassificationCoordinator
 import com.robertochavez.timetracker.core.location.awaitTask
 import com.robertochavez.timetracker.core.location.hasBackgroundLocationPermission
 import com.robertochavez.timetracker.core.location.hasFineLocationPermission
@@ -44,7 +43,7 @@ class PlayServicesDriveMileageTracker @Inject constructor(
     @ApplicationContext private val context: Context,
     private val fusedLocationProviderClient: FusedLocationProviderClient,
     private val trackingSessionController: TrackingSessionController,
-    private val workPresenceRepository: WorkPresenceRepository,
+    private val classification: ActivityClassificationCoordinator,
     private val e2eLocationProjection: E2eLocationProjection,
     private val clock: Clock,
     private val logger: AppLogger,
@@ -110,6 +109,7 @@ class PlayServicesDriveMileageTracker @Inject constructor(
     }
 
     override suspend fun stopTracking() {
+        classification.reset()
         preferences.edit()
             .putBoolean(KEY_ACTIVE, false)
             .clearTrackingMode()
@@ -125,6 +125,7 @@ class PlayServicesDriveMileageTracker @Inject constructor(
     }
 
     override suspend fun clearBaseline() {
+        classification.reset()
         preferences.edit().clearLastPoint().clearMovementInference().apply()
         logger.info(LogCategory.LOCATION, "Away movement baseline cleared")
     }
@@ -139,15 +140,13 @@ class PlayServicesDriveMileageTracker @Inject constructor(
         }
         e2eLocationProjection.applyWorkGeofenceProjection(location, current.at)
         val result = DriveMileageCalculator.calculate(preferences.lastPoint(), current)
-        val atWork = workPresenceRepository.getWorkPresence().atWork
-        val segment = result.movementSegment
         if (result.distanceMeters > 0.0) {
             val session = trackingSessionController.addDrivenDistanceMeters(result.distanceMeters)
             if (session == null) {
                 logger.info(LogCategory.LOCATION, "Driven distance ignored because no away session is active")
             }
         }
-        handleMovementInference(segment, atWork)
+        applyMovementEvidence(current, result)
         preferences.edit().putLastPoint(result.baseline).apply()
         logger.info(
             LogCategory.LOCATION,
@@ -157,27 +156,20 @@ class PlayServicesDriveMileageTracker @Inject constructor(
                 "hasBaseline" to (result.baseline != null),
                 "accuracyMeters" to current.accuracyMeters,
                 "vehicleLikeMovement" to result.movementSegment?.isVehicleLike,
-                "atWork" to atWork,
             ),
         )
     }
 
-    private suspend fun handleMovementInference(segment: DriveMovementSegment?, atWork: Boolean) {
-        if (segment == null) return
-        val result = MovementDriveInference.evaluate(
-            state = preferences.movementInferenceState(),
-            segment = segment,
-            atWork = atWork,
-        )
-        result.transition?.let { transition ->
-            trackingSessionController.recordActivityTransition(transition.bucket, transition.at)
-        }
-        preferences.edit().putMovementInferenceState(result.nextState).apply()
-        if (result.shouldEscalateToVehicle) {
+    private suspend fun applyMovementEvidence(current: DriveMileagePoint, result: DriveMileageCalculation) {
+        if ((current.accuracyMeters ?: 0f) > 100f) return
+        val decision = classification.position(result.movementSegment, result.stationary, current.at) ?: return
+        if (decision.state.vehicleActive || decision.state.movement.driveActive) {
             startTracking()
-        }
-        if (result.shouldDeEscalateToBalanced) {
-            if (preferences.trackingMode() == LocationTrackingMode.VEHICLE) startAwayTracking()
+        } else if (
+            preferences.trackingMode() == LocationTrackingMode.VEHICLE &&
+            (result.stationary || result.movementSegment?.isVehicleLike == false)
+        ) {
+            startAwayTracking()
         }
     }
 

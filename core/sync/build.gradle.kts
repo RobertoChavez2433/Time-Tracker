@@ -29,6 +29,7 @@ dependencies {
     implementation(libs.work.runtime.ktx)
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     ksp(libs.hilt.compiler)
+    testImplementation(project(":core:testing"))
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)

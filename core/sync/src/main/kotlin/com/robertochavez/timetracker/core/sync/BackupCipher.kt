@@ -10,6 +10,8 @@ import javax.crypto.spec.SecretKeySpec
 import javax.inject.Inject
 
 class BackupCipher @Inject constructor() {
+    fun isEncrypted(backup: ByteArray): Boolean = backup.size >= MAGIC.size && backup.copyOfRange(0, MAGIC.size).contentEquals(MAGIC)
+
     fun encrypt(plaintext: ByteArray, passphrase: CharArray): ByteArray {
         require(passphrase.size >= MINIMUM_PASSPHRASE_LENGTH) { "Use a passphrase with at least 10 characters." }
         val salt = random(SALT_BYTES)

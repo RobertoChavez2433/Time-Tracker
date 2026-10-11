@@ -8,6 +8,8 @@ import java.time.Instant
 enum class MotionActivity {
     IN_VEHICLE,
     STILL,
+    WALKING,
+    RUNNING,
     OTHER,
 }
 
@@ -42,16 +44,16 @@ object DriveClassificationPolicy {
         activity == MotionActivity.IN_VEHICLE &&
             transition == MotionTransition.ENTER &&
             homePresence == GeofencePresence.OUTSIDE &&
-            workPresence == GeofencePresence.OUTSIDE &&
+            workPresence != GeofencePresence.INSIDE &&
             movementEvidence != MovementEvidence.STATIONARY -> ActivityBucket.DRIVE
         movementEvidence == MovementEvidence.MOVING &&
             homePresence == GeofencePresence.OUTSIDE &&
-            workPresence == GeofencePresence.OUTSIDE -> ActivityBucket.DRIVE
+            workPresence != GeofencePresence.INSIDE -> ActivityBucket.DRIVE
         activity == MotionActivity.STILL &&
             transition == MotionTransition.ENTER &&
             homePresence == GeofencePresence.OUTSIDE &&
-            workPresence == GeofencePresence.OUTSIDE -> ActivityBucket.IDLE
-        else -> ActivityBucket.NEEDS_REVIEW
+            workPresence != GeofencePresence.INSIDE -> ActivityBucket.IDLE
+        else -> ActivityBucket.IDLE
     }
 
     fun workPresenceFrom(presence: WorkPresence, at: Instant, freshFor: Duration = DEFAULT_GEOFENCE_PRESENCE_FRESHNESS): GeofencePresence =

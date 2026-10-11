@@ -18,6 +18,7 @@ data class DriveMileageCalculation(
     val baseline: DriveMileagePoint?,
     val distanceMeters: Double,
     val movementSegment: DriveMovementSegment? = null,
+    val stationary: Boolean = false,
 )
 
 object DriveMileageCalculator {
@@ -33,7 +34,8 @@ object DriveMileageCalculator {
 
         return when {
             elapsedSeconds <= 0 -> DriveMileageCalculation(this, distanceMeters = 0.0)
-            distanceMeters < MIN_SEGMENT_METERS -> DriveMileageCalculation(this, distanceMeters = 0.0)
+            distanceMeters < MIN_SEGMENT_METERS ->
+                DriveMileageCalculation(this, distanceMeters = 0.0, stationary = elapsedSeconds >= 60)
             distanceMeters / elapsedSeconds > MAX_REASONABLE_SPEED_METERS_PER_SECOND ->
                 DriveMileageCalculation(current, distanceMeters = 0.0)
             else -> {

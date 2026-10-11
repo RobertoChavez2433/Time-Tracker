@@ -7,13 +7,9 @@ import android.os.SystemClock
 import com.google.android.gms.location.ActivityTransition
 import com.google.android.gms.location.ActivityTransitionResult
 import com.google.android.gms.location.DetectedActivity
-import com.robertochavez.timetracker.core.common.domain.DriveClassificationPolicy
-import com.robertochavez.timetracker.core.common.domain.GeofencePresence
 import com.robertochavez.timetracker.core.common.domain.MotionActivity
 import com.robertochavez.timetracker.core.common.domain.MotionTransition
-import com.robertochavez.timetracker.core.common.model.TrackingSessionController
 import com.robertochavez.timetracker.core.common.repository.AwaySessionPresenceRepository
-import com.robertochavez.timetracker.core.common.repository.WorkPresenceRepository
 import com.robertochavez.timetracker.core.location.BuildConfig
 import com.robertochavez.timetracker.core.location.mileage.DriveMileageTracker
 import com.robertochavez.timetracker.core.logging.AppLogger
@@ -31,11 +27,9 @@ import javax.inject.Inject
 
 @AndroidEntryPoint
 class ActivityTransitionBroadcastReceiver : BroadcastReceiver() {
-    @Inject lateinit var trackingSessionController: TrackingSessionController
+    @Inject lateinit var classification: ActivityClassificationCoordinator
 
     @Inject lateinit var awaySessionPresenceRepository: AwaySessionPresenceRepository
-
-    @Inject lateinit var workPresenceRepository: WorkPresenceRepository
 
     @Inject lateinit var driveMileageTracker: DriveMileageTracker
 
@@ -96,45 +90,24 @@ class ActivityTransitionBroadcastReceiver : BroadcastReceiver() {
     }
 
     private suspend fun handleTransition(activity: MotionActivity, transition: MotionTransition, eventAt: Instant, source: String) {
-        val workPresence = DriveClassificationPolicy.workPresenceFrom(
-            presence = workPresenceRepository.getWorkPresence(),
-            at = eventAt,
-        )
-        val homePresence = if (awaySessionPresenceRepository.hasActiveAwaySession()) {
-            GeofencePresence.OUTSIDE
-        } else {
-            GeofencePresence.UNKNOWN
-        }
-        val bucket = DriveClassificationPolicy.classify(
-            activity = activity,
-            transition = transition,
-            homePresence = homePresence,
-            workPresence = workPresence,
-        )
+        val decision = classification.motion(activity, transition, eventAt)
         logger.info(
             LogCategory.ACTIVITY,
             "Activity transition received",
             mapOf(
-                "bucket" to bucket.name,
-                "homePresence" to homePresence.name,
-                "workPresence" to workPresence.name,
-                "eventAtEpochMillis" to eventAt.toEpochMilli(),
+                "activity" to activity.name,
+                "transition" to transition.name,
                 "source" to source,
             ),
         )
-        trackingSessionController.recordActivityTransition(bucket, eventAt)
-        handleMileageTracking(activity, transition, homePresence == GeofencePresence.OUTSIDE)
-    }
-
-    private suspend fun handleMileageTracking(activity: MotionActivity, transition: MotionTransition, awayFromHome: Boolean) {
-        if (!awayFromHome) {
+        if (!awaySessionPresenceRepository.hasActiveAwaySession()) {
             driveMileageTracker.stopTracking()
-            return
-        }
-        when {
-            activity == MotionActivity.IN_VEHICLE && transition == MotionTransition.ENTER -> driveMileageTracker.startTracking()
-            activity == MotionActivity.IN_VEHICLE && transition == MotionTransition.EXIT -> driveMileageTracker.startAwayTracking()
-            activity == MotionActivity.STILL && transition == MotionTransition.ENTER -> driveMileageTracker.startAwayTracking()
+        } else if (decision != null) {
+            if (decision.state.vehicleActive || decision.state.movement.driveActive) {
+                driveMileageTracker.startTracking()
+            } else {
+                driveMileageTracker.startAwayTracking()
+            }
         }
     }
 
@@ -154,6 +127,8 @@ private fun com.google.android.gms.location.ActivityTransitionEvent.toInstant(cl
 private fun Int.toMotionActivity(): MotionActivity = when (this) {
     DetectedActivity.IN_VEHICLE -> MotionActivity.IN_VEHICLE
     DetectedActivity.STILL -> MotionActivity.STILL
+    DetectedActivity.WALKING -> MotionActivity.WALKING
+    DetectedActivity.RUNNING -> MotionActivity.RUNNING
     else -> MotionActivity.OTHER
 }
 
@@ -166,6 +141,8 @@ private fun Int.toMotionTransition(): MotionTransition = when (this) {
 private fun String.toMotionActivityOrNull(): MotionActivity? = when (uppercase()) {
     "IN_VEHICLE" -> MotionActivity.IN_VEHICLE
     "STILL" -> MotionActivity.STILL
+    "WALKING" -> MotionActivity.WALKING
+    "RUNNING" -> MotionActivity.RUNNING
     "OTHER" -> MotionActivity.OTHER
     else -> null
 }

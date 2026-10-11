@@ -142,7 +142,7 @@ class DirectNotionHubSyncTransport @Inject constructor(
     private fun timeSummary(value: JSONObject): String = buildString {
         append("Work ${value.getLong("totalWorkMinutes")}m · Drive ${value.getLong("driveMinutes")}m")
         append(" · Site ${value.getLong("siteMinutes")}m · Idle ${value.getLong("idleMinutes")}m")
-        append(" · Review ${value.getLong("needsReviewMinutes")}m · Miles ${value.getString("drivenMiles")}")
+        append(" \u00b7 Miles ${value.getString("drivenMiles")}")
     }
 
     private fun title(value: String) = JSONObject().put("title", richTextArray(value))

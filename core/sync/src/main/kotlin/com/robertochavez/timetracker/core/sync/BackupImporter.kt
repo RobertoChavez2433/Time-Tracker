@@ -12,8 +12,14 @@ class BackupImporter @Inject constructor(
     private val cipher: BackupCipher,
     private val appSettingsRepository: AppSettingsRepository,
 ) {
-    suspend fun import(encrypted: ByteArray, passphrase: CharArray) {
-        val envelope = JSONObject(String(cipher.decrypt(encrypted, passphrase)))
+    suspend fun import(backup: ByteArray, passphrase: CharArray = charArrayOf()) {
+        val json = if (cipher.isEncrypted(backup)) {
+            require(passphrase.isNotEmpty()) { "This older backup is encrypted. Enter its original passphrase." }
+            cipher.decrypt(backup, passphrase)
+        } else {
+            backup
+        }
+        val envelope = JSONObject(json.toString(Charsets.UTF_8).removePrefix("\uFEFF"))
         val manifest = envelope.getJSONObject("manifest")
         require(manifest.getInt("schemaVersion") == 1) { "Unsupported backup schema." }
         require(manifest.getInt("databaseVersion") <= TimeTrackerDatabase.VERSION) { "Backup requires a newer app version." }

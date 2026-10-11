@@ -10,7 +10,6 @@ import com.robertochavez.timetracker.core.common.repository.WorkScheduleReposito
 import com.robertochavez.timetracker.core.common.repository.WorkSiteSessionRepository
 import kotlinx.coroutines.flow.first
 import java.time.Clock
-import java.time.LocalDate
 import java.time.ZoneId
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -30,7 +29,7 @@ class HubSummaryEnqueuer @Inject constructor(
     suspend fun enqueueEligible() {
         val start = settingsStore.current().activationDate ?: return
         val now = clock.instant()
-        val today = LocalDate.ofInstant(now, BUSINESS_ZONE)
+        val today = now.atZone(BUSINESS_ZONE).toLocalDate()
         val sessions = trackingRepository.observeSessions().first()
         val intervals = trackingRepository.observeActivityIntervals().first()
         val siteSessions = workSiteSessionRepository.observeWorkSiteSessions().first()
@@ -39,7 +38,6 @@ class HubSummaryEnqueuer @Inject constructor(
         generateSequence(start) { it.plusDays(1) }.takeWhile { !it.isAfter(today) }.forEach { date ->
             val summary = calculator.daily(date, sessions, intervals, now, siteSessions).toHubDailySummary()
             val status = when {
-                summary.needsReviewMinutes > 0 -> SummaryStatus.NEEDS_REVIEW
                 date == today -> SummaryStatus.PROVISIONAL
                 else -> SummaryStatus.FINAL
             }

@@ -69,6 +69,8 @@ class PlayServicesActivityTransitionRegistrar @Inject constructor(
             transition(DetectedActivity.IN_VEHICLE, ActivityTransition.ACTIVITY_TRANSITION_EXIT),
             transition(DetectedActivity.STILL, ActivityTransition.ACTIVITY_TRANSITION_ENTER),
             transition(DetectedActivity.STILL, ActivityTransition.ACTIVITY_TRANSITION_EXIT),
+            transition(DetectedActivity.WALKING, ActivityTransition.ACTIVITY_TRANSITION_ENTER),
+            transition(DetectedActivity.RUNNING, ActivityTransition.ACTIVITY_TRANSITION_ENTER),
         )
         return ActivityTransitionRequest(transitions)
     }

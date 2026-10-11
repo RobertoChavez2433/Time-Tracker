@@ -6,7 +6,9 @@ import com.robertochavez.timetracker.core.common.model.TrackingSessionController
 import kotlinx.coroutines.flow.Flow
 import java.time.Instant
 
-interface TrackingRepository : TrackingSessionController {
+interface TrackingRepository :
+    TrackingSessionController,
+    SessionEditorRepository {
     fun observeSessions(): Flow<List<AwaySession>>
 
     fun observeSessions(startInclusive: Instant, endExclusive: Instant): Flow<List<AwaySession>>
@@ -24,4 +26,18 @@ interface TrackingRepository : TrackingSessionController {
     suspend fun setDrivenMiles(sessionId: String, drivenMiles: Double): AwaySession?
 
     suspend fun replaceActivityIntervals(sessionId: String, intervals: List<ActivityInterval>): AwaySession?
+}
+
+interface SessionEditorRepository {
+    fun observeActiveSession(): Flow<AwaySession?>
+
+    suspend fun getSession(sessionId: String): AwaySession?
+
+    suspend fun saveCorrection(
+        sessionId: String,
+        start: Instant,
+        end: Instant?,
+        drivenMiles: Double,
+        countsTowardTotals: Boolean,
+    ): AwaySession?
 }

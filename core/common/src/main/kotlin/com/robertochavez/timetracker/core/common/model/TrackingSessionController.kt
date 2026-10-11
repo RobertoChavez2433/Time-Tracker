@@ -7,7 +7,12 @@ interface TrackingSessionController {
 
     suspend fun stopActiveAwaySession(at: Instant): AwaySession?
 
-    suspend fun recordActivityTransition(bucket: ActivityBucket, at: Instant)
+    suspend fun recordActivityTransition(
+        bucket: ActivityBucket,
+        at: Instant,
+        expectedSessionId: String? = null,
+        evidenceAt: Instant = at,
+    ): Boolean
 
     suspend fun addDrivenDistanceMeters(distanceMeters: Double): AwaySession?
 }

@@ -56,12 +56,12 @@ class ReportBucketPolicyTest {
         assertEquals(6.75, report.drivenMiles, 0.001)
         assertEquals(Duration.ZERO, report.drive)
         assertEquals(Duration.ofMinutes(30), report.site)
-        assertEquals(Duration.ZERO, report.idle)
-        assertEquals(Duration.ofMinutes(30), report.needsReview)
+        assertEquals(Duration.ofMinutes(30), report.idle)
+        assertEquals(Duration.ZERO, report.needsReview)
     }
 
     @Test
-    fun `daily report partitions confirmed work buckets and review time`() {
+    fun `daily report partitions all work time`() {
         val session = AwaySession(
             id = "session",
             start = Instant.parse("2026-05-01T13:00:00Z"),
@@ -129,7 +129,7 @@ class ReportBucketPolicyTest {
     }
 
     @Test
-    fun `uncertain away time goes to needs review instead of idle`() {
+    fun `unsaved away time belongs to idle`() {
         val session = AwaySession(
             id = "unsaved-stop",
             start = Instant.parse("2026-05-01T13:00:00Z"),
@@ -145,14 +145,14 @@ class ReportBucketPolicyTest {
 
         assertEquals(Duration.ZERO, report.drive)
         assertEquals(Duration.ZERO, report.site)
-        assertEquals(Duration.ZERO, report.idle)
-        assertEquals(Duration.ofHours(1), report.needsReview)
+        assertEquals(Duration.ofHours(1), report.idle)
+        assertEquals(Duration.ZERO, report.needsReview)
         assertEquals(report.totalAway, report.work)
-        assertEquals(Duration.ZERO, report.drive.plus(report.site).plus(report.idle))
+        assertEquals(report.work, report.drive.plus(report.site).plus(report.idle))
     }
 
     @Test
-    fun `report view moves drive inside saved site to site and leaves uncertain time for review`() {
+    fun `report view moves drive inside saved site to site and includes remaining time in idle`() {
         val session = AwaySession(
             id = "historical",
             start = Instant.parse("2026-05-01T13:00:00Z"),
@@ -182,8 +182,8 @@ class ReportBucketPolicyTest {
 
         assertEquals(Duration.ZERO, report.drive)
         assertEquals(Duration.ofHours(1), report.site)
-        assertEquals(Duration.ZERO, report.idle)
-        assertEquals(Duration.ofHours(1), report.needsReview)
+        assertEquals(Duration.ofHours(1), report.idle)
+        assertEquals(Duration.ZERO, report.needsReview)
         assertEquals(report.totalAway, report.work)
     }
 

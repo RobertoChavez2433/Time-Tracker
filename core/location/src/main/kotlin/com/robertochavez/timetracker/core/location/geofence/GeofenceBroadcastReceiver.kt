@@ -5,13 +5,13 @@ import android.content.Context
 import android.content.Intent
 import com.google.android.gms.location.Geofence
 import com.google.android.gms.location.GeofencingEvent
-import com.robertochavez.timetracker.core.common.model.ActivityBucket
 import com.robertochavez.timetracker.core.common.model.TrackingSessionController
 import com.robertochavez.timetracker.core.common.repository.AwaySessionPresenceRepository
 import com.robertochavez.timetracker.core.common.repository.HomeLocationRepository
 import com.robertochavez.timetracker.core.common.repository.WorkPresenceRepository
 import com.robertochavez.timetracker.core.common.repository.WorkSiteSessionRepository
 import com.robertochavez.timetracker.core.location.BuildConfig
+import com.robertochavez.timetracker.core.location.activity.ActivityClassificationCoordinator
 import com.robertochavez.timetracker.core.location.mileage.DriveMileageTracker
 import com.robertochavez.timetracker.core.logging.AppLogger
 import com.robertochavez.timetracker.core.logging.LogCategory
@@ -28,6 +28,8 @@ import javax.inject.Inject
 
 @AndroidEntryPoint
 class GeofenceBroadcastReceiver : BroadcastReceiver() {
+    @Inject lateinit var classification: ActivityClassificationCoordinator
+
     @Inject lateinit var trackingSessionController: TrackingSessionController
 
     @Inject lateinit var awaySessionPresenceRepository: AwaySessionPresenceRepository
@@ -107,6 +109,7 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
                 val workPresence = workPresenceRepository.getWorkPresence()
                 val alreadyAway = awaySessionPresenceRepository.hasActiveAwaySession()
                 val started = trackingSessionController.startAwaySessionIfTrackable(at)
+                classification.presenceChanged(at)
                 startDriveMileageForHomeExit(
                     awaySessionStarted = started != null,
                     alreadyAway = alreadyAway,
@@ -134,7 +137,7 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
                     workSiteSessionRepository.stopActiveWorkSiteSession(workLocationId, at)
                 }
                 workPresenceRepository.setAtWork(atWork = false, updatedAt = at)
-                trackingSessionController.recordActivityTransition(ActivityBucket.NEEDS_REVIEW, at)
+                classification.presenceChanged(at)
             }
             Geofence.GEOFENCE_TRANSITION_ENTER,
             Geofence.GEOFENCE_TRANSITION_DWELL,
@@ -144,7 +147,7 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
                     workSiteSessionRepository.startWorkSiteSession(workLocationId, at)
                 }
                 workPresenceRepository.setAtWork(atWork = true, updatedAt = at)
-                trackingSessionController.recordActivityTransition(ActivityBucket.SITE, at)
+                classification.presenceChanged(at)
             }
         }
     }

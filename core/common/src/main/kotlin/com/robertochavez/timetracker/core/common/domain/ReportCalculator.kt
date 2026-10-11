@@ -175,23 +175,10 @@ private fun dailyReport(date: LocalDate, evidence: ReportEvidence, now: Instant,
         .subtract(siteWorkRanges)
         .merge()
     val driveTotal = driveRanges.totalDuration()
-    val idleRanges = intervals
-        .filter { it.sessionId in countedSessionIds && it.bucket == ActivityBucket.IDLE }
-        .flatMap { SessionSplitter.splitActivityIntervalByDay(it, zoneId) }
-        .filter { range.contains(it.date) }
-        .map { InstantRange(it.start, it.end) }
-        .merge()
-        .constrainTo(workRanges)
-        .subtract(siteWorkRanges)
-        .subtract(driveRanges)
-        .merge()
-    val idleTotal = idleRanges.totalDuration()
+    val idleTotal = workRanges.subtract(siteWorkRanges).subtract(driveRanges).totalDuration()
     val awayTotal = workRanges.totalDuration()
-    val knownRanges = (siteWorkRanges + driveRanges + idleRanges).merge()
-    val needsReviewRanges = workRanges
-        .subtract(knownRanges)
-        .merge()
-    val needsReviewTotal = needsReviewRanges.totalDuration()
+    // Legacy records remain readable; every remaining away range is now Idle.
+    val needsReviewTotal = Duration.ZERO
     val homeTotal = awayRanges.overlapDuration(homeRanges)
     val bucketTotals = normalizedBucketTotals(
         home = homeTotal,

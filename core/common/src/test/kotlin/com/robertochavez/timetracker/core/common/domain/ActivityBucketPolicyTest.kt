@@ -54,7 +54,7 @@ class ActivityBucketPolicyTest {
     }
 
     @Test
-    fun `missing geofence presence sends vehicle motion to needs review`() {
+    fun `unknown outside-site presence preserves vehicle evidence`() {
         val bucket = DriveClassificationPolicy.classify(
             activity = MotionActivity.IN_VEHICLE,
             transition = MotionTransition.ENTER,
@@ -62,7 +62,7 @@ class ActivityBucketPolicyTest {
             workPresence = GeofencePresence.UNKNOWN,
         )
 
-        assertEquals(ActivityBucket.NEEDS_REVIEW, bucket)
+        assertEquals(ActivityBucket.DRIVE, bucket)
     }
 
     @Test

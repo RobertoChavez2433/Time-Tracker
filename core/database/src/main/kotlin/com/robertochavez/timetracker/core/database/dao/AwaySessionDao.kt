@@ -19,6 +19,9 @@ interface AwaySessionDao {
     fun observeSessionsInRange(startInclusiveEpochMillis: Long, endExclusiveEpochMillis: Long): Flow<List<AwaySessionEntity>>
 
     @Query("SELECT * FROM away_sessions WHERE endEpochMillis IS NULL ORDER BY startEpochMillis DESC LIMIT 1")
+    fun observeActiveSession(): Flow<AwaySessionEntity?>
+
+    @Query("SELECT * FROM away_sessions WHERE endEpochMillis IS NULL ORDER BY startEpochMillis DESC LIMIT 1")
     suspend fun getActiveSession(): AwaySessionEntity?
 
     @Query("SELECT * FROM away_sessions WHERE id = :id LIMIT 1")

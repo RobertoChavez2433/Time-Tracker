@@ -3,7 +3,6 @@ package com.robertochavez.timetracker.core.location.mileage
 import android.content.SharedPreferences
 import com.google.android.gms.location.Priority
 import com.robertochavez.timetracker.core.common.domain.DriveMileagePoint
-import com.robertochavez.timetracker.core.common.domain.MovementDriveInferenceState
 import java.time.Instant
 
 internal enum class LocationTrackingMode(
@@ -75,29 +74,8 @@ internal fun SharedPreferences.Editor.putTrackingMode(mode: LocationTrackingMode
 
 internal fun SharedPreferences.Editor.clearTrackingMode(): SharedPreferences.Editor = remove(KEY_TRACKING_MODE)
 
-internal fun SharedPreferences.movementInferenceState(): MovementDriveInferenceState = MovementDriveInferenceState(
-    candidateStart = inferredDriveCandidateStart(),
-    driveActive = getBoolean(KEY_INFERRED_DRIVE_ACTIVE, false),
-)
-
-internal fun SharedPreferences.Editor.putMovementInferenceState(state: MovementDriveInferenceState): SharedPreferences.Editor {
-    val candidateStart = state.candidateStart
-    if (candidateStart == null) {
-        remove(KEY_INFERRED_DRIVE_CANDIDATE_START_EPOCH_MILLIS)
-    } else {
-        putLong(KEY_INFERRED_DRIVE_CANDIDATE_START_EPOCH_MILLIS, candidateStart.toEpochMilli())
-    }
-    putBoolean(KEY_INFERRED_DRIVE_ACTIVE, state.driveActive)
-    return this
-}
-
 internal fun SharedPreferences.Editor.clearMovementInference(): SharedPreferences.Editor =
-    putMovementInferenceState(MovementDriveInferenceState())
-
-private fun SharedPreferences.inferredDriveCandidateStart(): Instant? =
-    getLong(KEY_INFERRED_DRIVE_CANDIDATE_START_EPOCH_MILLIS, Long.MIN_VALUE)
-        .takeIf { it != Long.MIN_VALUE }
-        ?.let(Instant::ofEpochMilli)
+    remove(KEY_INFERRED_DRIVE_CANDIDATE_START_EPOCH_MILLIS).remove(KEY_INFERRED_DRIVE_ACTIVE)
 
 private const val KEY_TRACKING_MODE = "tracking_mode"
 private const val KEY_LAST_LATITUDE = "last_latitude"

@@ -1,6 +1,7 @@
 package com.robertochavez.timetracker.core.sync
 
 import android.database.Cursor
+import androidx.room.withTransaction
 import com.robertochavez.timetracker.core.common.repository.AppSettingsRepository
 import com.robertochavez.timetracker.core.database.TimeTrackerDatabase
 import kotlinx.coroutines.flow.first
@@ -12,14 +13,15 @@ import javax.inject.Inject
 
 class BackupExporter @Inject constructor(
     private val database: TimeTrackerDatabase,
-    private val cipher: BackupCipher,
     private val clock: Clock,
     private val appSettingsRepository: AppSettingsRepository,
 ) {
-    suspend fun export(passphrase: CharArray): ByteArray {
+    suspend fun export(): ByteArray {
         val sqlite = database.openHelper.readableDatabase
         val tables = JSONObject()
-        BACKUP_TABLES.forEach { table -> tables.put(table, sqlite.query("SELECT * FROM `$table`").use(::rows)) }
+        database.withTransaction {
+            BACKUP_TABLES.forEach { table -> tables.put(table, sqlite.query("SELECT * FROM `$table`").use(::rows)) }
+        }
         val settings = appSettingsRepository.settings.first()
         val envelope = JSONObject()
             .put(
@@ -39,7 +41,7 @@ class BackupExporter @Inject constructor(
                     .put("activityDetectionEnabled", settings.activityDetectionEnabled)
                     .put("mapDisclosureAccepted", settings.mapDisclosureAccepted),
             )
-        return cipher.encrypt(envelope.toString().toByteArray(), passphrase)
+        return envelope.toString(2).toByteArray(Charsets.UTF_8)
     }
 
     private fun rows(cursor: Cursor): JSONArray = JSONArray().also { result ->

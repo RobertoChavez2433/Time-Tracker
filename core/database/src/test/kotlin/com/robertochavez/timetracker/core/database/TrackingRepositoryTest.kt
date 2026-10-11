@@ -51,6 +51,22 @@ class TrackingRepositoryTest {
     }
 
     @Test
+    fun `atomic correction rejects invalid fields without changing the stored row`() = runTest {
+        val start = Instant.parse("2026-05-04T12:00:00Z")
+        val session = repository.startManualSession(start)
+        val invalid = runCatching { repository.saveCorrection(session.id, start.plusSeconds(60), start, 42.0, false) }
+        assertEquals(true, invalid.isFailure)
+        assertEquals(session, repository.getSession(session.id))
+        val end = start.plusSeconds(3600)
+        repository.saveCorrection(session.id, start, end, 42.0, false)
+        val saved = repository.getSession(session.id)!!
+        assertEquals(end, saved.end)
+        assertEquals(42.0, saved.drivenMiles, 0.0)
+        assertEquals(false, saved.countsTowardTotals)
+        assertEquals(true, saved.manuallyAdjusted)
+    }
+
+    @Test
     fun `starts only on trackable days`() = runTest {
         database.workScheduleDao().upsertAll(WorkScheduleEntity.fromSchedule(WorkSchedule(setOf(DayOfWeek.MONDAY))))
 
@@ -86,7 +102,7 @@ class TrackingRepositoryTest {
         val started = repository.startManualSession(Instant.parse("2026-05-04T11:30:00Z"))
         repository.recordActivityTransition(ActivityBucket.DRIVE, Instant.parse("2026-05-04T11:45:00Z"))
 
-        val interval = repository.observeActivityIntervals().first().single()
+        val interval = repository.observeActivityIntervals().first().single { it.bucket == ActivityBucket.DRIVE }
 
         assertEquals(started.id, interval.sessionId)
         assertEquals(ActivityBucket.DRIVE, interval.bucket)
@@ -100,7 +116,7 @@ class TrackingRepositoryTest {
 
         val intervals = repository.observeActivityIntervals().first()
 
-        assertEquals(0, intervals.size)
+        assertEquals(listOf(ActivityBucket.IDLE), intervals.map { it.bucket })
     }
 
     @Test
@@ -142,6 +158,7 @@ class TrackingRepositoryTest {
     @Test
     fun `observes activity intervals overlapping requested range`() = runTest {
         val session = repository.startManualSession(Instant.parse("2026-05-03T00:00:00Z"))
+        database.activityIntervalDao().deleteForSession(session.id)
         database.activityIntervalDao().upsert(
             ActivityIntervalEntity(
                 id = "before",

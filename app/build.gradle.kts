@@ -79,7 +79,8 @@ android {
 
     buildTypes {
         debug {
-            applicationIdSuffix = ".debug"
+            // Device verification can coexist with the user's installed debug and release apps.
+            applicationIdSuffix = providers.gradleProperty("timeTracker.debugApplicationIdSuffix").orElse(".debug").get()
             manifestPlaceholders["MAPS_API_KEY"] = debugMapsApiKey.get()
             buildConfigField("boolean", "E2E_DEBUG_ENABLED", e2eDebugEnabled.get().toString())
         }
@@ -137,4 +138,6 @@ dependencies {
 
     testImplementation(libs.coroutines.test)
     testImplementation(libs.junit)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation("androidx.test:runner:1.6.2")
 }

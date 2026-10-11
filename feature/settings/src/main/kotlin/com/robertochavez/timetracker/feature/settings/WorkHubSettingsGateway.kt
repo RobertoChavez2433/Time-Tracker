@@ -18,6 +18,7 @@ import javax.inject.Inject
 interface WorkHubSettingsGateway {
     val settings: Flow<HubSyncSettings>
     val status: Flow<HubSyncStatus>
+    fun hasNotionToken(): Boolean = false
     fun setActivationDate(value: LocalDate?)
     fun setOutboxTree(uri: Uri)
     fun verifyProvider(): Boolean
@@ -27,7 +28,7 @@ interface WorkHubSettingsGateway {
     suspend fun syncNow(): HubTransferResult?
     suspend fun fullResync(): HubTransferResult?
     suspend fun discardFailed()
-    suspend fun exportBackup(uri: Uri, passphrase: CharArray)
+    suspend fun exportBackup(uri: Uri)
     suspend fun importBackup(uri: Uri, passphrase: CharArray)
 }
 
@@ -39,6 +40,7 @@ class RealWorkHubSettingsGateway @Inject constructor(
 ) : WorkHubSettingsGateway {
     override val settings = settingsStore.settings
     override val status = coordinator.observeStatus()
+    override fun hasNotionToken(): Boolean = runCatching { !tokenStore.read().isNullOrBlank() }.getOrDefault(false)
     override fun setActivationDate(value: LocalDate?) = settingsStore.setActivationDate(value)
     override fun setOutboxTree(uri: Uri) = settingsStore.setOutboxTree(uri)
     override fun verifyProvider() = coordinator.verifyDocumentProvider()
@@ -51,7 +53,7 @@ class RealWorkHubSettingsGateway @Inject constructor(
     override suspend fun syncNow() = coordinator.syncNow()
     override suspend fun fullResync() = coordinator.fullResync()
     override suspend fun discardFailed() = coordinator.discardFailed()
-    override suspend fun exportBackup(uri: Uri, passphrase: CharArray) = backupService.export(uri, passphrase)
+    override suspend fun exportBackup(uri: Uri) = backupService.export(uri)
     override suspend fun importBackup(uri: Uri, passphrase: CharArray) = backupService.import(uri, passphrase)
 }
 
@@ -67,6 +69,6 @@ object NoopWorkHubSettingsGateway : WorkHubSettingsGateway {
     override suspend fun syncNow(): HubTransferResult? = null
     override suspend fun fullResync(): HubTransferResult? = null
     override suspend fun discardFailed() = Unit
-    override suspend fun exportBackup(uri: Uri, passphrase: CharArray) = Unit
+    override suspend fun exportBackup(uri: Uri) = Unit
     override suspend fun importBackup(uri: Uri, passphrase: CharArray) = Unit
 }

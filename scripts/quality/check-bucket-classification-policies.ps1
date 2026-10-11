@@ -54,17 +54,26 @@ Assert-Contains -RelativePath $bucketDocPath -Text $bucketDoc -Pattern "\bWork\b
 Assert-Contains -RelativePath $bucketDocPath -Text $bucketDoc -Pattern "\bDrive\b" -Description "Drive bucket definition"
 Assert-Contains -RelativePath $bucketDocPath -Text $bucketDoc -Pattern "\bSite\b" -Description "Site bucket definition"
 Assert-Contains -RelativePath $bucketDocPath -Text $bucketDoc -Pattern "\bIdle\b" -Description "Idle bucket definition"
-Assert-Contains -RelativePath $bucketDocPath -Text $bucketDoc -Pattern "Needs review" -Description "Needs review bucket definition"
+Assert-Contains -RelativePath $bucketDocPath -Text $bucketDoc -Pattern "Needs review" -Description "legacy review compatibility"
 Assert-Contains -RelativePath $bucketDocPath -Text $bucketDoc -Pattern "\bMiles\b" -Description "Miles definition"
-Assert-Contains -RelativePath $bucketDocPath -Text $bucketDoc -Pattern "Home wins over Drive, Site, Idle, and Needs review" -Description "Home priority"
+Assert-Contains -RelativePath $bucketDocPath -Text $bucketDoc -Pattern "Home wins over Drive, Site, and Idle" -Description "Home priority"
 Assert-Contains -RelativePath $bucketDocPath -Text $bucketDoc -Pattern "Work is total trackable time away from Home" -Description "Work as away-from-home time"
-Assert-Contains -RelativePath $bucketDocPath -Text $bucketDoc -Pattern "Drive \+ Site \+ Idle to equal 100 percent" -Description "Work does not force secondary buckets to sum"
+Assert-Contains -RelativePath $bucketDocPath -Text $bucketDoc -Pattern "Work = Drive \+ Site \+ Idle" -Description "complete Work partition"
 Assert-Contains -RelativePath $bucketDocPath -Text $bucketDoc -Pattern "point-to-point speed" -Description "speed evidence rule"
 Assert-Contains -RelativePath $bucketDocPath -Text $bucketDoc -Pattern "15 mph sustained for 1 minute" -Description "initial drive speed threshold"
 Assert-Contains -RelativePath $bucketDocPath -Text $bucketDoc -Pattern "route geometry" -Description "no route geometry"
 Assert-Contains -RelativePath $bucketDocPath -Text $bucketDoc -Pattern "speed history" -Description "no speed history"
 Assert-Contains -RelativePath $bucketDocPath -Text $bucketDoc -Pattern "continuous route log" -Description "no continuous route log"
-Assert-Contains -RelativePath $bucketDocPath -Text $bucketDoc -Pattern "ask the user where the time belongs before changing buckets" -Description "user review before uncertain bucket changes"
+Assert-Contains -RelativePath $bucketDocPath -Text $bucketDoc -Pattern "Never rewrite historical activity records" -Description "historical records preserved"
+
+$classifierPath = "core/common/src/main/kotlin/com/robertochavez/timetracker/core/common/domain/ActivityBucketPolicy.kt"
+$classifier = Get-RepoFileText -RelativePath $classifierPath
+if ($classifier -match '->\s*ActivityBucket\.NEEDS_REVIEW') {
+    Add-Violation "Live classification must not generate the legacy Review bucket."
+}
+$reportPath = "core/common/src/main/kotlin/com/robertochavez/timetracker/core/common/domain/ReportCalculator.kt"
+$report = Get-RepoFileText -RelativePath $reportPath
+Assert-Contains -RelativePath $reportPath -Text $report -Pattern 'workRanges.subtract\(siteWorkRanges\).subtract\(driveRanges\)' -Description "remaining Work ranges belong to Idle"
 
 $requiredLinks = @{
     "plan/TODO.md" = "docs/BUCKET_CLASSIFICATION.md"

@@ -22,8 +22,14 @@ class FakeTrackingSessionController : TrackingSessionController {
         return null
     }
 
-    override suspend fun recordActivityTransition(bucket: ActivityBucket, at: Instant) {
+    override suspend fun recordActivityTransition(
+        bucket: ActivityBucket,
+        at: Instant,
+        expectedSessionId: String?,
+        evidenceAt: Instant,
+    ): Boolean {
         activityTransitions += bucket to at
+        return true
     }
 
     override suspend fun addDrivenDistanceMeters(distanceMeters: Double): AwaySession? {

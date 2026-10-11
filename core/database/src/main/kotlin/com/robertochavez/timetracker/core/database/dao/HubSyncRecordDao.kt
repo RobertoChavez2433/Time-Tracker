@@ -14,7 +14,10 @@ interface HubSyncRecordDao {
     @Query("SELECT * FROM hub_sync_records WHERE state = 'PENDING' ORDER BY updatedAtEpochMillis ASC")
     suspend fun getTransferable(): List<HubSyncRecordEntity>
 
-    @Query("UPDATE hub_sync_records SET state = 'PENDING', transferId = NULL WHERE state = 'TRANSFERRED' AND updatedAtEpochMillis < :cutoffEpochMillis")
+    @Query(
+        "UPDATE hub_sync_records SET state = 'PENDING', transferId = NULL " +
+            "WHERE state = 'TRANSFERRED' AND updatedAtEpochMillis < :cutoffEpochMillis",
+    )
     suspend fun requeueStaleTransfers(cutoffEpochMillis: Long)
 
     @Query("SELECT * FROM hub_sync_records WHERE sourceId = :sourceId LIMIT 1")
